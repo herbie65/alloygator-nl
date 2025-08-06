@@ -22,7 +22,6 @@ export default function Footer() {
     useEffect(() => {
     // Use default company info for static export
     setCompanyInfo({
-      id: 'default',
       name: 'AlloyGator Nederland',
       address: 'Voorbeeldstraat 123',
       city: 'Amsterdam',

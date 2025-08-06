@@ -180,7 +180,7 @@ export default function UploadManager({ onFileSelect, showFileList = true }: Upl
               <div key={file.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
                   <img 
-                    src={file.displayUrl || file.url} 
+                    src={file.url} 
                     alt={file.name}
                     className="max-w-full max-h-full object-contain"
                   />

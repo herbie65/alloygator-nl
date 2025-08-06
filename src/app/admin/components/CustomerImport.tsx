@@ -86,7 +86,7 @@ export default function CustomerImport({ onImport, onClose }: CustomerImportProp
     
     // Als geen patroon matcht, probeer postcode te vinden
     const postcodeMatch = cleanAddress.match(/(\d{4}\s*[A-Z]{2})/);
-    if (postcodeMatch) {
+    if (postcodeMatch && postcodeMatch.index !== undefined) {
       const postcode = postcodeMatch[1].replace(/\s+/g, '').toUpperCase();
       const beforePostcode = cleanAddress.substring(0, postcodeMatch.index).trim();
       const afterPostcode = cleanAddress.substring(postcodeMatch.index + postcode.length).trim();

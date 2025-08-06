@@ -26,8 +26,9 @@ export async function generateStaticParams() {
   return []
 }
 
-export default async function OrderConfirmationPage({ params }: { params: { id: string } }) {
-  const orderId = params.id
+export default async function OrderConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params
+  const orderId = resolvedParams.id
   let order: Order | null = null
   let paymentStatus = 'pending'
 
