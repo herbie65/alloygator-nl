@@ -4,9 +4,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+interface FormData {
+  voornaam: string
+  achternaam: string
+  email: string
+  telefoon: string
+  password: string
+  confirmPassword: string
+  adres: string
+  postcode: string
+  plaats: string
+  land: string
+  bedrijfsnaam: string
+  btwNummer: string
+  acceptTerms: boolean
+}
+
 export default function RegisterPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     voornaam: '',
     achternaam: '',
     email: '',
@@ -26,12 +42,11 @@ export default function RegisterPage() {
 
   // Clear any old localStorage data on component mount
   useEffect(() => {
-    // Clear any old error states
     localStorage.removeItem('registration_error')
     localStorage.removeItem('last_error')
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -99,7 +114,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" data-version={`4.1-${Date.now()}`}>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" data-version={`5.0-${Date.now()}`}>
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -136,7 +151,6 @@ export default function RegisterPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                 />
               </div>
-              
               <div>
                 <label htmlFor="achternaam" className="block text-sm font-medium text-gray-700">
                   Achternaam *
@@ -241,7 +255,6 @@ export default function RegisterPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                 />
               </div>
-              
               <div>
                 <label htmlFor="plaats" className="block text-sm font-medium text-gray-700">
                   Plaats *
@@ -256,7 +269,6 @@ export default function RegisterPage() {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                 />
               </div>
-              
               <div>
                 <label htmlFor="land" className="block text-sm font-medium text-gray-700">
                   Land *
@@ -307,7 +319,7 @@ export default function RegisterPage() {
               />
             </div>
           </div>
-
+          
           <div className="flex items-center">
             <input
               id="acceptTerms"
@@ -322,14 +334,14 @@ export default function RegisterPage() {
               Ik ga akkoord met de{' '}
               <Link href="/algemene-voorwaarden" className="text-green-600 hover:text-green-500">
                 algemene voorwaarden
-              </Link>
-              {' '}en{' '}
+              </Link>{' '}
+              en{' '}
               <Link href="/privacy-policy" className="text-green-600 hover:text-green-500">
                 privacy policy
               </Link>
             </label>
           </div>
-
+          
           <div>
             <button
               type="submit"
