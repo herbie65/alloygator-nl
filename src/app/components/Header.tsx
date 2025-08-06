@@ -16,8 +16,10 @@ export default function Header() {
 
   useEffect(() => {
     // Check if user is logged in
-    const userData = localStorage.getItem('user')
-    if (userData) {
+    const isLoggedIn = localStorage.getItem('isLoggedIn')
+    const userData = localStorage.getItem('currentUser')
+    
+    if (isLoggedIn && userData) {
       try {
         const user = JSON.parse(userData)
         setUser(user)
@@ -30,8 +32,8 @@ export default function Header() {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
+    localStorage.removeItem('currentUser')
+    localStorage.removeItem('isLoggedIn')
     setUser(null)
     window.location.reload()
   }

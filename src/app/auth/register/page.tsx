@@ -43,27 +43,54 @@ export default function RegisterPage() {
       return
     }
 
+    // Validate password length
+    if (formData.password.length < 6) {
+      setError('Wachtwoord moet minimaal 6 karakters bevatten')
+      setLoading(false)
+      return
+    }
+
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        // Store user data in localStorage
-        localStorage.setItem('user', JSON.stringify(result.user))
-        localStorage.setItem('token', result.token)
-        
-        // Redirect to account page
-        router.push('/account')
-      } else {
-        setError(result.error || 'Registratie mislukt')
+      // Check if user already exists in localStorage
+      const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
+      const existingUser = existingUsers.find((user: any) => user.email === formData.email)
+      
+      if (existingUser) {
+        setError('E-mailadres is al in gebruik')
+        setLoading(false)
+        return
       }
+
+      // Create new user
+      const newUser = {
+        id: Date.now().toString(),
+        voornaam: formData.voornaam,
+        achternaam: formData.achternaam,
+        email: formData.email,
+        telefoon: formData.telefoon,
+        adres: formData.adres,
+        postcode: formData.postcode,
+        plaats: formData.plaats,
+        land: formData.land,
+        bedrijfsnaam: formData.bedrijfsnaam || '',
+        btwNummer: formData.btwNummer || '',
+        password: formData.password, // In production, this should be hashed
+        created_at: new Date().toISOString()
+      }
+
+      // Save user to localStorage
+      existingUsers.push(newUser)
+      localStorage.setItem('users', JSON.stringify(existingUsers))
+
+      // Store current user session
+      const { password, ...userWithoutPassword } = newUser
+      localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword))
+      localStorage.setItem('isLoggedIn', 'true')
+      
+      // Redirect to account page
+      router.push('/account')
     } catch (error) {
-      setError('Er is een fout opgetreden')
+      setError('Er is een fout opgetreden bij het aanmaken van het account')
     } finally {
       setLoading(false)
     }

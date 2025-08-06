@@ -19,26 +19,32 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        // Store user data in localStorage
-        localStorage.setItem('user', JSON.stringify(result.user))
-        localStorage.setItem('token', result.token)
-        
-        // Redirect to account page
-        router.push('/account')
-      } else {
-        setError(result.error || 'Login mislukt')
+      // Get users from localStorage
+      const users = JSON.parse(localStorage.getItem('users') || '[]')
+      const user = users.find((u: any) => u.email === formData.email)
+      
+      if (!user) {
+        setError('E-mailadres of wachtwoord is onjuist')
+        setLoading(false)
+        return
       }
+
+      // Check password (in production, this should be hashed)
+      if (user.password !== formData.password) {
+        setError('E-mailadres of wachtwoord is onjuist')
+        setLoading(false)
+        return
+      }
+
+      // Store current user session (without password)
+      const { password, ...userWithoutPassword } = user
+      localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword))
+      localStorage.setItem('isLoggedIn', 'true')
+      
+      // Redirect to account page
+      router.push('/account')
     } catch (error) {
-      setError('Er is een fout opgetreden')
+      setError('Er is een fout opgetreden bij het inloggen')
     } finally {
       setLoading(false)
     }

@@ -40,10 +40,10 @@ export default function AccountPage() {
 
   useEffect(() => {
     // Check if user is logged in
-    const userData = localStorage.getItem('user')
-    const token = localStorage.getItem('token')
+    const isLoggedIn = localStorage.getItem('isLoggedIn')
+    const userData = localStorage.getItem('currentUser')
 
-    if (!userData || !token) {
+    if (!isLoggedIn || !userData) {
       router.push('/auth/login')
       return
     }
@@ -62,19 +62,18 @@ export default function AccountPage() {
 
   const loadOrders = async (userId: string) => {
     try {
-      const response = await fetch(`/api/orders?customerId=${userId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setOrders(data.orders || [])
-      }
+      // Get orders from localStorage (for demo purposes)
+      const allOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const userOrders = allOrders.filter((order: any) => order.customer_id === userId)
+      setOrders(userOrders)
     } catch (error) {
       console.error('Error loading orders:', error)
     }
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
+    localStorage.removeItem('currentUser')
+    localStorage.removeItem('isLoggedIn')
     router.push('/')
   }
 

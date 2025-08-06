@@ -13,12 +13,17 @@ const firebaseConfig = {
 
 // Initialize Firebase only if not already initialized
 let app;
-if (typeof window !== 'undefined') {
-  // Client-side
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-} else {
-  // Server-side
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+try {
+  const apps = getApps();
+  if (apps.length === 0) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = apps[0];
+  }
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+  // Fallback initialization
+  app = initializeApp(firebaseConfig);
 }
 
 const db = getFirestore(app);
@@ -52,7 +57,7 @@ export class FirebaseService {
       });
       
       const querySnapshot = await getDocs(q);
-      const documents = [];
+      const documents: any[] = [];
       
       querySnapshot.forEach((doc) => {
         documents.push({ id: doc.id, ...(doc.data() as any) });
