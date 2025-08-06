@@ -3,29 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-interface HeaderSettings {
-  id: string
-  logo_url?: string
-  logo_text?: string
-  logo_width?: number
-  logo_height?: number
-  show_cart: boolean
-  show_login: boolean
-  show_dealer_login: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface NavigationItem {
-  id: string
-  label: string
-  url: string
-  order: number
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
 interface User {
   id: string
   voornaam: string
@@ -34,48 +11,10 @@ interface User {
 }
 
 export default function Header() {
-  const [headerData, setHeaderData] = useState<HeaderSettings | null>(null)
-  const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([])
-  const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Clear old localStorage settings to force new header
-    localStorage.removeItem('headerSettings')
-    localStorage.removeItem('uploadedFiles')
-    
-    // Load header settings from localStorage (uploaded by admin)
-    const savedHeaderSettings = localStorage.getItem('headerSettings')
-    if (savedHeaderSettings) {
-      try {
-        const settings = JSON.parse(savedHeaderSettings)
-        
-        // If logo_url is a permanent URL, try to find the corresponding blob URL in uploadedFiles
-        if (settings.logo_url && settings.logo_url.startsWith('/media/images/')) {
-          const uploadedFiles = JSON.parse(localStorage.getItem('uploadedFiles') || '[]')
-          const logoFile = uploadedFiles.find((file: any) => file.permanentUrl === settings.logo_url)
-          if (logoFile && logoFile.blobUrl) {
-            settings.logo_url = logoFile.blobUrl // Use the blob URL for display
-          }
-        }
-        
-        setHeaderData(settings)
-      } catch (error) {
-        console.error('Error loading header settings:', error)
-      }
-    } else {
-      // Use default header data if no settings found
-      setHeaderData({
-        id: 'default',
-        logo_text: 'AlloyGator',
-        show_cart: true,
-        show_login: true,
-        show_dealer_login: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-    }
-
     // Check if user is logged in
     const userData = localStorage.getItem('user')
     if (userData) {
@@ -114,10 +53,10 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white shadow-sm" data-version="2.0">
+    <header className="bg-white shadow-sm" data-version="3.0">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo - Always show */}
+          {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <div className="text-2xl font-bold text-green-600">
@@ -151,7 +90,7 @@ export default function Header() {
               </svg>
             </Link>
 
-            {/* User Account / Login - Always show new auth system */}
+            {/* User Account / Login */}
             {user ? (
               <div className="relative group">
                 <button className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors">
@@ -189,7 +128,7 @@ export default function Header() {
               </div>
             )}
 
-            {/* Dealer Login - Keep separate */}
+            {/* Dealer Login */}
             <Link href="/dealer-login" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
               Dealer Login
             </Link>

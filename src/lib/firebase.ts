@@ -12,7 +12,15 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only if not already initialized
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+let app;
+if (typeof window !== 'undefined') {
+  // Client-side
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+} else {
+  // Server-side
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+}
+
 const db = getFirestore(app);
 
 // Database service functies
