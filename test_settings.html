@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Settings</h1>
+    
+    <div class="section info">
+        <h2>Huidige localStorage Inhoud</h2>
+        <pre id="localStorageContent"></pre>
+    </div>
+    
+    <div class="section" id="shippingSection">
+        <h2>Verzendmethodes</h2>
+        <div id="shippingMethods"></div>
+    </div>
+    
+    <div class="section" id="paymentSection">
+        <h2>Betaalmethodes</h2>
+        <div id="paymentMethods"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Test Acties</h2>
+        <button onclick="testShippingSettings()">Test Verzendinstellingen</button>
+        <button onclick="testPaymentSettings()">Test Betalingsinstellingen</button>
+        <button onclick="clearAllSettings()">Wis Alle Instellingen</button>
+        <button onclick="createTestSettings()">Maak Test Instellingen</button>
+    </div>
+
+    <script>
+        function displayLocalStorage() {
+            const content = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    try {
+                        content[key] = JSON.parse(localStorage.getItem(key));
+                    } catch (e) {
+                        content[key] = localStorage.getItem(key);
+                    }
+                }
+            }
+            document.getElementById('localStorageContent').textContent = JSON.stringify(content, null, 2);
+        }
+
+        function testShippingSettings() {
+            const shippingSettings = localStorage.getItem('shippingSettings');
+            const section = document.getElementById('shippingSection');
+            const methodsDiv = document.getElementById('shippingMethods');
+            
+            if (shippingSettings) {
+                try {
+                    const settings = JSON.parse(shippingSettings);
+                    section.className = 'section success';
+                    methodsDiv.innerHTML = `
+                        <h3>✅ Verzendinstellingen gevonden!</h3>
+                        <p><strong>Aantal methodes:</strong> ${settings.methods ? settings.methods.length : 0}</p>
+                        <pre>${JSON.stringify(settings, null, 2)}</pre>
+                    `;
+                } catch (e) {
+                    section.className = 'section error';
+                    methodsDiv.innerHTML = `
+                        <h3>❌ Fout bij parsen van verzendinstellingen</h3>
+                        <p>Error: ${e.message}</p>
+                        <pre>${shippingSettings}</pre>
+                    `;
+                }
+            } else {
+                section.className = 'section error';
+                methodsDiv.innerHTML = `
+                    <h3>❌ Geen verzendinstellingen gevonden</h3>
+                    <p>Er zijn geen verzendinstellingen opgeslagen in localStorage.</p>
+                `;
+            }
+        }
+
+        function testPaymentSettings() {
+            const paymentSettings = localStorage.getItem('paymentSettings');
+            const section = document.getElementById('paymentSection');
+            const methodsDiv = document.getElementById('paymentMethods');
+            
+            if (paymentSettings) {
+                try {
+                    const settings = JSON.parse(paymentSettings);
+                    section.className = 'section success';
+                    methodsDiv.innerHTML = `
+                        <h3>✅ Betalingsinstellingen gevonden!</h3>
+                        <p><strong>Provider:</strong> ${settings.provider_name || 'Onbekend'}</p>
+                        <p><strong>Actief:</strong> ${settings.is_active ? 'Ja' : 'Nee'}</p>
+                        <p><strong>Ondersteunde methodes:</strong> ${settings.supported_methods || 'Geen'}</p>
+                        <pre>${JSON.stringify(settings, null, 2)}</pre>
+                    `;
+                } catch (e) {
+                    section.className = 'section error';
+                    methodsDiv.innerHTML = `
+                        <h3>❌ Fout bij parsen van betalingsinstellingen</h3>
+                        <p>Error: ${e.message}</p>
+                        <pre>${paymentSettings}</pre>
+                    `;
+                }
+            } else {
+                section.className = 'section error';
+                methodsDiv.innerHTML = `
+                    <h3>❌ Geen betalingsinstellingen gevonden</h3>
+                    <p>Er zijn geen betalingsinstellingen opgeslagen in localStorage.</p>
+                `;
+            }
+        }
+
+        function clearAllSettings() {
+            localStorage.removeItem('shippingSettings');
+            localStorage.removeItem('paymentSettings');
+            displayLocalStorage();
+            testShippingSettings();
+            testPaymentSettings();
+        }
+
+        function createTestSettings() {
+            // Test verzendinstellingen
+            const shippingSettings = {
+                methods: [
+                    {
+                        method_name: 'standard',
+                        display_name: 'Standaard Verzending',
+                        cost: 5.95,
+                        description: 'Standaard verzending binnen 2-3 werkdagen',
+                        delivery_time: '2-3 werkdagen',
+                        is_active: true,
+                        sort_order: 1
+                    },
+                    {
+                        method_name: 'express',
+                        display_name: 'Express Verzending',
+                        cost: 9.95,
+                        description: 'Snelle verzending binnen 1 werkdag',
+                        delivery_time: '1 werkdag',
+                        is_active: true,
+                        sort_order: 2
+                    },
+                    {
+                        method_name: 'free',
+                        display_name: 'Gratis Verzending',
+                        cost: 0,
+                        description: 'Gratis verzending bij bestellingen boven €50',
+                        delivery_time: '2-3 werkdagen',
+                        is_active: true,
+                        sort_order: 3
+                    }
+                ],
+                updated_at: new Date().toISOString()
+            };
+            
+            // Test betalingsinstellingen
+            const paymentSettings = {
+                id: 'test',
+                provider_name: 'Mollie',
+                is_active: true,
+                api_key: 'test_key',
+                api_secret: 'test_secret',
+                webhook_url: 'https://example.com/webhook',
+                test_mode: true,
+                supported_methods: '["ideal","creditcard","banktransfer"]',
+                updated_at: new Date().toISOString()
+            };
+            
+            localStorage.setItem('shippingSettings', JSON.stringify(shippingSettings));
+            localStorage.setItem('paymentSettings', JSON.stringify(paymentSettings));
+            
+            displayLocalStorage();
+            testShippingSettings();
+            testPaymentSettings();
+        }
+
+        // Initial load
+        displayLocalStorage();
+        testShippingSettings();
+        testPaymentSettings();
+    </script>
+</body>
+</html> 

@@ -6,22 +6,43 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "export": "next build && next export",
+    "deploy": "npm run build && firebase deploy"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/server": "^11.11.0",
+    "@fontsource/bebas-neue": "^5.2.6",
+    "@mantine/core": "^5.10.5",
+    "@mantine/hooks": "^5.10.5",
+    "@mantine/rte": "^5.10.5",
+    "@mollie/api-client": "^4.3.3",
+    "@tabler/icons-react": "^3.34.1",
+    "@types/papaparse": "^5.3.16",
+    "@types/puppeteer": "^5.4.7",
+    "@types/sqlite3": "^3.1.11",
+    "@vis.gl/react-google-maps": "^1.5.4",
+    "firebase": "^10.7.1",
+    "next": "15.4.2",
+    "papaparse": "^5.5.3",
+    "puppeteer": "^24.14.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.2"
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.4.2",
-    "@eslint/eslintrc": "^3"
+    "firebase-tools": "^13.4.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

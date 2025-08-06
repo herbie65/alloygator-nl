@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { margin: 5px; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .method-item { margin: 5px 0; padding: 5px; background-color: #f8f9fa; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Debug Admin Settings</h1>
+    
+    <div class="section info">
+        <h2>Huidige Admin Backend Instellingen</h2>
+        <p>Deze tool toont wat er daadwerkelijk in de admin backend is geconfigureerd.</p>
+    </div>
+    
+    <div class="section">
+        <h2>Verzendinstellingen (Admin Backend)</h2>
+        <button onclick="checkAdminShippingSettings()">Controleer Verzendinstellingen</button>
+        <div id="admin-shipping-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Betalingsinstellingen (Admin Backend)</h2>
+        <button onclick="checkAdminPaymentSettings()">Controleer Betalingsinstellingen</button>
+        <div id="admin-payment-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Checkout Pagina Test</h2>
+        <button onclick="testCheckoutWithAdminSettings()">Test Checkout met Admin Settings</button>
+        <div id="checkout-test-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>localStorage Inhoud</h2>
+        <pre id="localStorage-content"></pre>
+    </div>
+
+    <script>
+        function checkAdminShippingSettings() {
+            const shippingSettings = localStorage.getItem('shippingSettings');
+            const resultDiv = document.getElementById('admin-shipping-result');
+            
+            if (shippingSettings) {
+                try {
+                    const settings = JSON.parse(shippingSettings);
+                    let html = '<div class="success">';
+                    html += '<h3>✅ Verzendinstellingen gevonden in Admin Backend</h3>';
+                    html += `<p><strong>Aantal methodes:</strong> ${settings.methods ? settings.methods.length : 0}</p>`;
+                    
+                    if (settings.methods && settings.methods.length > 0) {
+                        html += '<h4>Geconfigureerde Verzendmethodes:</h4>';
+                        settings.methods.forEach((method, index) => {
+                            html += `
+                                <div class="method-item">
+                                    <strong>${index + 1}. ${method.display_name}</strong><br>
+                                    <small>Methode: ${method.method_name} | Kosten: €${method.cost.toFixed(2)} | Actief: ${method.is_active ? 'Ja' : 'Nee'}</small>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += '<p>Geen verzendmethodes geconfigureerd</p>';
+                    }
+                    
+                    html += '<h4>Raw Data:</h4>';
+                    html += `<pre>${JSON.stringify(settings, null, 2)}</pre>`;
+                    html += '</div>';
+                    
+                    resultDiv.innerHTML = html;
+                } catch (e) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>❌ Fout bij parsen verzendinstellingen</h3>
+                            <p>Error: ${e.message}</p>
+                            <pre>${shippingSettings}</pre>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Geen verzendinstellingen gevonden</h3>
+                        <p>Er zijn geen verzendinstellingen opgeslagen in de admin backend.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function checkAdminPaymentSettings() {
+            const paymentSettings = localStorage.getItem('paymentSettings');
+            const resultDiv = document.getElementById('admin-payment-result');
+            
+            if (paymentSettings) {
+                try {
+                    const settings = JSON.parse(paymentSettings);
+                    let html = '<div class="success">';
+                    html += '<h3>✅ Betalingsinstellingen gevonden in Admin Backend</h3>';
+                    html += `<p><strong>Provider:</strong> ${settings.provider_name || 'Onbekend'}</p>`;
+                    html += `<p><strong>Actief:</strong> ${settings.is_active ? 'Ja' : 'Nee'}</p>`;
+                    
+                    if (settings.supported_methods) {
+                        let methods = [];
+                        try {
+                            if (typeof settings.supported_methods === 'string') {
+                                methods = JSON.parse(settings.supported_methods);
+                            } else if (Array.isArray(settings.supported_methods)) {
+                                methods = settings.supported_methods;
+                            } else {
+                                methods = settings.supported_methods.split(',').map(m => m.trim());
+                            }
+                        } catch (e) {
+                            methods = [settings.supported_methods];
+                        }
+                        
+                        html += `<p><strong>Aantal betaalmethodes:</strong> ${methods.length}</p>`;
+                        html += '<h4>Geconfigureerde Betaalmethodes:</h4>';
+                        methods.forEach((method, index) => {
+                            html += `<div class="method-item"><strong>${index + 1}. ${method}</strong></div>`;
+                        });
+                    } else {
+                        html += '<p>Geen betaalmethodes geconfigureerd</p>';
+                    }
+                    
+                    html += '<h4>Raw Data:</h4>';
+                    html += `<pre>${JSON.stringify(settings, null, 2)}</pre>`;
+                    html += '</div>';
+                    
+                    resultDiv.innerHTML = html;
+                } catch (e) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>❌ Fout bij parsen betalingsinstellingen</h3>
+                            <p>Error: ${e.message}</p>
+                            <pre>${paymentSettings}</pre>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Geen betalingsinstellingen gevonden</h3>
+                        <p>Er zijn geen betalingsinstellingen opgeslagen in de admin backend.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function testCheckoutWithAdminSettings() {
+            const shippingSettings = localStorage.getItem('shippingSettings');
+            const paymentSettings = localStorage.getItem('paymentSettings');
+            const resultDiv = document.getElementById('checkout-test-result');
+            
+            let html = '<div>';
+            
+            // Test verzendmethodes
+            if (shippingSettings) {
+                try {
+                    const shipping = JSON.parse(shippingSettings);
+                    if (shipping.methods && shipping.methods.length > 0) {
+                        const transformedMethods = shipping.methods.map(method => ({
+                            method_name: method.method_name,
+                            display_name: method.display_name,
+                            cost: method.cost
+                        }));
+                        
+                        html += `
+                            <div class="success">
+                                <h3>✅ Verzendmethodes voor Checkout</h3>
+                                <p>Aantal methodes: ${transformedMethods.length}</p>
+                                <ul>
+                                    ${transformedMethods.map(method => 
+                                        `<li><strong>${method.display_name}</strong> - €${method.cost.toFixed(2)}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="error">
+                                <h3>❌ Geen verzendmethodes gevonden</h3>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    html += `
+                        <div class="error">
+                            <h3>❌ Fout bij laden verzendmethodes</h3>
+                            <p>Error: ${e.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                html += `
+                    <div class="error">
+                        <h3>❌ Geen verzendinstellingen gevonden</h3>
+                    </div>
+                `;
+            }
+            
+            // Test betaalmethodes
+            if (paymentSettings) {
+                try {
+                    const payment = JSON.parse(paymentSettings);
+                    if (payment.supported_methods) {
+                        let methods = [];
+                        try {
+                            if (typeof payment.supported_methods === 'string') {
+                                methods = JSON.parse(payment.supported_methods);
+                            } else if (Array.isArray(payment.supported_methods)) {
+                                methods = payment.supported_methods;
+                            } else {
+                                methods = payment.supported_methods.split(',').map(m => m.trim());
+                            }
+                        } catch (e) {
+                            methods = [payment.supported_methods];
+                        }
+                        
+                        html += `
+                            <div class="success">
+                                <h3>✅ Betaalmethodes voor Checkout</h3>
+                                <p>Aantal methodes: ${methods.length}</p>
+                                <ul>
+                                    ${methods.map(method => `<li><strong>${method}</strong></li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="error">
+                                <h3>❌ Geen betaalmethodes gevonden</h3>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    html += `
+                        <div class="error">
+                            <h3>❌ Fout bij laden betaalmethodes</h3>
+                            <p>Error: ${e.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                html += `
+                    <div class="error">
+                        <h3>❌ Geen betalingsinstellingen gevonden</h3>
+                    </div>
+                `;
+            }
+            
+            html += `
+                <div class="info">
+                    <h3>📋 Volgende Stappen:</h3>
+                    <ol>
+                        <li>Ga naar <a href="https://alloygator-nl.web.app/checkout" target="_blank">Checkout Pagina</a></li>
+                        <li>Controleer of de bovenstaande methodes worden getoond</li>
+                        <li>Als niet, open de browser console (F12) voor debugging</li>
+                    </ol>
+                </div>
+            `;
+            
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+        
+        function updateLocalStorageDisplay() {
+            const content = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    try {
+                        content[key] = JSON.parse(localStorage.getItem(key));
+                    } catch (e) {
+                        content[key] = localStorage.getItem(key);
+                    }
+                }
+            }
+            document.getElementById('localStorage-content').textContent = JSON.stringify(content, null, 2);
+        }
+        
+        // Auto-load on page load
+        window.onload = function() {
+            updateLocalStorageDisplay();
+            checkAdminShippingSettings();
+            checkAdminPaymentSettings();
+        };
+    </script>
+</body>
+</html> 
