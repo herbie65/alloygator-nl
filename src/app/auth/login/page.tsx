@@ -13,41 +13,36 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    try {
-      // Get users from localStorage
-      const users = JSON.parse(localStorage.getItem('users') || '[]')
-      const user = users.find((u: any) => u.email === formData.email)
-      
-      if (!user) {
-        setError('E-mailadres of wachtwoord is onjuist')
-        setLoading(false)
-        return
-      }
-
-      // Check password (in production, this should be hashed)
-      if (user.password !== formData.password) {
-        setError('E-mailadres of wachtwoord is onjuist')
-        setLoading(false)
-        return
-      }
-
-      // Store current user session (without password)
-      const { password, ...userWithoutPassword } = user
-      localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword))
-      localStorage.setItem('isLoggedIn', 'true')
-      
-      // Redirect to account page
-      router.push('/account')
-    } catch (error) {
-      setError('Er is een fout opgetreden bij het inloggen')
-    } finally {
+    // Get users from localStorage
+    const users = JSON.parse(localStorage.getItem('users') || '[]')
+    const user = users.find((u: any) => u.email === formData.email)
+    
+    if (!user) {
+      setError('E-mailadres of wachtwoord is onjuist')
       setLoading(false)
+      return
     }
+
+    // Check password (in production, this should be hashed)
+    if (user.password !== formData.password) {
+      setError('E-mailadres of wachtwoord is onjuist')
+      setLoading(false)
+      return
+    }
+
+    // Store current user session (without password)
+    const { password, ...userWithoutPassword } = user
+    localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword))
+    localStorage.setItem('isLoggedIn', 'true')
+    
+    // Redirect to account page
+    router.push('/account')
+    setLoading(false)
   }
 
   return (
