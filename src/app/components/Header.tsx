@@ -113,37 +113,12 @@ export default function Header() {
     <header className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
+          {/* Logo - Always show */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              {headerData?.logo_url ? (
-                <img 
-                  src={headerData.logo_url} 
-                  alt="AlloyGator" 
-                  style={{
-                    width: `${headerData.logo_width || 150}px`,
-                    height: `${headerData.logo_height || 50}px`,
-                    objectFit: 'contain'
-                  }}
-                  className="max-h-12"
-                  onError={(e) => {
-                    // Fallback to text if image fails to load
-                    const target = e.target as HTMLImageElement
-                    target.style.display = 'none'
-                    const parent = target.parentElement
-                    if (parent) {
-                      const textFallback = document.createElement('div')
-                      textFallback.className = 'text-2xl font-bold text-green-600'
-                      textFallback.textContent = headerData?.logo_text || 'AlloyGator'
-                      parent.appendChild(textFallback)
-                    }
-                  }}
-                />
-              ) : (
-                <div className="text-2xl font-bold text-green-600">
-                  {headerData?.logo_text || 'AlloyGator'}
-                </div>
-              )}
+              <div className="text-2xl font-bold text-green-600">
+                AlloyGator
+              </div>
             </Link>
           </div>
 
@@ -165,15 +140,14 @@ export default function Header() {
 
           {/* Right side buttons */}
           <div className="flex items-center space-x-4">
-            {headerData?.show_cart && (
-              <Link href="/cart" className="text-gray-700 hover:text-green-600 transition-colors">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m6 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
-                </svg>
-              </Link>
-            )}
+            {/* Cart */}
+            <Link href="/cart" className="text-gray-700 hover:text-green-600 transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m6 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+              </svg>
+            </Link>
 
-            {/* User Account / Login */}
+            {/* User Account / Login - Always show new auth system */}
             {user ? (
               <div className="relative group">
                 <button className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors">
@@ -211,11 +185,10 @@ export default function Header() {
               </div>
             )}
 
-            {headerData?.show_dealer_login && (
-              <Link href="/dealer-login" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                Dealer Login
-              </Link>
-            )}
+            {/* Dealer Login - Keep separate */}
+            <Link href="/dealer-login" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+              Dealer Login
+            </Link>
           </div>
         </div>
       </div>
