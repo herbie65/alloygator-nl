@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FirebaseClientService } from '@/lib/firebase-client'
 
 interface Product {
   id: string
@@ -13,6 +12,31 @@ interface Product {
   category: string
 }
 
+// Static product data
+const staticProducts: Product[] = [
+  {
+    id: '1',
+    name: 'Vervangingsonderdelen Set',
+    description: 'Extra onderdelen voor onderhoud en reparatie van uw AlloyGator velgbescherming.',
+    price: 19.95,
+    category: 'accessoires'
+  },
+  {
+    id: '2',
+    name: 'Extra Montage Clips',
+    description: 'Extra clips voor eenvoudige montage en demontage van de velgbescherming.',
+    price: 12.95,
+    category: 'accessoires'
+  },
+  {
+    id: '3',
+    name: 'Reiningsset',
+    description: 'Professionele reinigingsset voor het onderhoud van uw velgbescherming.',
+    price: 24.95,
+    category: 'accessoires'
+  }
+]
+
 export default function AccessoiresPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [isDealer, setIsDealer] = useState(false)
@@ -22,24 +46,8 @@ export default function AccessoiresPage() {
     const dealerSession = localStorage.getItem('dealerSession')
     setIsDealer(!!dealerSession)
 
-    // Fetch products from Firebase
-    const loadProducts = async () => {
-      try {
-        const data = await FirebaseClientService.getProducts();
-        // Filter for accessoires
-        const accessoires = data.filter((product: Product) => 
-          product.category === 'accessoires' || 
-          product.name.toLowerCase().includes('accessoire') ||
-          product.name.toLowerCase().includes('onderdeel') ||
-          product.name.toLowerCase().includes('extra')
-        );
-        setProducts(accessoires);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-      }
-    };
-    
-    loadProducts();
+    // Use static products
+    setProducts(staticProducts)
   }, [])
 
   const addToCart = (product: Product) => {

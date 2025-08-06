@@ -1,7 +1,17 @@
 'use client';
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FirebaseClientService } from "@/lib/firebase-client";
+
+// Static dealer data for demo
+const staticDealers = [
+  {
+    email: "demo@dealer.nl",
+    password: "demo123",
+    name: "Demo Dealer",
+    group: "brons",
+    discount: 10
+  }
+];
 
 export default function DealerLogin() {
   const [email, setEmail] = useState("");
@@ -15,13 +25,13 @@ export default function DealerLogin() {
     if (!email || !password) return;
     
     try {
-      const dealers = await FirebaseClientService.getDealersByEmail(email);
-      if (!dealers || dealers.length === 0) {
+      // Check against static dealer data
+      const dealer = staticDealers.find(d => d.email === email);
+      if (!dealer) {
         setError("Dealer niet gevonden");
         return;
       }
       
-      const dealer = dealers[0];
       if (dealer.password !== password) {
         setError("Onjuist wachtwoord");
         return;
@@ -49,6 +59,9 @@ export default function DealerLogin() {
           Inloggen
         </button>
       </form>
+      <div className="text-sm text-gray-600 mt-4">
+        <p>Demo account: demo@dealer.nl / demo123</p>
+      </div>
     </section>
   );
 } 

@@ -50,50 +50,45 @@ export default function RegisterPage() {
       return
     }
 
-    try {
-      // Check if user already exists in localStorage
-      const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
-      const existingUser = existingUsers.find((user: any) => user.email === formData.email)
-      
-      if (existingUser) {
-        setError('E-mailadres is al in gebruik')
-        setLoading(false)
-        return
-      }
-
-      // Create new user
-      const newUser = {
-        id: Date.now().toString(),
-        voornaam: formData.voornaam,
-        achternaam: formData.achternaam,
-        email: formData.email,
-        telefoon: formData.telefoon,
-        adres: formData.adres,
-        postcode: formData.postcode,
-        plaats: formData.plaats,
-        land: formData.land,
-        bedrijfsnaam: formData.bedrijfsnaam || '',
-        btwNummer: formData.btwNummer || '',
-        password: formData.password, // In production, this should be hashed
-        created_at: new Date().toISOString()
-      }
-
-      // Save user to localStorage
-      existingUsers.push(newUser)
-      localStorage.setItem('users', JSON.stringify(existingUsers))
-
-      // Store current user session
-      const { password, ...userWithoutPassword } = newUser
-      localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword))
-      localStorage.setItem('isLoggedIn', 'true')
-      
-      // Redirect to account page
-      router.push('/account')
-    } catch (error) {
-      setError('Er is een fout opgetreden bij het aanmaken van het account')
-    } finally {
+    // Check if user already exists in localStorage
+    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
+    const existingUser = existingUsers.find((user: any) => user.email === formData.email)
+    
+    if (existingUser) {
+      setError('E-mailadres is al in gebruik')
       setLoading(false)
+      return
     }
+
+    // Create new user
+    const newUser = {
+      id: Date.now().toString(),
+      voornaam: formData.voornaam,
+      achternaam: formData.achternaam,
+      email: formData.email,
+      telefoon: formData.telefoon,
+      adres: formData.adres,
+      postcode: formData.postcode,
+      plaats: formData.plaats,
+      land: formData.land,
+      bedrijfsnaam: formData.bedrijfsnaam || '',
+      btwNummer: formData.btwNummer || '',
+      password: formData.password,
+      created_at: new Date().toISOString()
+    }
+
+    // Save user to localStorage
+    existingUsers.push(newUser)
+    localStorage.setItem('users', JSON.stringify(existingUsers))
+
+    // Store current user session
+    const { password, ...userWithoutPassword } = newUser
+    localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword))
+    localStorage.setItem('isLoggedIn', 'true')
+    
+    // Redirect to account page
+    router.push('/account')
+    setLoading(false)
   }
 
   return (

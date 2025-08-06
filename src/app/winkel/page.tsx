@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils'
-import { FirebaseClientService } from '@/lib/firebase-client'
 
 interface Product {
   id: string
@@ -46,6 +45,103 @@ interface CartItem {
   vat_category?: string
 }
 
+// Static product data
+const staticProducts: Product[] = [
+  {
+    id: '1',
+    name: 'AlloyGator Complete Set 17"',
+    description: 'Complete set voor 17 inch velgen inclusief montagehulpmiddelen',
+    price: 89.95,
+    vat_category: 'standard',
+    category: 'alloygator-set',
+    sku: 'AG-17-SET',
+    stock_quantity: 50,
+    weight: 2.5,
+    dimensions: '17 inch',
+    material: 'Kunststof',
+    color: 'Zwart',
+    warranty: '2 jaar',
+    instructions: 'Inclusief montagehandleiding',
+    features: ['Complete set', 'Montagehulpmiddelen', 'Handleiding'],
+    specifications: {},
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01'
+  },
+  {
+    id: '2',
+    name: 'AlloyGator Complete Set 18"',
+    description: 'Complete set voor 18 inch velgen inclusief montagehulpmiddelen',
+    price: 99.95,
+    vat_category: 'standard',
+    category: 'alloygator-set',
+    sku: 'AG-18-SET',
+    stock_quantity: 45,
+    weight: 2.8,
+    dimensions: '18 inch',
+    material: 'Kunststof',
+    color: 'Zwart',
+    warranty: '2 jaar',
+    instructions: 'Inclusief montagehandleiding',
+    features: ['Complete set', 'Montagehulpmiddelen', 'Handleiding'],
+    specifications: {},
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01'
+  },
+  {
+    id: '3',
+    name: 'Montage Tool Set',
+    description: 'Professionele montagehulpmiddelen voor eenvoudige installatie',
+    price: 24.95,
+    vat_category: 'standard',
+    category: 'montagehulpmiddelen',
+    sku: 'MT-TOOL-SET',
+    stock_quantity: 100,
+    weight: 0.5,
+    dimensions: 'Toolbox',
+    material: 'Staal',
+    color: 'Zilver',
+    warranty: '1 jaar',
+    instructions: 'Professionele gereedschappen',
+    features: ['Complete gereedschap', 'Professioneel', 'Duurzaam'],
+    specifications: {},
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01'
+  },
+  {
+    id: '4',
+    name: 'Vervangingsonderdelen Set',
+    description: 'Extra onderdelen voor onderhoud en reparatie',
+    price: 19.95,
+    vat_category: 'standard',
+    category: 'accessoires',
+    sku: 'VR-ONDERDELEN',
+    stock_quantity: 75,
+    weight: 0.3,
+    dimensions: 'Klein',
+    material: 'Kunststof',
+    color: 'Zwart',
+    warranty: '1 jaar',
+    instructions: 'Vervangingsonderdelen',
+    features: ['Onderdelen', 'Onderhoud', 'Reparatie'],
+    specifications: {},
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01'
+  }
+]
+
+// Static VAT settings
+const staticVatSettings: VatSettings[] = [
+  {
+    id: '1',
+    country: 'Nederland',
+    vat_rate: 21,
+    customer_type: 'consumer',
+    vat_category: 'standard',
+    created_at: '2024-01-01',
+    updated_at: '2024-01-01'
+  }
+]
+
 export default function WinkelPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [vatSettings, setVatSettings] = useState<VatSettings[]>([])
@@ -53,31 +149,17 @@ export default function WinkelPage() {
   const [cart, setCart] = useState<CartItem[]>([])
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch products and VAT settings from Firebase
-        const [productsData, vatSettingsData] = await Promise.all([
-          FirebaseClientService.getProducts(),
-          FirebaseClientService.getVatSettings()
-        ])
-
-        setProducts(productsData as Product[])
-        setVatSettings(vatSettingsData as VatSettings[])
-        
-        // Load cart from localStorage
-        const savedCart = localStorage.getItem('alloygator-cart')
-        if (savedCart) {
-          setCart(JSON.parse(savedCart))
-        }
-        
-        setLoading(false)
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        setLoading(false)
-      }
+    // Use static data
+    setProducts(staticProducts)
+    setVatSettings(staticVatSettings)
+    
+    // Load cart from localStorage
+    const savedCart = localStorage.getItem('alloygator-cart')
+    if (savedCart) {
+      setCart(JSON.parse(savedCart))
     }
-
-    fetchData()
+    
+    setLoading(false)
   }, [])
 
   const addToCart = (product: Product) => {

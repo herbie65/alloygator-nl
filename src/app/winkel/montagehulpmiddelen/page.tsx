@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FirebaseClientService } from '@/lib/firebase-client'
 
 interface Product {
   id: string
@@ -13,7 +12,32 @@ interface Product {
   category: string
 }
 
-export default function MontagehulpmiddelenPage() {
+// Static product data
+const staticProducts: Product[] = [
+  {
+    id: '1',
+    name: 'Montage Tool Set',
+    description: 'Professionele montagehulpmiddelen voor eenvoudige installatie van AlloyGator velgbescherming.',
+    price: 24.95,
+    category: 'montagehulpmiddelen'
+  },
+  {
+    id: '2',
+    name: 'Professionele Montage Kit',
+    description: 'Complete kit met alle benodigde gereedschappen voor professionele montage.',
+    price: 34.95,
+    category: 'montagehulpmiddelen'
+  },
+  {
+    id: '3',
+    name: 'Montage Handleiding Set',
+    description: 'Gedetailleerde handleidingen en instructies voor perfecte montage.',
+    price: 14.95,
+    category: 'montagehulpmiddelen'
+  }
+]
+
+export default function MontageHulpmiddelenPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [isDealer, setIsDealer] = useState(false)
 
@@ -22,24 +46,8 @@ export default function MontagehulpmiddelenPage() {
     const dealerSession = localStorage.getItem('dealerSession')
     setIsDealer(!!dealerSession)
 
-    // Fetch products from Firebase
-    const loadProducts = async () => {
-      try {
-        const data = await FirebaseClientService.getProducts();
-        // Filter for montagehulpmiddelen
-        const montageProducts = data.filter((product: Product) => 
-          product.category === 'montagehulpmiddelen' || 
-          product.name.toLowerCase().includes('montage') ||
-          product.name.toLowerCase().includes('tool') ||
-          product.name.toLowerCase().includes('hulpmiddel')
-        );
-        setProducts(montageProducts);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-      }
-    };
-    
-    loadProducts();
+    // Use static products
+    setProducts(staticProducts)
   }, [])
 
   const addToCart = (product: Product) => {
@@ -75,8 +83,8 @@ export default function MontagehulpmiddelenPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Montagehulpmiddelen</h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Professionele tools en hulpmiddelen voor eenvoudige en veilige montage van AlloyGator velgbescherming. 
-            Kwaliteitsgereedschap voor perfecte installatie.
+            Professionele gereedschappen en hulpmiddelen voor eenvoudige en veilige montage 
+            van uw AlloyGator velgbescherming.
           </p>
         </div>
 

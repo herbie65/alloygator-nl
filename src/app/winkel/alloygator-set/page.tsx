@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FirebaseClientService } from '@/lib/firebase-client'
 
 interface Product {
   id: string
@@ -13,6 +12,31 @@ interface Product {
   category: string
 }
 
+// Static product data
+const staticProducts: Product[] = [
+  {
+    id: '1',
+    name: 'AlloyGator Complete Set 17"',
+    description: 'Complete set voor 17 inch velgen inclusief montagehulpmiddelen',
+    price: 89.95,
+    category: 'alloygator-set'
+  },
+  {
+    id: '2',
+    name: 'AlloyGator Complete Set 18"',
+    description: 'Complete set voor 18 inch velgen inclusief montagehulpmiddelen',
+    price: 99.95,
+    category: 'alloygator-set'
+  },
+  {
+    id: '3',
+    name: 'AlloyGator Complete Set 19"',
+    description: 'Complete set voor 19 inch velgen inclusief montagehulpmiddelen',
+    price: 109.95,
+    category: 'alloygator-set'
+  }
+]
+
 export default function AlloyGatorSetPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [isDealer, setIsDealer] = useState(false)
@@ -22,22 +46,8 @@ export default function AlloyGatorSetPage() {
     const dealerSession = localStorage.getItem('dealerSession')
     setIsDealer(!!dealerSession)
 
-    // Fetch products from Firebase
-    const loadProducts = async () => {
-      try {
-        const data = await FirebaseClientService.getProducts();
-        // Filter for AlloyGator sets
-        const alloyGatorSets = data.filter((product: Product) => 
-          product.category === 'alloygator-set' || 
-          product.name.toLowerCase().includes('alloygator set')
-        );
-        setProducts(alloyGatorSets);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-      }
-    };
-    
-    loadProducts();
+    // Use static products
+    setProducts(staticProducts)
   }, [])
 
   const addToCart = (product: Product) => {
@@ -73,8 +83,8 @@ export default function AlloyGatorSetPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">AlloyGator Sets</h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Complete sets voor het beschermen van uw velgen tegen stoeprandschade. 
-            Professionele kwaliteit voor optimale bescherming.
+            Complete sets voor verschillende velgmaten en voertuigtypes. 
+            Elke set bevat alle benodigde onderdelen voor professionele velgbescherming.
           </p>
         </div>
 
@@ -124,16 +134,16 @@ export default function AlloyGatorSetPage() {
         <div className="mt-16 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Andere categorieën</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Link href="/winkel/montagehulpmiddelen" className="group">
-              <div className="bg-gray-50 rounded-lg p-6 hover:bg-gray-100 transition-colors">
-                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600">Montagehulpmiddelen</h3>
-                <p className="text-gray-600 mt-2">Professionele tools voor eenvoudige montage</p>
-              </div>
-            </Link>
             <Link href="/winkel/accessoires" className="group">
               <div className="bg-gray-50 rounded-lg p-6 hover:bg-gray-100 transition-colors">
                 <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600">Accessoires</h3>
                 <p className="text-gray-600 mt-2">Extra onderdelen en accessoires</p>
+              </div>
+            </Link>
+            <Link href="/winkel/montagehulpmiddelen" className="group">
+              <div className="bg-gray-50 rounded-lg p-6 hover:bg-gray-100 transition-colors">
+                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600">Montagehulpmiddelen</h3>
+                <p className="text-gray-600 mt-2">Professionele tools voor eenvoudige montage</p>
               </div>
             </Link>
             <Link href="/winkel" className="group">
