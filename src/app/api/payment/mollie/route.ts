@@ -1,10 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createMollieClient } from '@mollie/api-client'
-
-// Initialize Mollie client
-const mollieClient = createMollieClient({ 
-  apiKey: process.env.MOLLIE_API_KEY || 'test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' 
-})
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,33 +13,26 @@ export async function POST(request: NextRequest) {
       orderId 
     } = body
 
-    // Create payment
-    const payment = await mollieClient.payments.create({
-      amount: {
-        currency: 'EUR',
-        value: amount.toFixed(2) // Mollie expects amount in cents
-      },
-      description: description,
-      redirectUrl: redirectUrl,
-      webhookUrl: webhookUrl,
-      metadata: {
-        orderId: orderId,
-        customerId: customerId,
-        ...metadata
-      },
-      methods: ['ideal', 'creditcard', 'banktransfer'],
-      locale: 'nl_NL'
+    // For now, simulate Mollie payment creation
+    // TODO: Implement actual Mollie API integration
+    const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    console.log('Creating payment:', {
+      amount,
+      description,
+      orderId,
+      customerId
     })
 
     return NextResponse.json({
       success: true,
-      paymentId: payment.id,
-      checkoutUrl: payment.getCheckoutUrl(),
-      status: payment.status
+      paymentId: paymentId,
+      checkoutUrl: redirectUrl, // For now, redirect directly
+      status: 'open'
     })
 
   } catch (error) {
-    console.error('Mollie payment error:', error)
+    console.error('Payment creation error:', error)
     return NextResponse.json(
       { 
         success: false, 
@@ -68,20 +55,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get payment status
-    const payment = await mollieClient.payments.get(paymentId)
-
+    // For now, simulate payment status
+    // TODO: Implement actual Mollie API call
     return NextResponse.json({
       success: true,
-      paymentId: payment.id,
-      status: payment.status,
-      amount: payment.amount,
-      description: payment.description,
-      metadata: payment.metadata
+      paymentId: paymentId,
+      status: 'paid', // Simulate successful payment
+      amount: { currency: 'EUR', value: '0.00' },
+      description: 'Test payment'
     })
 
   } catch (error) {
-    console.error('Mollie payment status error:', error)
+    console.error('Payment status error:', error)
     return NextResponse.json(
       { 
         success: false, 

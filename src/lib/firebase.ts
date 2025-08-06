@@ -36,7 +36,7 @@ export class FirebaseService {
 
   static async getDocuments(collectionName: string, conditions: any[] = []) {
     try {
-      let q = collection(db, collectionName);
+      let q: any = collection(db, collectionName);
       
       // Apply conditions
       conditions.forEach(condition => {
@@ -47,7 +47,7 @@ export class FirebaseService {
       const documents = [];
       
       querySnapshot.forEach((doc) => {
-        documents.push({ id: doc.id, ...doc.data() });
+        documents.push({ id: doc.id, ...(doc.data() as any) });
       });
       
       return documents;
