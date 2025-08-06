@@ -1,3 +1,5 @@
+import { Metadata } from 'next'
+
 'use client'
 
 import { useState, useEffect } from 'react'
