@@ -13,6 +13,8 @@ interface User {
 export default function Header() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [cartCount, setCartCount] = useState(0)
+  const [wishlistCount, setWishlistCount] = useState(0)
 
   useEffect(() => {
     // Check if user is logged in
@@ -26,6 +28,20 @@ export default function Header() {
       } catch (error) {
         console.error('Error parsing user data:', error)
       }
+    }
+
+    // Load cart count
+    const savedCart = localStorage.getItem('alloygator-cart')
+    if (savedCart) {
+      const cart = JSON.parse(savedCart)
+      setCartCount(cart.length)
+    }
+
+    // Load wishlist count
+    const savedWishlist = localStorage.getItem('alloygator-wishlist')
+    if (savedWishlist) {
+      const wishlist = JSON.parse(savedWishlist)
+      setWishlistCount(wishlist.length)
     }
 
     setLoading(false)
@@ -85,12 +101,29 @@ export default function Header() {
 
           {/* Right side buttons */}
           <div className="flex items-center space-x-4">
-            {/* Cart */}
-            <Link href="/cart" className="text-gray-700 hover:text-green-600 transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m6 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
-              </svg>
-            </Link>
+                          {/* Wishlist */}
+              <Link href="/wishlist" className="relative text-gray-700 hover:text-green-600 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {wishlistCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Cart */}
+              <Link href="/cart" className="relative text-gray-700 hover:text-green-600 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+                </svg>
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
 
             {/* User Account / Login */}
             {user ? (

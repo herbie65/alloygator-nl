@@ -152,6 +152,7 @@ export default function WinkelPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [sortBy, setSortBy] = useState('name')
   const [showFilters, setShowFilters] = useState(false)
+  const [wishlist, setWishlist] = useState<string[]>([])
 
   useEffect(() => {
     // Use static data
@@ -162,6 +163,12 @@ export default function WinkelPage() {
     const savedCart = localStorage.getItem('alloygator-cart')
     if (savedCart) {
       setCart(JSON.parse(savedCart))
+    }
+
+    // Load wishlist from localStorage
+    const savedWishlist = localStorage.getItem('alloygator-wishlist')
+    if (savedWishlist) {
+      setWishlist(JSON.parse(savedWishlist))
     }
     
     setLoading(false)
@@ -239,6 +246,16 @@ export default function WinkelPage() {
 
   const getCartCount = () => {
     return cart.reduce((count, item) => count + item.quantity, 0)
+  }
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist(prevWishlist => {
+      const newWishlist = prevWishlist.includes(productId)
+        ? prevWishlist.filter(id => id !== productId)
+        : [...prevWishlist, productId]
+      localStorage.setItem('alloygator-wishlist', JSON.stringify(newWishlist))
+      return newWishlist
+    })
   }
 
   const getCategoryDisplayName = (category: string) => {
@@ -451,6 +468,26 @@ export default function WinkelPage() {
                       className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
                     >
                       {product.stock_quantity > 0 ? 'Toevoegen' : 'Niet beschikbaar'}
+                    </button>
+                    <button
+                      onClick={() => toggleWishlist(product.id)}
+                      className={`px-3 py-2 rounded-md border transition-colors ${
+                        wishlist.includes(product.id)
+                          ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                          : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <svg
+                        className={`w-4 h-4 ${wishlist.includes(product.id) ? 'fill-current' : 'stroke-current fill-none'}`}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
                     </button>
                   </div>
                 </div>

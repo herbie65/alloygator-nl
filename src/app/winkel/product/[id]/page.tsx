@@ -495,12 +495,19 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<CartItem[]>([])
   const [activeTab, setActiveTab] = useState('description')
+  const [wishlist, setWishlist] = useState<string[]>([])
 
   useEffect(() => {
     // Load cart from localStorage
     const savedCart = localStorage.getItem('alloygator-cart')
     if (savedCart) {
       setCart(JSON.parse(savedCart))
+    }
+
+    // Load wishlist from localStorage
+    const savedWishlist = localStorage.getItem('alloygator-wishlist')
+    if (savedWishlist) {
+      setWishlist(JSON.parse(savedWishlist))
     }
 
     // Find product by ID
@@ -547,6 +554,27 @@ export default function ProductDetailPage() {
     // Show success message
     alert(`${quantity}x ${product.name} toegevoegd aan winkelwagen`)
   }
+
+  const toggleWishlist = () => {
+    if (!product) return
+
+    const updatedWishlist = [...wishlist]
+    const index = updatedWishlist.indexOf(product.id)
+
+    if (index > -1) {
+      updatedWishlist.splice(index, 1)
+      setWishlist(updatedWishlist)
+      localStorage.setItem('alloygator-wishlist', JSON.stringify(updatedWishlist))
+      alert(`${product.name} verwijderd uit wenslijst.`)
+    } else {
+      updatedWishlist.push(product.id)
+      setWishlist(updatedWishlist)
+      localStorage.setItem('alloygator-wishlist', JSON.stringify(updatedWishlist))
+      alert(`${product.name} toegevoegd aan wenslijst!`)
+    }
+  }
+
+  const isInWishlist = wishlist.includes(product?.id || '')
 
   if (loading) {
     return (
@@ -655,43 +683,35 @@ export default function ProductDetailPage() {
                 )}
               </div>
 
-              {/* Quantity and Add to Cart */}
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
-                    Aantal
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-10 h-10 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      id="quantity"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      min="1"
-                      max={product.stock_quantity}
-                      className="w-20 h-10 border border-gray-300 rounded-md text-center"
-                    />
-                    <button
-                      onClick={() => setQuantity(Math.min(product.stock_quantity, quantity + 1))}
-                      className="w-10 h-10 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
+              {/* Product Actions */}
+              <div className="flex space-x-4 mb-6">
                 <button
                   onClick={addToCart}
                   disabled={product.stock_quantity === 0}
-                  className="w-full bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
                 >
                   {product.stock_quantity > 0 ? 'Toevoegen aan winkelwagen' : 'Niet beschikbaar'}
+                </button>
+                
+                <button
+                  onClick={toggleWishlist}
+                  className={`px-4 py-3 rounded-lg border transition-colors ${
+                    isInWishlist
+                      ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                      : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg
+                    className={`w-6 h-6 ${isInWishlist ? 'fill-current' : 'stroke-current fill-none'}`}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                  </svg>
                 </button>
               </div>
             </div>
