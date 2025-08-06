@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { FirebaseService } from "@/lib/firebase";
 
 interface CartItem {
   id: string;
@@ -262,18 +263,39 @@ export default function CheckoutPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault()
+    setLoading(true)
 
     try {
+      // Calculate totals
+      const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      const selectedShipping = shippingMethods.find(m => m.method_name === shippingMethod)
+      const shippingCost = selectedShipping?.cost || 0
+      const total = subtotal + shippingCost + vatCalculation.vat_amount
+
+      // Create order data
       const orderData = {
-        customer,
+        customer: {
+          voornaam: customer.voornaam,
+          achternaam: customer.achternaam,
+          email: customer.email,
+          telefoon: customer.telefoon,
+          adres: customer.adres,
+          postcode: customer.postcode,
+          plaats: customer.plaats,
+          land: customer.land,
+          bedrijfsnaam: customer.bedrijfsnaam,
+          factuurEmail: customer.factuurEmail,
+          btwNummer: customer.btwNummer,
+          btwVerified: customer.btwVerified,
+          btwReverseCharge: customer.btwReverseCharge
+        },
         items: cart.map(item => ({
-          productId: item.id,
-          name: item.name,
-          price: dealerGroup ? item.price * (1 - GROUP_DISCOUNTS[dealerGroup] / 100) : item.price,
+          product_id: item.id,
+          product_name: item.name,
           quantity: item.quantity,
-          originalPrice: item.price,
+          unit_price: item.price,
+          total_price: item.price * item.quantity,
           vat_category: item.vat_category
         })),
         subtotal,
@@ -289,40 +311,47 @@ export default function CheckoutPage() {
         status: "nieuw",
         order_number: `ORD-${Date.now()}`,
         created_at: new Date().toISOString()
-      };
+      }
 
-      // Create order for static export (simulated)
-      const orderNumber = `ORD-${Date.now()}`;
-      console.log('Order created:', orderNumber);
+      // Create order in Firebase
+      const orderResult = await FirebaseService.addOrder(orderData)
+      const orderId = orderResult.id
 
-      // Save order data to localStorage
-      const orderDataToSave = {
-        ...orderData,
-        id: orderNumber,
-        order_number: orderNumber,
-        created_at: new Date().toISOString()
-      };
-      
-      // Save to localStorage
-      const savedOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-      savedOrders.push(orderDataToSave);
-      localStorage.setItem('orders', JSON.stringify(savedOrders));
-      
-      console.log('Order saved to localStorage:', orderDataToSave);
+      // Create Mollie payment
+      const paymentResponse = await fetch('/api/payment/mollie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: total,
+          description: `Bestelling ${orderData.order_number} - AlloyGator`,
+          redirectUrl: `${window.location.origin}/order-confirmation/${orderId}`,
+          webhookUrl: `${window.location.origin}/api/payment/mollie/webhook`,
+          metadata: {
+            orderId: orderId,
+            customerId: customer.email,
+            orderNumber: orderData.order_number
+          },
+          customerId: customer.email,
+          orderId: orderId
+        })
+      })
 
-      // Clear cart
-      localStorage.removeItem("alloygator-cart");
-      setCart([]);
-      
-      // Redirect to order confirmation
-      router.push(`/order-confirmation/${orderNumber}`);
+      const paymentResult = await paymentResponse.json()
+
+      if (paymentResult.success) {
+        // Redirect to Mollie checkout
+        window.location.href = paymentResult.checkoutUrl
+      } else {
+        throw new Error('Payment creation failed')
+      }
+
     } catch (error) {
-      console.error("Order error:", error);
-      alert("Er is een fout opgetreden bij het plaatsen van je bestelling.");
+      console.error("Order error:", error)
+      alert("Er is een fout opgetreden bij het plaatsen van je bestelling. Probeer het opnieuw.")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   if (cart.length === 0) {
     return (
