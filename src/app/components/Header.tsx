@@ -26,10 +26,18 @@ interface NavigationItem {
   updated_at: string
 }
 
+interface User {
+  id: string
+  voornaam: string
+  achternaam: string
+  email: string
+}
+
 export default function Header() {
   const [headerData, setHeaderData] = useState<HeaderSettings | null>(null)
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
     // Load header settings from localStorage (uploaded by admin)
@@ -63,8 +71,27 @@ export default function Header() {
         updated_at: new Date().toISOString()
       })
     }
+
+    // Check if user is logged in
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      try {
+        const user = JSON.parse(userData)
+        setUser(user)
+      } catch (error) {
+        console.error('Error parsing user data:', error)
+      }
+    }
+
     setLoading(false)
   }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    setUser(null)
+    window.location.reload()
+  }
 
   if (loading) {
     return (
@@ -146,14 +173,46 @@ export default function Header() {
               </Link>
             )}
 
-            {headerData?.show_login && (
-              <Link href="/dealer-login" className="text-gray-700 hover:text-green-600 transition-colors">
-                Login
-              </Link>
+            {/* User Account / Login */}
+            {user ? (
+              <div className="relative group">
+                <button className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors">
+                  <span className="hidden md:inline">Hallo, {user.voornaam}</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </button>
+                
+                {/* Dropdown menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <Link href="/account" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    Mijn Account
+                  </Link>
+                  <Link href="/account?tab=orders" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    Mijn Bestellingen
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  >
+                    Uitloggen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Link href="/auth/login" className="text-gray-700 hover:text-green-600 transition-colors">
+                  Inloggen
+                </Link>
+                <span className="text-gray-400">|</span>
+                <Link href="/auth/register" className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                  Registreren
+                </Link>
+              </div>
             )}
 
             {headerData?.show_dealer_login && (
-              <Link href="/dealer-login" className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+              <Link href="/dealer-login" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                 Dealer Login
               </Link>
             )}

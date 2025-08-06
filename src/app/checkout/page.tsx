@@ -339,8 +339,12 @@ export default function CheckoutPage() {
       const paymentResult = await paymentResponse.json()
 
       if (paymentResult.success) {
-        // Redirect to Mollie checkout
-        window.location.href = paymentResult.checkoutUrl
+        // Clear cart first
+        localStorage.removeItem("alloygator-cart");
+        setCart([]);
+        
+        // Redirect to order confirmation
+        router.push(`/order-confirmation/${orderId}`);
       } else {
         throw new Error('Payment creation failed')
       }
