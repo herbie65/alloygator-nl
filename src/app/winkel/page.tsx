@@ -147,6 +147,10 @@ export default function WinkelPage() {
   const [vatSettings, setVatSettings] = useState<VatSettings[]>([])
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<CartItem[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [sortBy, setSortBy] = useState('name')
+  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     // Use static data
@@ -162,51 +166,70 @@ export default function WinkelPage() {
     setLoading(false)
   }, [])
 
+  // Filter and sort products
+  const filteredProducts = products
+    .filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          product.description.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
+      return matchesSearch && matchesCategory
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.price - b.price
+        case 'price-high':
+          return b.price - a.price
+        case 'name':
+          return a.name.localeCompare(b.name)
+        default:
+          return 0
+      }
+    })
+
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.id === product.id)
     
-    let newCart: CartItem[]
-    
     if (existingItem) {
-      newCart = cart.map(item => 
-        item.id === product.id 
+      const updatedCart = cart.map(item =>
+        item.id === product.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       )
+      setCart(updatedCart)
+      localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
     } else {
-      newCart = [...cart, {
+      const newItem: CartItem = {
         id: product.id,
         name: product.name,
         price: product.price,
         quantity: 1,
         image: product.image_url,
         vat_category: product.vat_category
-      }]
+      }
+      const updatedCart = [...cart, newItem]
+      setCart(updatedCart)
+      localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
     }
-    
-    setCart(newCart)
-    // Save to localStorage
-    localStorage.setItem('alloygator-cart', JSON.stringify(newCart))
   }
 
   const removeFromCart = (productId: string) => {
-    const newCart = cart.filter(item => item.id !== productId)
-    setCart(newCart)
-    localStorage.setItem('alloygator-cart', JSON.stringify(newCart))
+    const updatedCart = cart.filter(item => item.id !== productId)
+    setCart(updatedCart)
+    localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
   }
 
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId)
-    } else {
-      const newCart = cart.map(item => 
-        item.id === productId 
-          ? { ...item, quantity }
-          : item
-      )
-      setCart(newCart)
-      localStorage.setItem('alloygator-cart', JSON.stringify(newCart))
+      return
     }
+    
+    const updatedCart = cart.map(item =>
+      item.id === productId ? { ...item, quantity } : item
+    )
+    setCart(updatedCart)
+    localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
   }
 
   const getCartTotal = () => {
@@ -217,96 +240,210 @@ export default function WinkelPage() {
     return cart.reduce((count, item) => count + item.quantity, 0)
   }
 
+  const getCategoryDisplayName = (category: string) => {
+    switch (category) {
+      case 'alloygator-set': return 'AlloyGator Sets'
+      case 'montagehulpmiddelen': return 'Montagehulpmiddelen'
+      case 'accessoires': return 'Accessoires'
+      default: return category
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center">
-            <p className="text-lg text-gray-600">Laden...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Producten laden...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Winkel</h1>
-            <p className="text-gray-600 mt-2">Ontdek onze AlloyGator producten</p>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">AlloyGator Winkel</h1>
+          <p className="text-lg text-gray-600">
+            Professionele velgbescherming en montagehulpmiddelen
+          </p>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Zoek producten
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Zoek op naam of beschrijving..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Categorie
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="all">Alle categorieën</option>
+                <option value="alloygator-set">AlloyGator Sets</option>
+                <option value="montagehulpmiddelen">Montagehulpmiddelen</option>
+                <option value="accessoires">Accessoires</option>
+              </select>
+            </div>
+
+            {/* Sort */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sorteren op
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="name">Naam A-Z</option>
+                <option value="price-low">Prijs: Laag naar Hoog</option>
+                <option value="price-high">Prijs: Hoog naar Laag</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <Link 
-              href="/cart"
-              className="relative bg-white p-3 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-            >
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
-              </svg>
-              {getCartCount() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-                  {getCartCount()}
-                </span>
-              )}
-            </Link>
-          </div>
+        </div>
+
+        {/* Results Summary */}
+        <div className="mb-6">
+          <p className="text-gray-600">
+            {filteredProducts.length} product{filteredProducts.length !== 1 ? 'en' : ''} gevonden
+            {searchTerm && ` voor "${searchTerm}"`}
+            {selectedCategory !== 'all' && ` in ${getCategoryDisplayName(selectedCategory)}`}
+          </p>
         </div>
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {(products || []).map((product) => {
-            const vatRate = vatSettings.find(v => v.vat_category === product.vat_category)?.vat_rate || 21
-            const priceWithVat = calculatePriceWithVat(product.price, vatRate)
+          {filteredProducts.map((product) => {
+            const priceWithVat = calculatePriceWithVat(product.price, 21) // 21% VAT for Netherlands
+            const vatText = getVatDisplayText(21, 'NL')
             
             return (
               <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                {product.image_url && (
-                  <div className="aspect-w-1 aspect-h-1 w-full">
+                {/* Product Image */}
+                <div className="h-48 bg-gray-200 flex items-center justify-center">
+                  {product.image_url ? (
                     <img
                       src={product.image_url}
                       alt={product.name}
-                      className="w-full h-48 object-cover"
+                      className="w-full h-full object-cover"
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-gray-400 text-4xl">🛞</div>
+                  )}
+                </div>
+
+                {/* Product Info */}
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{product.name}</h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {product.name}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {product.description}
+                  </p>
                   
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <p className="text-2xl font-bold text-gray-900">€{priceWithVat.toFixed(2)}</p>
-                      <p className="text-sm text-gray-500">{getVatDisplayText(vatRate)}</p>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      SKU: {product.sku}
+                  {/* Features */}
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-1">
+                      {product.features.slice(0, 3).map((feature, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full"
+                        >
+                          {feature}
+                        </span>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-500">
-                      Voorraad: {product.stock_quantity}
+                  {/* Price */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-2xl font-bold text-gray-900">
+                          €{priceWithVat.toFixed(2)}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-2">{vatText}</span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        SKU: {product.sku}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => addToCart(product)}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-                    >
-                      Toevoegen aan winkelwagen
-                    </button>
                   </div>
+
+                  {/* Stock Status */}
+                  <div className="mb-4">
+                    {product.stock_quantity > 0 ? (
+                      <span className="text-green-600 text-sm font-medium">
+                        ✓ Op voorraad ({product.stock_quantity})
+                      </span>
+                    ) : (
+                      <span className="text-red-600 text-sm font-medium">
+                        ✗ Niet op voorraad
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Add to Cart Button */}
+                  <button
+                    onClick={() => addToCart(product)}
+                    disabled={product.stock_quantity === 0}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {product.stock_quantity > 0 ? 'Toevoegen aan winkelwagen' : 'Niet beschikbaar'}
+                  </button>
                 </div>
               </div>
             )
           })}
         </div>
 
-        {/* Empty State */}
-        {products.length === 0 && (
+        {/* No Results */}
+        {filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-lg text-gray-600">Geen producten gevonden</p>
+            <div className="text-gray-400 text-6xl mb-4">🔍</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Geen producten gevonden</h3>
+            <p className="text-gray-600">
+              Probeer andere zoektermen of filters aan te passen.
+            </p>
+          </div>
+        )}
+
+        {/* Cart Summary */}
+        {cart.length > 0 && (
+          <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border">
+            <div className="flex items-center space-x-4">
+              <div>
+                <p className="text-sm text-gray-600">Winkelwagen</p>
+                <p className="font-semibold">{getCartCount()} items - €{getCartTotal().toFixed(2)}</p>
+              </div>
+              <Link
+                href="/cart"
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                Bekijk winkelwagen
+              </Link>
+            </div>
           </div>
         )}
       </div>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FirebaseClientService } from '@/lib/firebase-client'
 
 interface CompanyInfo {
   name: string
@@ -17,23 +16,28 @@ interface CompanyInfo {
   iban: string
 }
 
+// Static company data
+const staticCompanyInfo: CompanyInfo = {
+  name: 'AlloyGator Netherlands',
+  address: 'Kweekgrasstraat 36',
+  city: 'Almere',
+  postal_code: '1313 BX',
+  country: 'Nederland',
+  phone: '085-3033400',
+  email: 'info@alloygator.nl',
+  kvk_number: '12345678',
+  btw_number: 'NL123456789B01',
+  iban: 'NL91ABNA0417164300'
+}
+
 export default function ContactPage() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const loadCompanyInfo = async () => {
-      try {
-        const data = await FirebaseClientService.getCompanyInfo();
-        setCompanyInfo(data);
-      } catch (err) {
-        console.error('Error fetching company info:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadCompanyInfo();
+    // Use static company data
+    setCompanyInfo(staticCompanyInfo)
+    setLoading(false)
   }, [])
 
   if (loading) {
@@ -107,8 +111,8 @@ export default function ContactPage() {
 
                 <div className="pt-6 border-t border-gray-200">
                   <h4 className="font-semibold text-gray-900 mb-3">Bedrijfsinformatie</h4>
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="font-medium">KvK:</span> {companyInfo.kvk_number}</p>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <p><span className="font-medium">KVK:</span> {companyInfo.kvk_number}</p>
                     <p><span className="font-medium">BTW:</span> {companyInfo.btw_number}</p>
                     <p><span className="font-medium">IBAN:</span> {companyInfo.iban}</p>
                   </div>
@@ -124,7 +128,7 @@ export default function ContactPage() {
             <form className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
                     Voornaam *
                   </label>
                   <input
@@ -132,12 +136,12 @@ export default function ContactPage() {
                     id="firstName"
                     name="firstName"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
                     Achternaam *
                   </label>
                   <input
@@ -145,13 +149,13 @@ export default function ContactPage() {
                     id="lastName"
                     name="lastName"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   E-mailadres *
                 </label>
                 <input
@@ -159,58 +163,74 @@ export default function ContactPage() {
                   id="email"
                   name="email"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                   Telefoonnummer
                 </label>
                 <input
                   type="tel"
                   id="phone"
                   name="phone"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
                   Onderwerp *
                 </label>
                 <select
                   id="subject"
                   name="subject"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Selecteer een onderwerp</option>
-                  <option value="product-info">Product informatie</option>
-                  <option value="dealer-info">Dealer informatie</option>
+                  <option value="product-inquiry">Productinformatie</option>
                   <option value="technical-support">Technische ondersteuning</option>
+                  <option value="dealer-inquiry">Dealer informatie</option>
                   <option value="order-status">Bestelling status</option>
                   <option value="other">Anders</option>
                 </select>
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
                   Bericht *
                 </label>
                 <textarea
                   id="message"
                   name="message"
-                  rows={5}
+                  rows={6}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="Beschrijf uw vraag of opmerking..."
                 ></textarea>
               </div>
 
+              <div className="flex items-center">
+                <input
+                  id="privacy"
+                  name="privacy"
+                  type="checkbox"
+                  required
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="privacy" className="ml-2 block text-sm text-gray-900">
+                  Ik ga akkoord met de{' '}
+                  <Link href="/privacy-policy" className="text-green-600 hover:text-green-700">
+                    privacy policy
+                  </Link>
+                </label>
+              </div>
+
               <button
                 type="submit"
-                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >
                 Verstuur bericht
               </button>
@@ -218,56 +238,44 @@ export default function ContactPage() {
           </div>
         </div>
 
-        {/* Additional Info */}
-        <div className="mt-16 bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Andere manieren om contact op te nemen</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Telefoon</h3>
-              <p className="text-gray-600">Bel ons direct voor snelle hulp</p>
-              {companyInfo && (
-                <a href={`tel:${companyInfo.phone}`} className="text-green-600 hover:text-green-700 font-medium">
-                  {companyInfo.phone}
-                </a>
-              )}
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">E-mail</h3>
-              <p className="text-gray-600">Stuur ons een e-mail</p>
-              {companyInfo && (
-                <a href={`mailto:${companyInfo.email}`} className="text-green-600 hover:text-green-700 font-medium">
-                  {companyInfo.email}
-                </a>
-              )}
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Bezoek</h3>
-              <p className="text-gray-600">Bezoek ons kantoor</p>
-              {companyInfo && (
-                <div className="text-sm text-gray-600">
-                  <p>{companyInfo.address}</p>
-                  <p>{companyInfo.postal_code} {companyInfo.city}</p>
+        {/* Opening Hours */}
+        <div className="mt-12 bg-white rounded-lg shadow-md p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Openingstijden</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Kantoor</h3>
+              <div className="space-y-2 text-gray-600">
+                <div className="flex justify-between">
+                  <span>Maandag - Vrijdag</span>
+                  <span>09:00 - 17:00</span>
                 </div>
-              )}
+                <div className="flex justify-between">
+                  <span>Zaterdag</span>
+                  <span>10:00 - 16:00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Zondag</span>
+                  <span>Gesloten</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Technische ondersteuning</h3>
+              <div className="space-y-2 text-gray-600">
+                <div className="flex justify-between">
+                  <span>Maandag - Vrijdag</span>
+                  <span>08:00 - 18:00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Zaterdag</span>
+                  <span>09:00 - 15:00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Zondag</span>
+                  <span>Gesloten</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
