@@ -341,23 +341,27 @@ export default function WinkelPage() {
             return (
               <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Product Image */}
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-gray-400 text-4xl">🛞</div>
-                  )}
-                </div>
+                <Link href={`/winkel/product/${product.id}`}>
+                  <div className="h-48 bg-gray-200 flex items-center justify-center cursor-pointer">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-4xl">🛞</div>
+                    )}
+                  </div>
+                </Link>
 
                 {/* Product Info */}
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {product.name}
-                  </h3>
+                  <Link href={`/winkel/product/${product.id}`}>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-green-600 transition-colors cursor-pointer">
+                      {product.name}
+                    </h3>
+                  </Link>
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                     {product.description}
                   </p>
@@ -404,14 +408,22 @@ export default function WinkelPage() {
                     )}
                   </div>
 
-                  {/* Add to Cart Button */}
-                  <button
-                    onClick={() => addToCart(product)}
-                    disabled={product.stock_quantity === 0}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {product.stock_quantity > 0 ? 'Toevoegen aan winkelwagen' : 'Niet beschikbaar'}
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2">
+                    <Link
+                      href={`/winkel/product/${product.id}`}
+                      className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-center text-sm"
+                    >
+                      Bekijk details
+                    </Link>
+                    <button
+                      onClick={() => addToCart(product)}
+                      disabled={product.stock_quantity === 0}
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm"
+                    >
+                      {product.stock_quantity > 0 ? 'Toevoegen' : 'Niet beschikbaar'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )
