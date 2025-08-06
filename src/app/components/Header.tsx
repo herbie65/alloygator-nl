@@ -40,6 +40,10 @@ export default function Header() {
   const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
+    // Clear old localStorage settings to force new header
+    localStorage.removeItem('headerSettings')
+    localStorage.removeItem('uploadedFiles')
+    
     // Load header settings from localStorage (uploaded by admin)
     const savedHeaderSettings = localStorage.getItem('headerSettings')
     if (savedHeaderSettings) {
@@ -110,7 +114,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white shadow-sm">
+    <header className="bg-white shadow-sm" data-version="2.0">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo - Always show */}
