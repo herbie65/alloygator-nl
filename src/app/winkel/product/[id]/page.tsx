@@ -5,6 +5,281 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils'
 
+interface Review {
+  id: string
+  product_id: string
+  user_id: string
+  rating: number
+  comment: string
+  created_at: string
+  user_name?: string
+}
+
+interface ReviewsSectionProps {
+  productId: string
+  productName: string
+}
+
+function ReviewsSection({ productId, productName }: ReviewsSectionProps) {
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    comment: ''
+  })
+  const [filterRating, setFilterRating] = useState<number | null>(null)
+  const [sortBy, setSortBy] = useState<'date' | 'rating'>('date')
+
+  useEffect(() => {
+    // Load reviews from localStorage
+    const savedReviews = JSON.parse(localStorage.getItem('product-reviews') || '[]')
+    const productReviews = savedReviews.filter((review: Review) => review.product_id === productId)
+    setReviews(productReviews)
+  }, [productId])
+
+  const handleSubmitReview = () => {
+    if (!newReview.comment.trim()) return
+
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
+    
+    const review: Review = {
+      id: Date.now().toString(),
+      product_id: productId,
+      user_id: user.id || 'anonymous',
+      rating: newReview.rating,
+      comment: newReview.comment,
+      created_at: new Date().toISOString(),
+      user_name: user.voornaam ? `${user.voornaam} ${user.achternaam}` : 'Anonieme gebruiker'
+    }
+
+    const allReviews = JSON.parse(localStorage.getItem('product-reviews') || '[]')
+    allReviews.push(review)
+    localStorage.setItem('product-reviews', JSON.stringify(allReviews))
+
+    setReviews([...reviews, review])
+    setNewReview({ rating: 5, comment: '' })
+    setShowReviewForm(false)
+  }
+
+  const filteredReviews = reviews
+    .filter(review => filterRating === null || review.rating === filterRating)
+    .sort((a, b) => {
+      if (sortBy === 'date') {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      } else {
+        return b.rating - a.rating
+      }
+    })
+
+  const averageRating = reviews.length > 0 
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+    : 0
+
+  const ratingCounts = reviews.reduce((counts, review) => {
+    counts[review.rating] = (counts[review.rating] || 0) + 1
+    return counts
+  }, {} as Record<number, number>)
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Klantenreviews</h3>
+      
+      {/* Review Summary */}
+      <div className="bg-gray-50 rounded-lg p-6 mb-6">
+        <div className="flex items-center space-x-4">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-gray-900">{averageRating.toFixed(1)}</div>
+            <div className="flex items-center justify-center mt-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <svg
+                  key={star}
+                  className={`w-5 h-5 ${
+                    star <= averageRating ? 'text-yellow-400' : 'text-gray-300'
+                  }`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              ))}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">{reviews.length} reviews</div>
+          </div>
+          
+          <div className="flex-1">
+            <div className="space-y-2">
+              {[5, 4, 3, 2, 1].map((rating) => {
+                const count = ratingCounts[rating] || 0
+                const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0
+                
+                return (
+                  <div key={rating} className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 w-16">
+                      <span className="text-sm text-gray-600">{rating}</span>
+                      <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-yellow-400 h-2 rounded-full"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-600 w-8">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Review Form */}
+      <div className="mb-6">
+        {!showReviewForm ? (
+          <button
+            onClick={() => setShowReviewForm(true)}
+            className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors"
+          >
+            Schrijf een review
+          </button>
+        ) : (
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h4 className="font-medium text-gray-900 mb-4">Schrijf een review voor {productName}</h4>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Beoordeling</label>
+                <div className="flex items-center space-x-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setNewReview(prev => ({ ...prev, rating: star }))}
+                      className="focus:outline-none"
+                    >
+                      <svg
+                        className={`w-8 h-8 ${
+                          star <= newReview.rating ? 'text-yellow-400' : 'text-gray-300'
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Commentaar</label>
+                <textarea
+                  value={newReview.comment}
+                  onChange={(e) => setNewReview(prev => ({ ...prev, comment: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  rows={4}
+                  placeholder="Deel je ervaring met dit product..."
+                />
+              </div>
+              
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleSubmitReview}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                >
+                  Review plaatsen
+                </button>
+                <button
+                  onClick={() => setShowReviewForm(false)}
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Review Filters */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-4">
+          <select
+            value={filterRating || ''}
+            onChange={(e) => setFilterRating(e.target.value ? Number(e.target.value) : null)}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">Alle beoordelingen</option>
+            <option value="5">5 sterren</option>
+            <option value="4">4 sterren</option>
+            <option value="3">3 sterren</option>
+            <option value="2">2 sterren</option>
+            <option value="1">1 ster</option>
+          </select>
+          
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'date' | 'rating')}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="date">Nieuwste eerst</option>
+            <option value="rating">Hoogste beoordeling eerst</option>
+          </select>
+        </div>
+        
+        <div className="text-sm text-gray-600">
+          {filteredReviews.length} van {reviews.length} reviews
+        </div>
+      </div>
+
+      {/* Reviews List */}
+      <div className="space-y-4">
+        {filteredReviews.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-gray-400 text-4xl mb-4">⭐</div>
+            <p className="text-gray-600">Nog geen reviews voor dit product</p>
+            <p className="text-sm text-gray-500 mt-2">Wees de eerste om een review te schrijven!</p>
+          </div>
+        ) : (
+          filteredReviews.map((review) => (
+            <div key={review.id} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <svg
+                          key={star}
+                          className={`w-4 h-4 ${
+                            star <= review.rating ? 'text-yellow-400' : 'text-gray-300'
+                          }`}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {review.user_name || 'Anonieme gebruiker'}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-500">
+                  {new Date(review.created_at).toLocaleDateString('nl-NL')}
+                </span>
+              </div>
+              
+              <p className="text-gray-700">{review.comment}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface Product {
   id: string
   name: string
@@ -25,6 +300,14 @@ interface Product {
   specifications: Record<string, any>
   created_at: string
   updated_at: string
+  reviews?: {
+    id: string;
+    product_id: string;
+    user_id: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+  }[];
 }
 
 interface CartItem {
@@ -63,7 +346,25 @@ const staticProducts: Product[] = [
       'Inclusief': 'Montagehulpmiddelen, handleiding'
     },
     created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    updated_at: '2024-01-01',
+    reviews: [
+      {
+        id: '1',
+        product_id: '1',
+        user_id: '1',
+        rating: 5,
+        comment: 'Perfecte kwaliteit en montagehulpmiddelen. Zeer tevreden!',
+        created_at: '2024-01-01T10:00:00Z'
+      },
+      {
+        id: '2',
+        product_id: '1',
+        user_id: '2',
+        rating: 4,
+        comment: 'Goed product, maar de montagehulpmiddelen zijn niet zo groot als verwacht.',
+        created_at: '2024-01-02T11:00:00Z'
+      }
+    ]
   },
   {
     id: '2',
@@ -90,7 +391,25 @@ const staticProducts: Product[] = [
       'Inclusief': 'Montagehulpmiddelen, handleiding'
     },
     created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    updated_at: '2024-01-01',
+    reviews: [
+      {
+        id: '3',
+        product_id: '2',
+        user_id: '1',
+        rating: 3,
+        comment: 'Niet zo goed als verwacht. Montagehulpmiddelen zijn te klein.',
+        created_at: '2024-01-03T12:00:00Z'
+      },
+      {
+        id: '4',
+        product_id: '2',
+        user_id: '2',
+        rating: 5,
+        comment: 'Perfecte kwaliteit en montagehulpmiddelen. Zeer tevreden!',
+        created_at: '2024-01-04T13:00:00Z'
+      }
+    ]
   },
   {
     id: '3',
@@ -117,7 +436,17 @@ const staticProducts: Product[] = [
       'Opbergdoos': 'Inclusief'
     },
     created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    updated_at: '2024-01-01',
+    reviews: [
+      {
+        id: '5',
+        product_id: '3',
+        user_id: '1',
+        rating: 4,
+        comment: 'Goed gereedschap, maar de opbergdoos is wat klein.',
+        created_at: '2024-01-05T14:00:00Z'
+      }
+    ]
   },
   {
     id: '4',
@@ -144,7 +473,17 @@ const staticProducts: Product[] = [
       'Compatibiliteit': 'Alle AlloyGator sets'
     },
     created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    updated_at: '2024-01-01',
+    reviews: [
+      {
+        id: '6',
+        product_id: '4',
+        user_id: '1',
+        rating: 2,
+        comment: 'Niet zo goed als verwacht. Onderdelen zijn niet compatibel.',
+        created_at: '2024-01-06T15:00:00Z'
+      }
+    ]
   }
 ]
 
@@ -401,6 +740,16 @@ export default function ProductDetailPage() {
                   Specificaties
                 </button>
                 <button
+                  onClick={() => setActiveTab('reviews')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'reviews'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Reviews ({product.reviews?.length || 0})
+                </button>
+                <button
                   onClick={() => setActiveTab('warranty')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'warranty'
@@ -443,6 +792,10 @@ export default function ProductDetailPage() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {activeTab === 'reviews' && (
+                <ReviewsSection productId={product.id} productName={product.name} />
               )}
 
               {activeTab === 'warranty' && (
