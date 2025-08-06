@@ -1,199 +1,186 @@
-# AlloyGator NL
+# AlloyGator Nederland 🚗
 
-Een complete e-commerce applicatie voor AlloyGator met BTW berekening, dealer management, en Mollie betalingen.
+**Professionele velgbescherming tegen stoeprandschade**
 
-## 🚀 Snelle Start
+[![Live Site](https://img.shields.io/badge/Live%20Site-alloygator-nl.web.app-green)](https://alloygator-nl.web.app/)
+[![Firebase](https://img.shields.io/badge/Firebase-Hosting%20%7C%20Database-blue)](https://firebase.google.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 
-### Lokale Development
-```bash
-# Installeer dependencies
-npm install
+## 🌟 Over AlloyGator
 
-# Start development server
-npm run dev
+AlloyGator is de meest effectieve manier om uw velgen te beschermen tegen stoeprandschade. Onze kunststof velgbescherming is duurzaam, eenvoudig te monteren en vrijwel onzichtbaar.
 
-# Build voor productie
-npm run build
-```
+### ✨ Kenmerken
 
-## 📊 Database Setup
+- **Eenvoudige montage** - Monteer in slechts 30 minuten zonder speciale gereedschappen
+- **Onzichtbare bescherming** - Behoudt de originele uitstraling van uw velgen
+- **Duurzaam materiaal** - Hoogwaardige kunststof bestand tegen extreme weersomstandigheden
+- **Gegarandeerde bescherming** - Beschermt tegen schade tot 5cm van de stoeprand
 
-### Development (SQLite)
-- **Lokale SQLite database** voor development
-- **Automatische data initialisatie** bij eerste start
-- **115 klanten** (84 dealers + 31 particulieren)
+## 🚀 Live Website
 
-### Productie (Firebase Firestore)
-- **Firebase Spark Plan** (gratis tier)
-- **Real-time database** met offline support
-- **Automatische scaling** en backup
+**🌐 [https://alloygator-nl.web.app/](https://alloygator-nl.web.app/)**
 
-## 🔥 Firebase Setup
+## 🛠️ Technische Stack
 
-### 1. Firebase Project
-1. Ga naar [Firebase Console](https://console.firebase.google.com/)
-2. Maak een nieuw project: `alloygator-nl`
-3. Activeer Firestore Database
-4. Voeg web app toe en kopieer configuratie
+### Frontend
+- **Next.js 14** - React framework met App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first CSS framework
+- **React** - UI library
 
-### 2. Environment Variables
-Voeg deze toe aan `.env.local`:
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-```
+### Backend & Database
+- **Firebase Hosting** - Web hosting
+- **Firebase Firestore** - NoSQL database
+- **Firebase Functions** - Serverless functions
 
-### 3. Database Migratie
-```bash
-# Exporteer huidige data
-node export_database.js
-
-# Migreer naar Firebase
-node migrate_to_firebase.js
-```
-
-📖 **Uitgebreide Firebase setup:** Zie `FIREBASE_SETUP.md`
-
-## 🌐 Netlify Deployment
-
-### Stap 1: GitHub Repository
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/yourusername/alloygator-nl.git
-git push -u origin main
-```
-
-### Stap 2: Netlify Setup
-1. Ga naar [netlify.com](https://netlify.com)
-2. Klik "New site from Git"
-3. Kies je GitHub repository
-4. Configureer build settings:
-   - **Build command:** `npm run build`
-   - **Publish directory:** `.next`
-   - **Node version:** 18
-
-### Stap 3: Environment Variables
-Voeg Firebase configuratie toe in Netlify dashboard:
-- Ga naar Site settings > Environment variables
-- Voeg alle Firebase environment variables toe
-
-## 🛠️ Technische Details
-
-### Tech Stack
-- **Frontend:** Next.js 15, React 19, TypeScript
-- **Styling:** Tailwind CSS
-- **Database:** SQLite (dev) + Firebase Firestore (prod)
-- **Betalingen:** Mollie API
-- **Verzending:** DHL Parcel integratie
-
-### Database Schema
-- `customers` - Klanten en dealers (115 records)
-- `products` - Producten met BTW categorieën (5 records)
-- `orders` - Bestellingen en facturen
-- `vat_settings` - BTW instellingen per land (5 records)
-- `shipping_settings` - Verzendmethoden (3 records)
-- `payment_settings` - Betalingsinstellingen (1 record)
-
-### API Endpoints
-- `/api/customers` - Klant management
-- `/api/products` - Product management
-- `/api/orders` - Bestellingen
-- `/api/vat-settings` - BTW instellingen
-- `/api/mollie/*` - Betalingsintegratie
-- `/api/dhl-*` - Verzendintegratie
+### Integraties
+- **DHL Parcel API** - Shipping integration
+- **Google Maps API** - Dealer locator
+- **Payment processing** - Checkout system
 
 ## 📁 Project Structuur
 
 ```
 alloygator-nl/
 ├── src/
-│   ├── app/
-│   │   ├── admin/          # Admin dashboard
-│   │   ├── api/            # API routes
-│   │   ├── checkout/       # Checkout proces
-│   │   ├── winkel/         # Product catalogus
-│   │   └── components/     # Herbruikbare componenten
-│   └── lib/
-│       ├── database.ts     # Database configuratie (SQLite/Firebase)
-│       ├── firebase.ts     # Firebase service
-│       └── vat-utils.ts    # BTW berekening utilities
-├── public/                 # Statische bestanden
-├── netlify.toml           # Netlify configuratie
-├── FIREBASE_SETUP.md      # Firebase setup guide
-└── DEPLOYMENT.md          # Uitgebreide deployment guide
+│   ├── app/                    # Next.js App Router
+│   │   ├── admin/             # Admin panel
+│   │   ├── api/               # API routes
+│   │   ├── winkel/            # Shop pages
+│   │   ├── checkout/          # Checkout process
+│   │   └── components/        # Shared components
+│   ├── lib/                   # Utilities & Firebase
+│   └── styles/                # Global styles
+├── public/                    # Static assets
+├── functions/                 # Firebase Functions
+└── docs/                      # Documentation
 ```
 
-## 🔧 Development
+## 🎯 Functionaliteiten
 
-### Database Reset
+### 🛍️ E-commerce
+- **Product catalogus** - AlloyGator sets, montagehulpmiddelen, accessoires
+- **Winkelwagen** - Shopping cart functionality
+- **Checkout proces** - Complete order flow
+- **Betalingen** - Secure payment processing
+
+### 🏢 Admin Panel
+- **Klantbeheer** - Customer CRM
+- **Bestellingen** - Order management
+- **Productbeheer** - Product administration
+- **DHL Instellingen** - Shipping configuration
+- **Database viewer** - Data management
+
+### 🚚 Shipping & Logistics
+- **DHL Parcel integratie** - Automated shipping
+- **Dealer locator** - Find nearby dealers
+- **Shipping calculator** - Cost calculation
+
+### 📊 Data Management
+- **Firebase Firestore** - Real-time database
+- **Customer groups** - Segmentation
+- **VAT settings** - Tax configuration
+- **Payment settings** - Payment methods
+
+## 🚀 Deployment
+
+### Firebase Hosting
 ```bash
-# Verwijder database en start opnieuw
-rm alloygator.db
+# Install Firebase CLI
+npm install -g firebase-tools
+
+# Login to Firebase
+firebase login
+
+# Deploy to Firebase
+firebase deploy
+```
+
+### Environment Variables
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+## 🛠️ Development
+
+### Installatie
+```bash
+# Clone repository
+git clone https://github.com/herbie65/alloygator-nl.git
+cd alloygator-nl
+
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
 ```
 
-### Data Import
+### Scripts
 ```bash
-# Importeer dealers
-node import_all_dealers.js
-
-# Importeer goud dealers
-node import_goud_dealers.js
-
-# Exporteer database
-node export_database.js
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
 ```
 
-### Firebase Migratie
-```bash
-# Migreer naar Firebase
-node migrate_to_firebase.js
-```
+## 📊 Database Schema
 
-## 📈 Firebase Spark Plan Limieten
+### Collections
+- **customers** - Klantgegevens
+- **products** - Productcatalogus
+- **orders** - Bestellingen
+- **dealers** - Dealer informatie
+- **settings** - App instellingen
+- **dhl_settings** - Shipping configuratie
 
-### Gratis Tier:
-- **1GB** opslag
-- **50K reads** per dag
-- **20K writes** per dag
-- **20K deletes** per dag
+## 🔧 API Endpoints
 
-### Monitoring:
-- Firebase Console > Usage and billing
-- Stel alerts in voor limieten
+### Customers
+- `GET /api/customers` - Get all customers
+- `GET /api/customers/[id]` - Get customer by ID
+- `POST /api/customers` - Create customer
+- `PUT /api/customers/[id]` - Update customer
 
-## ⚠️ Belangrijke Notities
+### Products
+- `GET /api/products` - Get all products
+- `GET /api/products/[id]` - Get product by ID
 
-### Database Limitaties
-- **Development:** SQLite (lokaal bestand)
-- **Productie:** Firebase Firestore (cloud database)
-- **Migratie:** Automatisch via scripts
+### Orders
+- `GET /api/orders` - Get all orders
+- `POST /api/orders` - Create order
 
-### Security
-- **Development:** Open toegang
-- **Productie:** Firebase security rules vereist
-- **API Keys:** Altijd via environment variables
+### Settings
+- `GET /api/dhl-settings` - Get DHL settings
+- `PUT /api/dhl-settings` - Update DHL settings
 
-## 📞 Support
+## 🤝 Bijdragen
 
-Voor vragen over:
-- **Firebase setup:** Zie `FIREBASE_SETUP.md`
-- **Deployment:** Zie `DEPLOYMENT.md`
-- **Database migratie:** Zie migratie scripts
+1. Fork het project
+2. Maak een feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit je wijzigingen (`git commit -m 'Add some AmazingFeature'`)
+4. Push naar de branch (`git push origin feature/AmazingFeature`)
+5. Open een Pull Request
 
-## 🎯 Volgende Stappen
+## 📞 Contact
 
-1. ✅ **Firebase project aanmaken**
-2. ✅ **Environment variables configureren**
-3. ✅ **Database migreren**
-4. ✅ **Security rules instellen**
-5. ✅ **Testen in development**
-6. ✅ **Deployen naar Netlify**
-7. ✅ **Monitoring instellen**
+**AlloyGator Nederland**
+- 📍 Kweekgrasstraat 36, 1313 BX Almere
+- 📞 085-3033400
+- 📧 info@alloygator.nl
+- 🌐 [https://alloygator-nl.web.app/](https://alloygator-nl.web.app/)
+
+## 📄 Licentie
+
+© 2025 AlloyGator Netherlands. All rights reserved.
+
+---
+
+**Built with ❤️ using Next.js, Firebase, and TypeScript**
