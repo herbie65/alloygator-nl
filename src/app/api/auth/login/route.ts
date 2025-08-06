@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FirebaseService } from '../../../../../lib/firebase'
+import { FirebaseService } from '@/lib/firebase'
 import bcrypt from 'bcryptjs'
 
 export async function POST(request: NextRequest) {
