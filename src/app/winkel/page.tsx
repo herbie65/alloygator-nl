@@ -153,6 +153,9 @@ export default function WinkelPage() {
   const [sortBy, setSortBy] = useState('name')
   const [showFilters, setShowFilters] = useState(false)
   const [wishlist, setWishlist] = useState<string[]>([])
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 200 })
+  const [availabilityFilter, setAvailabilityFilter] = useState('all')
+  const [ratingFilter, setRatingFilter] = useState(0)
 
   useEffect(() => {
     // Use static data
@@ -174,24 +177,35 @@ export default function WinkelPage() {
     setLoading(false)
   }, [])
 
-  // Filter and sort products
+  // Filter and sort products (new logic)
   const filteredProducts = products
     .filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           product.description.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
-      return matchesSearch && matchesCategory
+      const matchesPrice = product.price >= priceRange.min && product.price <= priceRange.max
+      const matchesAvailability = availabilityFilter === 'all' || 
+        (availabilityFilter === 'in-stock' && product.stock_quantity > 0) ||
+        (availabilityFilter === 'out-of-stock' && product.stock_quantity === 0)
+      const matchesRating = ratingFilter === 0 || 
+        (product.reviews && product.reviews.length > 0 && 
+         product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length >= ratingFilter)
+      
+      return matchesSearch && matchesCategory && matchesPrice && matchesAvailability && matchesRating
     })
     .sort((a, b) => {
       switch (sortBy) {
-        case 'price-low':
-          return a.price - b.price
-        case 'price-high':
-          return b.price - a.price
-        case 'name':
-          return a.name.localeCompare(b.name)
-        default:
-          return 0
+        case 'price-low': return a.price - b.price
+        case 'price-high': return b.price - a.price
+        case 'name': return a.name.localeCompare(b.name)
+        case 'rating': 
+          const ratingA = a.reviews && a.reviews.length > 0 ? 
+            a.reviews.reduce((sum, review) => sum + review.rating, 0) / a.reviews.length : 0
+          const ratingB = b.reviews && b.reviews.length > 0 ? 
+            b.reviews.reduce((sum, review) => sum + review.rating, 0) / b.reviews.length : 0
+          return ratingB - ratingA
+        case 'newest': return new Date(b.created_at || '2024-01-01').getTime() - new Date(a.created_at || '2024-01-01').getTime()
+        default: return 0
       }
     })
 
@@ -290,54 +304,222 @@ export default function WinkelPage() {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Zoek producten
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Zoek op naam of beschrijving..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+        <div className="mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Zoek producten..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+                <svg
+                  className="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
             </div>
 
-            {/* Category Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Categorie
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            {/* Filter Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors"
               >
-                <option value="all">Alle categorieën</option>
-                <option value="alloygator-set">AlloyGator Sets</option>
-                <option value="montagehulpmiddelen">Montagehulpmiddelen</option>
-                <option value="accessoires">Accessoires</option>
-              </select>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>Filters</span>
+                <svg className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <div className="flex items-center space-x-4">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="name">Naam A-Z</option>
+                  <option value="price-low">Prijs: Laag naar Hoog</option>
+                  <option value="price-high">Prijs: Hoog naar Laag</option>
+                  <option value="rating">Hoogste Beoordeling</option>
+                  <option value="newest">Nieuwste Eerst</option>
+                </select>
+              </div>
             </div>
 
-            {/* Sort */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sorteren op
-              </label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="name">Naam A-Z</option>
-                <option value="price-low">Prijs: Laag naar Hoog</option>
-                <option value="price-high">Prijs: Hoog naar Laag</option>
-              </select>
-            </div>
+            {/* Advanced Filters */}
+            {showFilters && (
+              <div className="border-t pt-6 space-y-6">
+                {/* Categories */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Categorieën</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <button
+                      onClick={() => setSelectedCategory('all')}
+                      className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                        selectedCategory === 'all'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Alle
+                    </button>
+                    <button
+                      onClick={() => setSelectedCategory('alloygator-set')}
+                      className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                        selectedCategory === 'alloygator-set'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      AlloyGator Sets
+                    </button>
+                    <button
+                      onClick={() => setSelectedCategory('montagehulpmiddelen')}
+                      className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                        selectedCategory === 'montagehulpmiddelen'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Montagehulpmiddelen
+                    </button>
+                    <button
+                      onClick={() => setSelectedCategory('accessoires')}
+                      className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                        selectedCategory === 'accessoires'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Accessoires
+                    </button>
+                  </div>
+                </div>
+
+                {/* Price Range */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Prijsbereik</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-600 mb-1">Minimum</label>
+                        <input
+                          type="number"
+                          value={priceRange.min}
+                          onChange={(e) => setPriceRange(prev => ({ ...prev, min: Number(e.target.value) }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          min="0"
+                          max={priceRange.max}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-600 mb-1">Maximum</label>
+                        <input
+                          type="number"
+                          value={priceRange.max}
+                          onChange={(e) => setPriceRange(prev => ({ ...prev, max: Number(e.target.value) }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          min={priceRange.min}
+                          max="200"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      €{priceRange.min} - €{priceRange.max}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Availability */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Beschikbaarheid</h3>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        value="all"
+                        checked={availabilityFilter === 'all'}
+                        onChange={(e) => setAvailabilityFilter(e.target.value)}
+                        className="text-green-600"
+                      />
+                      <span className="text-sm">Alle producten</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        value="in-stock"
+                        checked={availabilityFilter === 'in-stock'}
+                        onChange={(e) => setAvailabilityFilter(e.target.value)}
+                        className="text-green-600"
+                      />
+                      <span className="text-sm">Op voorraad</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        value="out-of-stock"
+                        checked={availabilityFilter === 'out-of-stock'}
+                        onChange={(e) => setAvailabilityFilter(e.target.value)}
+                        className="text-green-600"
+                      />
+                      <span className="text-sm">Niet op voorraad</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Rating Filter */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Minimum beoordeling</h3>
+                  <div className="flex items-center space-x-2">
+                    {[0, 1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        onClick={() => setRatingFilter(rating)}
+                        className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                          ratingFilter === rating
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {rating === 0 ? 'Alle' : `${rating}+ sterren`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setSearchTerm('')
+                      setSelectedCategory('all')
+                      setPriceRange({ min: 0, max: 200 })
+                      setAvailabilityFilter('all')
+                      setRatingFilter(0)
+                    }}
+                    className="text-sm text-gray-600 hover:text-green-600 transition-colors"
+                  >
+                    Alle filters wissen
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

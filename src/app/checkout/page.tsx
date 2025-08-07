@@ -230,13 +230,35 @@ export default function CheckoutPage() {
       };
 
       // Save order to localStorage (for demo purposes)
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-      orders.push(order);
-      localStorage.setItem('orders', JSON.stringify(orders));
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      orders.push(order)
+      localStorage.setItem('orders', JSON.stringify(orders))
+
+      // Send order confirmation email
+      try {
+        const emailResponse = await fetch('/api/email/order-confirmation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order,
+            customer
+          })
+        })
+
+        if (emailResponse.ok) {
+          console.log('Order confirmation email sent successfully')
+        } else {
+          console.error('Failed to send order confirmation email')
+        }
+      } catch (emailError) {
+        console.error('Error sending email:', emailError)
+      }
 
       // Clear cart
-      localStorage.removeItem('alloygator-cart');
-      setCart([]);
+      localStorage.removeItem('alloygator-cart')
+      setCart([])
 
       // Redirect to order confirmation
       router.push(`/order-confirmation/${order.id}`);

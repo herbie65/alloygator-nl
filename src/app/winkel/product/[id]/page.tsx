@@ -25,15 +25,11 @@ interface ReviewsSectionProps {
 function ReviewsSection({ productId, productName }: ReviewsSectionProps) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [showReviewForm, setShowReviewForm] = useState(false)
-  const [newReview, setNewReview] = useState({
-    rating: 5,
-    comment: ''
-  })
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '' })
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [sortBy, setSortBy] = useState<'date' | 'rating'>('date')
 
   useEffect(() => {
-    // Load reviews from localStorage
     const savedReviews = JSON.parse(localStorage.getItem('product-reviews') || '[]')
     const productReviews = savedReviews.filter((review: Review) => review.product_id === productId)
     setReviews(productReviews)
@@ -77,11 +73,6 @@ function ReviewsSection({ productId, productName }: ReviewsSectionProps) {
     ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
     : 0
 
-  const ratingCounts = reviews.reduce((counts, review) => {
-    counts[review.rating] = (counts[review.rating] || 0) + 1
-    return counts
-  }, {} as Record<number, number>)
-
   return (
     <div>
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Klantenreviews</h3>
@@ -106,33 +97,6 @@ function ReviewsSection({ productId, productName }: ReviewsSectionProps) {
               ))}
             </div>
             <div className="text-sm text-gray-600 mt-1">{reviews.length} reviews</div>
-          </div>
-          
-          <div className="flex-1">
-            <div className="space-y-2">
-              {[5, 4, 3, 2, 1].map((rating) => {
-                const count = ratingCounts[rating] || 0
-                const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0
-                
-                return (
-                  <div key={rating} className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1 w-16">
-                      <span className="text-sm text-gray-600">{rating}</span>
-                      <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-yellow-400 h-2 rounded-full"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <span className="text-sm text-gray-600 w-8">{count}</span>
-                  </div>
-                )
-              })}
-            </div>
           </div>
         </div>
       </div>
@@ -202,37 +166,6 @@ function ReviewsSection({ productId, productName }: ReviewsSectionProps) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Review Filters */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-4">
-          <select
-            value={filterRating || ''}
-            onChange={(e) => setFilterRating(e.target.value ? Number(e.target.value) : null)}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="">Alle beoordelingen</option>
-            <option value="5">5 sterren</option>
-            <option value="4">4 sterren</option>
-            <option value="3">3 sterren</option>
-            <option value="2">2 sterren</option>
-            <option value="1">1 ster</option>
-          </select>
-          
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'date' | 'rating')}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="date">Nieuwste eerst</option>
-            <option value="rating">Hoogste beoordeling eerst</option>
-          </select>
-        </div>
-        
-        <div className="text-sm text-gray-600">
-          {filteredReviews.length} van {reviews.length} reviews
-        </div>
       </div>
 
       {/* Reviews List */}
@@ -310,6 +243,15 @@ interface Product {
     comment: string;
     created_at: string;
   }[];
+  variations?: {
+    id: string;
+    name: string;
+    color?: string;
+    size?: string;
+    price_adjustment: number;
+    stock_quantity: number;
+    sku: string;
+  }[];
 }
 
 interface CartItem {
@@ -319,9 +261,15 @@ interface CartItem {
   quantity: number
   image?: string
   vat_category?: string
+  variation?: {
+    id: string;
+    name: string;
+    color?: string;
+    size?: string;
+  } | null;
 }
 
-// Static product data (same as in winkel page)
+// Static product data
 const staticProducts: Product[] = [
   {
     id: '1',
@@ -365,6 +313,26 @@ const staticProducts: Product[] = [
         rating: 4,
         comment: 'Goed product, maar de montagehulpmiddelen zijn niet zo groot als verwacht.',
         created_at: '2024-01-02T11:00:00Z'
+      }
+    ],
+    variations: [
+      {
+        id: '1',
+        name: 'AlloyGator Complete Set 17"',
+        color: 'Zwart',
+        size: '17 inch',
+        price_adjustment: 0,
+        stock_quantity: 50,
+        sku: 'AG-17-SET-Zwart-17'
+      },
+      {
+        id: '2',
+        name: 'AlloyGator Complete Set 17"',
+        color: 'Zilver',
+        size: '17 inch',
+        price_adjustment: 10,
+        stock_quantity: 30,
+        sku: 'AG-17-SET-Zilver-17'
       }
     ]
   },
@@ -410,6 +378,26 @@ const staticProducts: Product[] = [
         rating: 5,
         comment: 'Perfecte kwaliteit en montagehulpmiddelen. Zeer tevreden!',
         created_at: '2024-01-04T13:00:00Z'
+      }
+    ],
+    variations: [
+      {
+        id: '3',
+        name: 'AlloyGator Complete Set 18"',
+        color: 'Zwart',
+        size: '18 inch',
+        price_adjustment: 0,
+        stock_quantity: 45,
+        sku: 'AG-18-SET-Zwart-18'
+      },
+      {
+        id: '4',
+        name: 'AlloyGator Complete Set 18"',
+        color: 'Zilver',
+        size: '18 inch',
+        price_adjustment: 15,
+        stock_quantity: 35,
+        sku: 'AG-18-SET-Zilver-18'
       }
     ]
   },
@@ -498,6 +486,7 @@ export default function ProductDetailPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [activeTab, setActiveTab] = useState('description')
   const [wishlist, setWishlist] = useState<string[]>([])
+  const [selectedVariation, setSelectedVariation] = useState<string | null>(null)
 
   useEffect(() => {
     // Load cart from localStorage
@@ -519,50 +508,63 @@ export default function ProductDetailPage() {
     if (foundProduct) {
       setProduct(foundProduct)
     } else {
-      // Product not found, redirect to winkel
       router.push('/winkel')
     }
     
     setLoading(false)
   }, [params.id, router])
 
+  const getFinalPrice = () => {
+    if (!product) return 0
+    const selectedVariationData = product.variations?.find(v => v.id === selectedVariation)
+    const finalPrice = selectedVariationData ? product.price + selectedVariationData.price_adjustment : product.price
+    return calculatePriceWithVat(finalPrice, 21)
+  }
+
   const addToCart = () => {
     if (!product) return
 
-    const existingItem = cart.find(item => item.id === product.id)
-    
-    if (existingItem) {
-      const updatedCart = cart.map(item =>
-        item.id === product.id
-          ? { ...item, quantity: item.quantity + quantity }
-          : item
-      )
+    const selectedVariationData = product.variations?.find(v => v.id === selectedVariation)
+    const finalPrice = selectedVariationData ? product.price + selectedVariationData.price_adjustment : product.price
+
+    const cartItem = {
+      id: product.id,
+      name: product.name,
+      price: finalPrice,
+      quantity: quantity,
+      image: product.image_url,
+      variation: selectedVariationData ? {
+        id: selectedVariationData.id,
+        name: selectedVariationData.name,
+        color: selectedVariationData.color,
+        size: selectedVariationData.size
+      } : null
+    }
+
+    const existingItemIndex = cart.findIndex(item => 
+      item.id === product.id && 
+      (!item.variation && !selectedVariationData || 
+       item.variation?.id === selectedVariationData?.id)
+    )
+
+    if (existingItemIndex > -1) {
+      const updatedCart = [...cart]
+      updatedCart[existingItemIndex].quantity += quantity
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
     } else {
-      const newItem: CartItem = {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: quantity,
-        image: product.image_url,
-        vat_category: product.vat_category
-      }
-      const updatedCart = [...cart, newItem]
+      const updatedCart = [...cart, cartItem]
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
     }
 
-    // Show success message
-    alert(`${quantity}x ${product.name} toegevoegd aan winkelwagen`)
+    alert(`${product.name} toegevoegd aan winkelwagen!`)
   }
 
   const toggleWishlist = () => {
     if (!product) return
-
     const updatedWishlist = [...wishlist]
     const index = updatedWishlist.indexOf(product.id)
-
     if (index > -1) {
       updatedWishlist.splice(index, 1)
       setWishlist(updatedWishlist)
@@ -575,7 +577,6 @@ export default function ProductDetailPage() {
       alert(`${product.name} toegevoegd aan wenslijst!`)
     }
   }
-
   const isInWishlist = wishlist.includes(product?.id || '')
 
   if (loading) {
@@ -593,12 +594,11 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-gray-400 text-6xl mb-4">❌</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Product niet gevonden</h3>
-          <p className="text-gray-600 mb-4">Het opgevraagde product bestaat niet.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Product niet gevonden</h1>
+          <p className="text-gray-600 mb-4">Het opgevraagde product kon niet worden gevonden.</p>
           <Link
             href="/winkel"
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+            className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors"
           >
             Terug naar winkel
           </Link>
@@ -606,9 +606,6 @@ export default function ProductDetailPage() {
       </div>
     )
   }
-
-  const priceWithVat = calculatePriceWithVat(product.price, 21)
-  const vatText = getVatDisplayText(21, 'NL')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -620,34 +617,25 @@ export default function ProductDetailPage() {
             <li>/</li>
             <li><Link href="/winkel" className="hover:text-green-600">Winkel</Link></li>
             <li>/</li>
+            <li><Link href={`/winkel/${product.category}`} className="hover:text-green-600">{getCategoryDisplayName(product.category)}</Link></li>
+            <li>/</li>
             <li className="text-gray-900">{product.name}</li>
           </ol>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Product Images */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="h-96 bg-gray-200 flex items-center justify-center">
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-gray-400 text-8xl">🛞</div>
-                )}
-              </div>
-            </div>
-            
-            {/* Additional images placeholder */}
-            <div className="grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <div className="text-gray-400 text-2xl">🛞</div>
-                </div>
-              ))}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="h-96 bg-gray-200 rounded-lg flex items-center justify-center">
+              {product.image_url ? (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : (
+                <div className="text-gray-400 text-6xl">🛞</div>
+              )}
             </div>
           </div>
 
@@ -655,82 +643,155 @@ export default function ProductDetailPage() {
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
-              <p className="text-lg text-gray-600">{product.description}</p>
+              <p className="text-gray-600 leading-relaxed">{product.description}</p>
             </div>
 
-            {/* Price */}
+            {/* Price and Stock Status */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <span className="text-3xl font-bold text-gray-900">
-                    €{priceWithVat.toFixed(2)}
-                  </span>
-                  <span className="text-sm text-gray-500 ml-2">{vatText}</span>
-                </div>
-                <div className="text-sm text-gray-500">
-                  SKU: {product.sku}
-                </div>
+              <div className="flex items-baseline space-x-2 mb-2">
+                <span className="text-3xl font-bold text-gray-900">
+                  €{getFinalPrice().toFixed(2)}
+                </span>
+                <span className="text-sm text-gray-500">{getVatDisplayText(21, 'NL')}</span>
               </div>
+              {product.stock_quantity > 0 ? (
+                <span className="text-green-600 text-sm font-medium">Op voorraad</span>
+              ) : (
+                <span className="text-red-600 text-sm font-medium">Niet op voorraad</span>
+              )}
+            </div>
 
-              {/* Stock Status */}
-              <div className="mb-6">
-                {product.stock_quantity > 0 ? (
-                  <span className="text-green-600 text-sm font-medium">
-                    ✓ Op voorraad ({product.stock_quantity})
-                  </span>
-                ) : (
-                  <span className="text-red-600 text-sm font-medium">
-                    ✗ Niet op voorraad
-                  </span>
-                )}
-              </div>
+            {/* Product Variations */}
+            {product.variations && product.variations.length > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Variaties</h3>
+                <div className="space-y-4">
+                  {/* Color Variations */}
+                  {product.variations.some(v => v.color) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Kleur</label>
+                      <div className="flex space-x-2">
+                        {product.variations
+                          .filter(v => v.color)
+                          .map((variation) => (
+                            <button
+                              key={variation.id}
+                              onClick={() => setSelectedVariation(variation.id)}
+                              className={`px-4 py-2 border rounded-md transition-colors ${
+                                selectedVariation === variation.id
+                                  ? 'border-green-500 bg-green-50 text-green-700'
+                                  : 'border-gray-300 hover:border-gray-400'
+                              }`}
+                            >
+                              {variation.color}
+                              {variation.price_adjustment > 0 && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                  (+€{variation.price_adjustment})
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
-              {/* Product Actions */}
-              <div className="flex space-x-4 mb-6">
+                  {/* Size Variations */}
+                  {product.variations.some(v => v.size) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Maat</label>
+                      <div className="flex space-x-2">
+                        {product.variations
+                          .filter(v => v.size)
+                          .map((variation) => (
+                            <button
+                              key={variation.id}
+                              onClick={() => setSelectedVariation(variation.id)}
+                              className={`px-4 py-2 border rounded-md transition-colors ${
+                                selectedVariation === variation.id
+                                  ? 'border-green-500 bg-green-50 text-green-700'
+                                  : 'border-gray-300 hover:border-gray-400'
+                              }`}
+                            >
+                              {variation.size}
+                              {variation.price_adjustment > 0 && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                  (+€{variation.price_adjustment})
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Quantity Selector */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Aantal</label>
+              <div className="flex items-center space-x-4">
                 <button
-                  onClick={addToCart}
-                  disabled={product.stock_quantity === 0}
-                  className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-10 h-10 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50"
                 >
-                  {product.stock_quantity > 0 ? 'Toevoegen aan winkelwagen' : 'Niet beschikbaar'}
+                  -
                 </button>
-                
+                <span className="text-lg font-medium text-gray-900 w-16 text-center">{quantity}</span>
                 <button
-                  onClick={toggleWishlist}
-                  className={`px-4 py-3 rounded-lg border transition-colors ${
-                    isInWishlist
-                      ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
-                      : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-10 h-10 border border-gray-300 rounded-md flex items-center justify-center hover:bg-gray-50"
                 >
-                  <svg
-                    className={`w-6 h-6 ${isInWishlist ? 'fill-current' : 'stroke-current fill-none'}`}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
+                  +
                 </button>
               </div>
+            </div>
+
+            {/* Product Actions */}
+            <div className="flex space-x-4">
+              <button
+                onClick={addToCart}
+                disabled={product.stock_quantity === 0}
+                className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {product.stock_quantity > 0 ? 'Toevoegen aan winkelwagen' : 'Niet beschikbaar'}
+              </button>
+              
+              <button
+                onClick={toggleWishlist}
+                className={`px-4 py-3 rounded-lg border transition-colors ${
+                  isInWishlist
+                    ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                    : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg
+                  className={`w-6 h-6 ${isInWishlist ? 'fill-current' : 'stroke-current fill-none'}`}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              </button>
             </div>
 
             {/* Features */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Features</h3>
-              <div className="flex flex-wrap gap-2">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Kenmerken</h3>
+              <ul className="space-y-2">
                 {product.features.map((feature, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full"
-                  >
+                  <li key={index} className="flex items-center text-gray-600">
+                    <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
                     {feature}
-                  </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </div>
         </div>
@@ -779,7 +840,7 @@ export default function ProductDetailPage() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Garantie
+                  Garantie & Instructies
                 </button>
               </nav>
             </div>
@@ -882,4 +943,13 @@ export default function ProductDetailPage() {
       </div>
     </div>
   )
+}
+
+function getCategoryDisplayName(category: string): string {
+  switch (category) {
+    case 'alloygator-set': return 'AlloyGator Sets'
+    case 'montagehulpmiddelen': return 'Montagehulpmiddelen'
+    case 'accessoires': return 'Accessoires'
+    default: return category
+  }
 } 
