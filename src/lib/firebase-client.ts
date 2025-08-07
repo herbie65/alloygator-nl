@@ -180,19 +180,7 @@ export class FirebaseClientService {
   }
 
   // Get company info
-  static async getCompanyInfo() {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'company_info'));
-      const companyInfo = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      return companyInfo[0] || null;
-    } catch (error) {
-      console.error('Error fetching company info:', error);
-      return null;
-    }
-  }
+getCompanyInfo
 
   // Get shipping settings
   static async getShippingSettings() {

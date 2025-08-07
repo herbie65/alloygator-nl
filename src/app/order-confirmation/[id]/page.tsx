@@ -22,10 +22,8 @@ interface Order {
 
 // Add generateStaticParams for static export compatibility
 export async function generateStaticParams() {
-  // Return a dummy order ID for static export
-  return [
-    { id: 'dummy-order' }
-  ]
+  // Return empty array for now - this will be handled dynamically
+  return []
 }
 
 export default async function OrderConfirmationPage({ params }: { params: Promise<{ id: string }> }) {

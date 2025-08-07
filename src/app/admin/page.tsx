@@ -82,185 +82,107 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 h-screen bg-gray-100 border-r flex flex-col p-4">
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
-        </div>
-        <nav className="flex-1">
-          <ul className="space-y-2">
-            <li>
-              <a href="/admin" className="block w-full text-left py-2 px-4 rounded font-medium bg-green-200 text-green-900">
-                Dashboard
-              </a>
-            </li>
-            <li>
-              <a href="/admin/analytics" className="block w-full text-left py-2 px-4 rounded font-medium hover:bg-gray-200">
-                Analytics
-              </a>
-            </li>
-            <li>
-              <div className="font-medium py-2 px-4">Klanten</div>
-              <ul className="ml-4 space-y-1">
-                <li>
-                  <a href="/admin/customers" className="block w-full text-left py-1 px-4 rounded hover:bg-gray-200">
-                    Klanten
-                  </a>
-                </li>
-                <li>
-                  <a href="/admin/crm" className="block w-full text-left py-1 px-4 rounded hover:bg-gray-200">
-                    CRM
-                  </a>
-                </li>
-              </ul>
-            </li>
-            <li>
-              <div className="font-medium py-2 px-4">Catalogus</div>
-              <ul className="ml-4 space-y-1">
-                <li>
-                  <a href="/admin/products" className="block w-full text-left py-1 px-4 rounded hover:bg-gray-200">
-                    Producten
-                  </a>
-                </li>
-                <li>
-                  <a href="/admin/categories" className="block w-full text-left py-1 px-4 rounded hover:bg-gray-200">
-                    Categorieën
-                  </a>
-                </li>
-              </ul>
-            </li>
-            <li>
-              <div className="font-medium py-2 px-4">Instellingen</div>
-              <ul className="ml-4 space-y-1">
-                <li>
-                  <a href="/admin/settings" className="block w-full text-left py-1 px-4 rounded hover:bg-gray-200">
-                    Algemene Instellingen
-                  </a>
-                </li>
-                <li>
-                  <a href="/admin/dhl-settings" className="block w-full text-left py-1 px-4 rounded hover:bg-gray-200">
-                    DHL Instellingen
-                  </a>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </nav>
-        <div className="mt-auto">
-          <a href="/" className="block w-full text-left py-2 px-4 rounded font-medium hover:bg-gray-200">
-            Terug naar Website
-          </a>
-        </div>
-      </aside>
-      
+    <div className="min-h-screen bg-gray-50 p-6">
+      {/* Header */}
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+        >
+          Uitloggen
+        </button>
+      </div>
+
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <main className="p-6">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
-              >
-                Uitloggen
-              </button>
+      <div className="space-y-6">
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Link href="/admin/analytics" className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Analytics Dashboard</h3>
+                  <p className="text-gray-600">Verkoop statistieken en inzichten</p>
+                </div>
+              </div>
+            </Link>
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <h3 className="text-lg font-semibold text-blue-900">Bestellingen</h3>
+              <p className="text-3xl font-bold text-blue-600">0</p>
+              <p className="text-sm text-blue-700">Totaal bestellingen</p>
             </div>
-
-            {/* Main Content */}
-            <div className="space-y-6">
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <Link href="/admin/analytics" className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Analytics Dashboard</h3>
-                        <p className="text-gray-600">Verkoop statistieken en inzichten</p>
-                      </div>
-                    </div>
-                  </Link>
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-900">Bestellingen</h3>
-                    <p className="text-3xl font-bold text-blue-600">0</p>
-                    <p className="text-sm text-blue-700">Totaal bestellingen</p>
-                  </div>
-                  <div className="bg-green-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-green-900">Klanten</h3>
-                    <p className="text-3xl font-bold text-green-600">0</p>
-                    <p className="text-sm text-green-700">Totaal klanten</p>
-                  </div>
-                  <div className="bg-purple-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-purple-900">Producten</h3>
-                    <p className="text-3xl font-bold text-purple-600">4</p>
-                    <p className="text-sm text-purple-700">Totaal producten</p>
-                  </div>
-                  <div className="bg-orange-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-orange-900">Klantgroepen</h3>
-                    <p className="text-3xl font-bold text-orange-600">0</p>
-                    <p className="text-sm text-orange-700">Totaal groepen</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Systeem Status</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                    <div>
-                      <h3 className="font-semibold text-green-900">Website</h3>
-                      <p className="text-sm text-green-700">Online en functioneel</p>
-                    </div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                    <div>
-                      <h3 className="font-semibold text-green-900">Registratie</h3>
-                      <p className="text-sm text-green-700">Client-side authentication actief</p>
-                    </div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
-                    <div>
-                      <h3 className="font-semibold text-yellow-900">Database</h3>
-                      <p className="text-sm text-yellow-700">Statische data - Firebase uitgeschakeld</p>
-                    </div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Snelle Acties</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Link href="/" className="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors text-left">
-                    <h3 className="font-semibold text-blue-900">Bekijk Website</h3>
-                    <p className="text-sm text-blue-700">Ga naar de hoofdpagina</p>
-                  </Link>
-                  <Link href="/winkel" className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left">
-                    <h3 className="font-semibold text-green-900">Bekijk Winkel</h3>
-                    <p className="text-sm text-green-700">Bekijk de producten</p>
-                  </Link>
-                  <Link href="/admin/analytics" className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left">
-                    <h3 className="font-semibold text-purple-900">Analytics</h3>
-                    <p className="text-sm text-purple-700">Bekijk statistieken</p>
-                  </Link>
-                  <Link href="/admin/settings" className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left">
-                    <h3 className="font-semibold text-orange-900">Instellingen</h3>
-                    <p className="text-sm text-orange-700">Beheer instellingen</p>
-                  </Link>
-                </div>
-              </div>
+            <div className="bg-green-50 p-6 rounded-lg">
+              <h3 className="text-lg font-semibold text-green-900">Klanten</h3>
+              <p className="text-3xl font-bold text-green-600">0</p>
+              <p className="text-sm text-green-700">Totaal klanten</p>
+            </div>
+            <div className="bg-purple-50 p-6 rounded-lg">
+              <h3 className="text-lg font-semibold text-purple-900">Producten</h3>
+              <p className="text-3xl font-bold text-purple-600">4</p>
+              <p className="text-sm text-purple-700">Totaal producten</p>
+            </div>
+            <div className="bg-orange-50 p-6 rounded-lg">
+              <h3 className="text-lg font-semibold text-orange-900">Klantgroepen</h3>
+              <p className="text-3xl font-bold text-orange-600">0</p>
+              <p className="text-sm text-orange-700">Totaal groepen</p>
             </div>
           </div>
-        </main>
+        </div>
+        
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Systeem Status</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+              <div>
+                <h3 className="font-semibold text-green-900">Website</h3>
+                <p className="text-sm text-green-700">Online en functioneel</p>
+              </div>
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+              <div>
+                <h3 className="font-semibold text-green-900">Registratie</h3>
+                <p className="text-sm text-green-700">Client-side authentication actief</p>
+              </div>
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+              <div>
+                <h3 className="font-semibold text-yellow-900">Database</h3>
+                <p className="text-sm text-yellow-700">Statische data - Firebase uitgeschakeld</p>
+              </div>
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Snelle Acties</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button className="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors text-left">
+              <h3 className="font-semibold text-blue-900">Bekijk Website</h3>
+              <p className="text-sm text-blue-700">Ga naar de hoofdpagina</p>
+            </button>
+            <button className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left">
+              <h3 className="font-semibold text-green-900">Test Registratie</h3>
+              <p className="text-sm text-green-700">Test de klantregistratie</p>
+            </button>
+            <button className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left">
+              <h3 className="font-semibold text-purple-900">Bekijk Winkel</h3>
+              <p className="text-sm text-purple-700">Bekijk de producten</p>
+            </button>
+            <button className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left">
+              <h3 className="font-semibold text-orange-900">Systeem Info</h3>
+              <p className="text-sm text-orange-700">Technische details</p>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

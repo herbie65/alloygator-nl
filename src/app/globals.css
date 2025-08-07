@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #ffffff;
@@ -19,6 +17,13 @@
   /* AlloyGator fonts */
   --font-akzidenz: 'Akzidenz-Grotesk BQ', Arial, Calibri, sans-serif;
   --font-bebas: 'Bebas Neue', 'Arial Black', Impact, sans-serif;
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-akzidenz);
+  --font-mono: 'Courier New', monospace;
 }
 
 @media (prefers-color-scheme: dark) {

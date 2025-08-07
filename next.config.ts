@@ -1,5 +1,6 @@
 const nextConfig = {
-  // Remove static export for server-side functionality
+  output: 'export',
+  trailingSlash: true,
   images: {
     unoptimized: true,
   },

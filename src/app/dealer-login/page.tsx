@@ -21,16 +21,16 @@ export default function DealerLogin() {
         return;
       }
       
-      const dealer = dealers[0] as any;
-      if (!dealer.password || dealer.password !== password) {
+      const dealer = dealers[0];
+      if (dealer.password !== password) {
         setError("Onjuist wachtwoord");
         return;
       }
       
-      window.localStorage.setItem("dealerEmail", dealer.email || email);
-      window.localStorage.setItem("dealerName", dealer.name || "Dealer");
-      window.localStorage.setItem("dealerGroup", dealer.group || "default");
-      window.localStorage.setItem("dealerDiscount", (dealer.discount || 0).toString());
+      window.localStorage.setItem("dealerEmail", dealer.email);
+      window.localStorage.setItem("dealerName", dealer.name);
+      window.localStorage.setItem("dealerGroup", dealer.group);
+      window.localStorage.setItem("dealerDiscount", dealer.discount.toString());
       router.push("/winkel");
     } catch (error) {
       console.error("Login error:", error);
