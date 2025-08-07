@@ -35,10 +35,21 @@ jobs:
       - name: Build project
         run: npm run build
       
-      - name: Deploy to Firebase
+      - name: List build output
+        run: ls -la .next/
+      
+      - name: Deploy to Firebase (if secrets available)
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ALLOYGATOR_NL != '' }}
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ALLOYGATOR_NL }}
           channelId: live
           projectId: alloygator-nl
+      
+      - name: Skip deployment (no secrets)
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ALLOYGATOR_NL == '' }}
+        run: |
+          echo "⚠️ Firebase service account secret not found"
+          echo "Build completed successfully, but deployment skipped"
+          echo "Please add FIREBASE_SERVICE_ACCOUNT_ALLOYGATOR_NL secret to repository"
