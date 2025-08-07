@@ -1,99 +1,94 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const router = useRouter()
   const pathname = usePathname()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Check if user is logged in on component mount
   useEffect(() => {
-    const savedLoginStatus = localStorage.getItem('adminLoggedIn')
-    if (savedLoginStatus === 'true') {
-      setIsLoggedIn(true)
+    // Check if user is logged in
+    const adminSession = localStorage.getItem('adminSession')
+    if (adminSession) {
+      const sessionData = JSON.parse(adminSession)
+      if (sessionData.isLoggedIn && sessionData.username === 'admin') {
+        setIsLoggedIn(true)
+      } else {
+        router.push('/admin/login')
+      }
+    } else {
+      router.push('/admin/login')
     }
-  }, [])
+    setIsLoading(false)
+  }, [router])
 
   const handleLogout = () => {
-    setIsLoggedIn(false)
-    localStorage.removeItem('adminLoggedIn')
+    localStorage.removeItem('adminSession')
+    router.push('/admin/login')
   }
 
-  if (!isLoggedIn) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold text-center mb-6">Admin Login</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Gebruikersnaam</label>
-              <input
-                type="text"
-                defaultValue="admin"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="admin"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
-              <input
-                type="password"
-                defaultValue="admin123"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="admin123"
-              />
-            </div>
-            <button
-              onClick={() => {
-                localStorage.setItem('adminLoggedIn', 'true')
-                setIsLoggedIn(true)
-              }}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
-            >
-              Inloggen
-            </button>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Admin panel laden...</p>
         </div>
       </div>
     )
   }
 
-  const menuItems = [
+  if (!isLoggedIn) {
+    return null
+  }
+
+  const navigation = [
     { name: 'Dashboard', href: '/admin', icon: '📊' },
     { name: 'Analytics', href: '/admin/analytics', icon: '📈' },
     { name: 'Producten', href: '/admin/products', icon: '📦' },
     { name: 'Klanten', href: '/admin/customers', icon: '👥' },
     { name: 'Bestellingen', href: '/admin/orders', icon: '🛒' },
+    { name: 'CRM', href: '/admin/crm', icon: '🤝' },
+    { name: 'CMS', href: '/admin/cms', icon: '📝' },
     { name: 'Instellingen', href: '/admin/settings', icon: '⚙️' },
   ]
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">AlloyGator Admin</h1>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
-          >
-            Uitloggen
-          </button>
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">AlloyGator Admin</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">Welkom, Admin</span>
+              <button
+                onClick={handleLogout}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm"
+              >
+                Uitloggen
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-sm min-h-screen">
-          <nav className="mt-6">
+        <aside className="w-64 bg-white shadow-sm">
+          <nav className="mt-8">
             <div className="px-4 space-y-2">
-              {menuItems.map((item) => {
+              {navigation.map((item) => {
                 const isActive = pathname === item.href
                 return (
                   <Link
@@ -101,11 +96,11 @@ export default function AdminLayout({
                     href={item.href}
                     className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                       isActive
-                        ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                        ? 'bg-green-100 text-green-700 border-r-2 border-green-600'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <span className="mr-3">{item.icon}</span>
+                    <span className="mr-3 text-lg">{item.icon}</span>
                     {item.name}
                   </Link>
                 )
@@ -115,7 +110,7 @@ export default function AdminLayout({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-8">
           {children}
         </main>
       </div>
