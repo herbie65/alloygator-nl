@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase Hosting and Functions
 on:
   push:
     branches: [ main ]
@@ -9,42 +9,37 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
+      
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '18'
         cache: 'npm'
-
+        
     - name: Install dependencies
       run: npm ci --legacy-peer-deps
-
+      
+    - name: Install Functions dependencies
+      run: cd functions && npm ci
+      
     - name: Create environment file
       run: |
         echo "NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBfTecdVHIYbwyI822bcKAhLWs0bNNT1yM" > .env.local
         echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=alloygator-nl.firebaseapp.com" >> .env.local
         echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=alloygator-nl" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=alloygator-nl.firebasestorage.app" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=501404252412" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_APP_ID=1:501404252412:web:0dd2bd394f9a13117a3f79" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-QY0QVXYJ5H" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=alloygator-nl.appspot.com" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456" >> .env.local
         echo "NODE_ENV=production" >> .env.local
-
-    - name: Build project
-      run: npm run build
-
-    - name: Test build output
-      run: |
-        echo "✅ Build completed successfully!"
-        echo "📁 Build output contents:"
-        ls -la .next/
-        echo "📄 Package.json scripts:"
-        cat package.json | grep -A 10 '"scripts"'
-
-    - name: Deploy to Firebase
+        
+    - name: Build project (server-side)
+      run: npm run build:server
+      
+    - name: Deploy to Firebase Hosting and Functions
       uses: FirebaseExtended/action-hosting-deploy@v0
       with:
         repoToken: '${{ secrets.GITHUB_TOKEN }}'
         firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
         channelId: live
         projectId: alloygator-nl
+        entryPoint: '.'

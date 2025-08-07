@@ -1,5 +1,5 @@
 const nextConfig = {
-  output: 'export',
+  // Remove static export for server-side functionality
   images: {
     unoptimized: true,
   },
