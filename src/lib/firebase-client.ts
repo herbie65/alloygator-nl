@@ -183,11 +183,11 @@ export class FirebaseClientService {
   static async getCompanyInfo() {
     try {
       const querySnapshot = await getDocs(collection(db, 'company_info'));
-      const info = querySnapshot.docs.map(doc => ({
+      const companyInfo = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      return info[0] || null;
+      return companyInfo[0] || null;
     } catch (error) {
       console.error('Error fetching company info:', error);
       return null;

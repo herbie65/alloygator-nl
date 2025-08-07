@@ -24,16 +24,39 @@ export default function ContactPage() {
   useEffect(() => {
     const loadCompanyInfo = async () => {
       try {
-        const data = await FirebaseClientService.getCompanyInfo();
-        setCompanyInfo(data);
+        const data = await FirebaseClientService.getCompanyInfo()
+        if (data && typeof data === 'object' && 'name' in data) {
+          // Verify that data has the required properties
+          const companyData = data as any
+          if (companyData.name && companyData.address) {
+            setCompanyInfo(companyData as CompanyInfo)
+          } else {
+            throw new Error('Invalid company data structure')
+          }
+        } else {
+          throw new Error('No company data found')
+        }
       } catch (err) {
-        console.error('Error fetching company info:', err);
+        console.error('Error fetching company info:', err)
+        // Fallback company info
+        setCompanyInfo({
+          name: 'AlloyGator Nederland',
+          address: 'Kweekgrasstraat 36',
+          city: 'Almere',
+          postal_code: '1313 BX',
+          country: 'Nederland',
+          phone: '085-3033400',
+          email: 'info@alloygator.nl',
+          kvk_number: '12345678',
+          btw_number: 'NL123456789B01',
+          iban: 'NL91ABNA0417164300'
+        })
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    
-    loadCompanyInfo();
+    }
+
+    loadCompanyInfo()
   }, [])
 
   if (loading) {
