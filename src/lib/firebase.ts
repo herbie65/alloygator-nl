@@ -173,26 +173,101 @@ export class FirebaseService {
     return this.getDocuments('vat_settings');
   }
 
-  static async updateVatSettings(id: string, vatData: any) {
+  static async createVatSetting(vatData: any) {
+    return this.addDocument('vat_settings', vatData);
+  }
+
+  static async updateVatSetting(id: string, vatData: any) {
     return this.updateDocument('vat_settings', id, vatData);
   }
 
-  // Specific operations for shipping settings
-  static async getShippingSettings() {
-    return this.getDocuments('shipping_settings');
+  static async deleteVatSetting(id: string) {
+    return this.deleteDocument('vat_settings', id);
   }
 
-  static async updateShippingSettings(id: string, shippingData: any) {
-    return this.updateDocument('shipping_settings', id, shippingData);
+  // Specific operations for shipping methods
+  static async getShippingMethods() {
+    return this.getDocuments('shipping_methods');
   }
 
-  // Specific operations for payment settings
-  static async getPaymentSettings() {
-    return this.getDocuments('payment_settings');
+  static async createShippingMethod(shippingData: any) {
+    return this.addDocument('shipping_methods', shippingData);
   }
 
-  static async updatePaymentSettings(id: string, paymentData: any) {
-    return this.updateDocument('payment_settings', id, paymentData);
+  static async updateShippingMethod(id: string, shippingData: any) {
+    return this.updateDocument('shipping_methods', id, shippingData);
+  }
+
+  static async deleteShippingMethod(id: string) {
+    return this.deleteDocument('shipping_methods', id);
+  }
+
+  // Specific operations for payment methods
+  static async getPaymentMethods() {
+    return this.getDocuments('payment_methods');
+  }
+
+  static async createPaymentMethod(paymentData: any) {
+    return this.addDocument('payment_methods', paymentData);
+  }
+
+  static async updatePaymentMethod(id: string, paymentData: any) {
+    return this.updateDocument('payment_methods', id, paymentData);
+  }
+
+  static async deletePaymentMethod(id: string) {
+    return this.deleteDocument('payment_methods', id);
+  }
+
+  // Specific operations for customer groups
+  static async getCustomerGroups() {
+    return this.getDocuments('customer_groups');
+  }
+
+  static async createCustomerGroup(groupData: any) {
+    return this.addDocument('customer_groups', groupData);
+  }
+
+  static async updateCustomerGroup(id: string, groupData: any) {
+    return this.updateDocument('customer_groups', id, groupData);
+  }
+
+  static async deleteCustomerGroup(id: string) {
+    return this.deleteDocument('customer_groups', id);
+  }
+
+  // Specific operations for CMS pages
+  static async getCMSPages() {
+    return this.getDocuments('cms_pages');
+  }
+
+  static async createCMSPage(pageData: any) {
+    return this.addDocument('cms_pages', pageData);
+  }
+
+  static async updateCMSPage(id: string, pageData: any) {
+    return this.updateDocument('cms_pages', id, pageData);
+  }
+
+  static async deleteCMSPage(id: string) {
+    return this.deleteDocument('cms_pages', id);
+  }
+
+  // Specific operations for dealers
+  static async getDealers() {
+    return this.getDocuments('dealers');
+  }
+
+  static async createDealer(dealerData: any) {
+    return this.addDocument('dealers', dealerData);
+  }
+
+  static async updateDealer(id: string, dealerData: any) {
+    return this.updateDocument('dealers', id, dealerData);
+  }
+
+  static async deleteDealer(id: string) {
+    return this.deleteDocument('dealers', id);
   }
 
   // Specific operations for header settings
@@ -211,6 +286,24 @@ export class FirebaseService {
 
   static async updateDhlSettings(id: string, dhlData: any) {
     return this.updateDocument('dhl_settings', id, dhlData);
+  }
+
+  // Specific operations for shipping settings
+  static async getShippingSettings() {
+    return this.getDocuments('shipping_settings');
+  }
+
+  static async updateShippingSettings(id: string, shippingData: any) {
+    return this.updateDocument('shipping_settings', id, shippingData);
+  }
+
+  // Specific operations for payment settings
+  static async getPaymentSettings() {
+    return this.getDocuments('payment_settings');
+  }
+
+  static async updatePaymentSettings(id: string, paymentData: any) {
+    return this.updateDocument('payment_settings', id, paymentData);
   }
 }
 
