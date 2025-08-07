@@ -16,7 +16,7 @@
     "@fontsource/bebas-neue": "^5.2.6",
     "@mantine/core": "^5.10.5",
     "@mantine/hooks": "^5.10.5",
-    "@mantine/rte": "^5.10.5",
+    "@mantine/rte": "^3.4.3",
     "@mollie/api-client": "^4.3.3",
     "@tabler/icons-react": "^3.34.1",
     "@types/bcryptjs": "^2.4.6",
@@ -41,9 +41,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.4.2",
-    "firebase-tools": "^13.4.0",
+    "firebase-tools": "^14.2.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
