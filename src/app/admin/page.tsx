@@ -82,9 +82,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-6 flex justify-between items-center">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <button
           onClick={handleLogout}
@@ -165,22 +165,22 @@ export default function AdminDashboard() {
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Snelle Acties</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button className="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors text-left">
+            <Link href="/" className="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors text-left">
               <h3 className="font-semibold text-blue-900">Bekijk Website</h3>
               <p className="text-sm text-blue-700">Ga naar de hoofdpagina</p>
-            </button>
-            <button className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left">
-              <h3 className="font-semibold text-green-900">Test Registratie</h3>
-              <p className="text-sm text-green-700">Test de klantregistratie</p>
-            </button>
-            <button className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left">
-              <h3 className="font-semibold text-purple-900">Bekijk Winkel</h3>
-              <p className="text-sm text-purple-700">Bekijk de producten</p>
-            </button>
-            <button className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left">
-              <h3 className="font-semibold text-orange-900">Systeem Info</h3>
-              <p className="text-sm text-orange-700">Technische details</p>
-            </button>
+            </Link>
+            <Link href="/winkel" className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left">
+              <h3 className="font-semibold text-green-900">Bekijk Winkel</h3>
+              <p className="text-sm text-green-700">Bekijk de producten</p>
+            </Link>
+            <Link href="/admin/analytics" className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left">
+              <h3 className="font-semibold text-purple-900">Analytics</h3>
+              <p className="text-sm text-purple-700">Bekijk statistieken</p>
+            </Link>
+            <Link href="/admin/settings" className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left">
+              <h3 className="font-semibold text-orange-900">Instellingen</h3>
+              <p className="text-sm text-orange-700">Beheer instellingen</p>
+            </Link>
           </div>
         </div>
       </div>

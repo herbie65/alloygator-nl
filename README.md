@@ -1,116 +1,34 @@
-# AlloyGator Nederland 🚗
+# AlloyGator Nederland - E-commerce Platform
 
-**Professionele velgbescherming tegen stoeprandschade**
+Een moderne Next.js e-commerce website voor AlloyGator Nederland met hybride deployment (statisch + server-side).
 
-[![Live Site](https://img.shields.io/badge/Live%20Site-alloygator-nl.web.app-green)](https://alloygator-nl.web.app/)
-[![Firebase](https://img.shields.io/badge/Firebase-Hosting%20%7C%20Database-blue)](https://firebase.google.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
+## 🚀 Features
 
-## 🌟 Over AlloyGator
+### ✅ Werkende Functionaliteiten
+- **Product Catalogus** - Volledige producten database
+- **Winkelwagen** - Add to cart functionaliteit
+- **Checkout Proces** - Bestellingen plaatsen
+- **Dealer Login** - Specifieke dealer functionaliteiten
+- **Admin Panel** - Beheer van producten, orders, klanten
+- **Contact Pagina** - Bedrijfsinformatie
+- **SEO Optimized** - Sitemap en robots.txt
 
-AlloyGator is de meest effectieve manier om uw velgen te beschermen tegen stoeprandschade. Onze kunststof velgbescherming is duurzaam, eenvoudig te monteren en vrijwel onzichtbaar.
+### 🔧 API Functionaliteiten
+- **User Authentication** - Login/Register systeem
+- **Order Management** - Bestellingen aanmaken en ophalen
+- **Email Notifications** - SendGrid integratie voor order bevestigingen
+- **Firebase Integration** - Realtime database
 
-### ✨ Kenmerken
+## 🏗️ Deployment Strategie
 
-- **Eenvoudige montage** - Monteer in slechts 30 minuten zonder speciale gereedschappen
-- **Onzichtbare bescherming** - Behoudt de originele uitstraling van uw velgen
-- **Duurzaam materiaal** - Hoogwaardige kunststof bestand tegen extreme weersomstandigheden
-- **Gegarandeerde bescherming** - Beschermt tegen schade tot 5cm van de stoeprand
+### Hybride Deployment
+- **Statische Export** - Voor snelle pagina's (producten, info)
+- **Server-side API** - Voor dynamische functionaliteiten (login, orders, email)
+- **Firebase Hosting** - Voor statische content
+- **Firebase Functions** - Voor server-side API's
 
-## 🚀 Live Website
+## 📦 Installatie
 
-**🌐 [https://alloygator-nl.web.app/](https://alloygator-nl.web.app/)**
-
-## 🛠️ Technische Stack
-
-### Frontend
-- **Next.js 14** - React framework met App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first CSS framework
-- **React** - UI library
-
-### Backend & Database
-- **Firebase Hosting** - Web hosting
-- **Firebase Firestore** - NoSQL database
-- **Firebase Functions** - Serverless functions
-
-### Integraties
-- **DHL Parcel API** - Shipping integration
-- **Google Maps API** - Dealer locator
-- **Payment processing** - Checkout system
-
-## 📁 Project Structuur
-
-```
-alloygator-nl/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── admin/             # Admin panel
-│   │   ├── api/               # API routes
-│   │   ├── winkel/            # Shop pages
-│   │   ├── checkout/          # Checkout process
-│   │   └── components/        # Shared components
-│   ├── lib/                   # Utilities & Firebase
-│   └── styles/                # Global styles
-├── public/                    # Static assets
-├── functions/                 # Firebase Functions
-└── docs/                      # Documentation
-```
-
-## 🎯 Functionaliteiten
-
-### 🛍️ E-commerce
-- **Product catalogus** - AlloyGator sets, montagehulpmiddelen, accessoires
-- **Winkelwagen** - Shopping cart functionality
-- **Checkout proces** - Complete order flow
-- **Betalingen** - Secure payment processing
-
-### 🏢 Admin Panel
-- **Klantbeheer** - Customer CRM
-- **Bestellingen** - Order management
-- **Productbeheer** - Product administration
-- **DHL Instellingen** - Shipping configuration
-- **Database viewer** - Data management
-
-### 🚚 Shipping & Logistics
-- **DHL Parcel integratie** - Automated shipping
-- **Dealer locator** - Find nearby dealers
-- **Shipping calculator** - Cost calculation
-
-### 📊 Data Management
-- **Firebase Firestore** - Real-time database
-- **Customer groups** - Segmentation
-- **VAT settings** - Tax configuration
-- **Payment settings** - Payment methods
-
-## 🚀 Deployment
-
-### Firebase Hosting
-```bash
-# Install Firebase CLI
-npm install -g firebase-tools
-
-# Login to Firebase
-firebase login
-
-# Deploy to Firebase
-firebase deploy
-```
-
-### Environment Variables
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-```
-
-## 🛠️ Development
-
-### Installatie
 ```bash
 # Clone repository
 git clone https://github.com/herbie65/alloygator-nl.git
@@ -119,68 +37,212 @@ cd alloygator-nl
 # Install dependencies
 npm install
 
-# Start development server
+# Setup environment variables
+cp .env.example .env.local
+# Edit .env.local with your Firebase and SendGrid credentials
+
+# Run development server
 npm run dev
 ```
 
-### Scripts
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
+## 🔧 Environment Variables
+
+Maak een `.env.local` bestand aan:
+
+```env
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# SendGrid Email Service
+SENDGRID_API_KEY=your_sendgrid_api_key
+
+# Node Environment
+NODE_ENV=production
 ```
 
-## 📊 Database Schema
+## 🚀 Deployment
 
-### Collections
-- **customers** - Klantgegevens
-- **products** - Productcatalogus
-- **orders** - Bestellingen
-- **dealers** - Dealer informatie
-- **settings** - App instellingen
-- **dhl_settings** - Shipping configuratie
+### 1. Firebase Setup
+```bash
+# Install Firebase CLI
+npm install -g firebase-tools
 
-## 🔧 API Endpoints
+# Login to Firebase
+firebase login
 
-### Customers
-- `GET /api/customers` - Get all customers
-- `GET /api/customers/[id]` - Get customer by ID
-- `POST /api/customers` - Create customer
-- `PUT /api/customers/[id]` - Update customer
+# Initialize Firebase project
+firebase init hosting
+firebase init functions
 
-### Products
-- `GET /api/products` - Get all products
-- `GET /api/products/[id]` - Get product by ID
+# Deploy to Firebase
+firebase deploy
+```
 
-### Orders
-- `GET /api/orders` - Get all orders
-- `POST /api/orders` - Create order
+### 2. GitHub Actions (Automatisch)
+De deployment gebeurt automatisch via GitHub Actions wanneer je naar de `main` branch pusht.
 
-### Settings
-- `GET /api/dhl-settings` - Get DHL settings
-- `PUT /api/dhl-settings` - Update DHL settings
+### 3. SendGrid Setup
+1. Maak een SendGrid account aan
+2. Verificeer je sender domain (info@alloygator.nl)
+3. Genereer een API key
+4. Voeg de API key toe aan je environment variables
 
-## 🤝 Bijdragen
+## 📁 Project Structuur
 
-1. Fork het project
-2. Maak een feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit je wijzigingen (`git commit -m 'Add some AmazingFeature'`)
-4. Push naar de branch (`git push origin feature/AmazingFeature`)
-5. Open een Pull Request
+```
+alloygator-nl/
+├── src/
+│   ├── app/
+│   │   ├── api/                    # API Routes
+│   │   │   ├── auth/              # Authentication
+│   │   │   ├── orders/            # Order management
+│   │   │   └── email/             # Email notifications
+│   │   ├── admin/                 # Admin panel
+│   │   ├── winkel/                # Product catalog
+│   │   └── checkout/              # Checkout process
+│   └── lib/
+│       ├── firebase.ts            # Firebase configuration
+│       └── firebase-client.ts     # Client-side Firebase
+├── functions/                     # Firebase Functions
+├── public/                       # Static assets
+└── .github/workflows/            # CI/CD pipelines
+```
 
-## 📞 Contact
+## 🔧 Development Scripts
 
-**AlloyGator Nederland**
-- 📍 Kweekgrasstraat 36, 1313 BX Almere
-- 📞 085-3033400
-- 📧 info@alloygator.nl
-- 🌐 [https://alloygator-nl.web.app/](https://alloygator-nl.web.app/)
+```bash
+# Development
+npm run dev              # Start development server
 
-## 📄 Licentie
+# Building
+npm run build           # Build for production
+npm run build:static    # Build for static export
+npm run build:server    # Build for server-side
 
-© 2025 AlloyGator Netherlands. All rights reserved.
+# Deployment
+npm run start           # Start production server
+firebase deploy         # Deploy to Firebase
+```
+
+## 📧 Email Functionaliteit
+
+### SendGrid Integratie
+- **Order Confirmations** - Automatische emails bij bestellingen
+- **HTML Templates** - Professionele email layouts
+- **Error Handling** - Fallback naar console logging
+
+### Email Template
+```typescript
+// Order confirmation email
+const emailContent = {
+  to: customerEmail,
+  from: 'info@alloygator.nl',
+  subject: `Bestelling bevestiging - ${orderNumber}`,
+  html: `...` // HTML template
+}
+```
+
+## 🔐 Authentication
+
+### User Types
+- **Customers** - Normale klanten
+- **Dealers** - Specifieke dealer functionaliteiten
+- **Admins** - Volledige admin toegang
+
+### API Endpoints
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `GET /api/orders?customerId=...` - Get user orders
+- `POST /api/orders` - Create new order
+
+## 🛒 E-commerce Features
+
+### Product Management
+- **Product Catalog** - Volledige product database
+- **Categories** - Product categorisering
+- **Images** - Product afbeeldingen
+- **Pricing** - Dynamische prijzen
+
+### Order System
+- **Cart Management** - Winkelwagen functionaliteit
+- **Checkout Process** - Bestelling plaatsen
+- **Order Tracking** - Bestelling status
+- **Email Notifications** - Order bevestigingen
+
+## 🎨 UI/UX
+
+### Design System
+- **Mantine UI** - Component library
+- **Tailwind CSS** - Utility-first CSS
+- **Responsive Design** - Mobile-first approach
+- **Brand Colors** - Green and orange theme
+
+### Key Pages
+- **Homepage** - Landing page met hero section
+- **Product Catalog** - Product overzicht
+- **Product Detail** - Individuele product pagina's
+- **Cart** - Winkelwagen
+- **Checkout** - Bestelling afronden
+- **Admin Panel** - Beheer interface
+
+## 🔧 Technische Details
+
+### Tech Stack
+- **Next.js 15** - React framework
+- **TypeScript** - Type safety
+- **Firebase** - Backend services
+- **SendGrid** - Email service
+- **Mantine UI** - Component library
+- **Tailwind CSS** - Styling
+
+### Performance
+- **Static Generation** - Voor snelle pagina's
+- **Server-side Rendering** - Voor dynamische content
+- **Image Optimization** - Next.js image component
+- **Code Splitting** - Automatische code splitting
+
+## 🚀 Deployment Status
+
+### ✅ Werkende Deployment
+- **Website** - https://alloygator-nl.web.app/
+- **GitHub Actions** - Automatische CI/CD
+- **Firebase Hosting** - Statische content
+- **Firebase Functions** - Server-side API's
+
+### 📊 Monitoring
+- **Build Status** - GitHub Actions
+- **Deployment Logs** - Firebase Console
+- **Error Tracking** - Console logging
+
+## 🔄 Updates en Maintenance
+
+### Automatische Updates
+- **GitHub Actions** - Automatische deployment bij push
+- **Firebase Functions** - Serverless scaling
+- **SendGrid** - Email delivery monitoring
+
+### Manual Updates
+```bash
+# Update dependencies
+npm update
+
+# Rebuild and deploy
+npm run build
+firebase deploy
+```
+
+## 📞 Support
+
+Voor vragen of problemen:
+- **Email** - info@alloygator.nl
+- **Telefoon** - 085-3033400
+- **GitHub Issues** - Voor technische problemen
 
 ---
 
-**Built with ❤️ using Next.js, Firebase, and TypeScript**
+**AlloyGator Nederland** - Kweekgrasstraat 36, 1313 BX Almere
