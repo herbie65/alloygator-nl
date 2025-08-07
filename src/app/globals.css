@@ -2,34 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  /* AlloyGator kleuren */
-  --ag-lime: #92c516;
-  --ag-grey: #5d666b;
-  --ag-lime-80: #a9d44a;
-  --ag-lime-60: #bfe178;
-  --ag-lime-40: #d5eea5;
-  --ag-lime-20: #eafad2;
-  --ag-grey-80: #7a8287;
-  --ag-grey-60: #a0a5a8;
-  --ag-grey-40: #c5c8ca;
-  --ag-grey-20: #e2e3e4;
-  /* AlloyGator fonts */
-  --font-akzidenz: 'Akzidenz-Grotesk BQ', Arial, Calibri, sans-serif;
-  --font-bebas: 'Bebas Neue', 'Arial Black', Impact, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-akzidenz);
+  background: #ffffff;
+  color: #171717;
 }

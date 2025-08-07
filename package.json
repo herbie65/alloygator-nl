@@ -3,43 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "export": "node --loader ts-node/esm ./scripts/export.mts",
-    "deploy": "npm run build && firebase deploy"
+    "lint": "next lint"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/server": "^11.11.0",
-    "@fontsource/bebas-neue": "^5.2.6",
-    "@mantine/core": "^3.6.14",
-    "@mantine/hooks": "^3.6.14",
-    "@mantine/rte": "^3.6.14",
-    "@mollie/api-client": "^4.3.3",
-    "@tabler/icons-react": "^3.34.1",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/papaparse": "^5.3.16",
-    "@types/puppeteer": "^5.4.7",
-    "@types/sqlite3": "^3.1.11",
-    "@vis.gl/react-google-maps": "^1.5.4",
-    "bcryptjs": "^3.0.2",
-    "firebase": "^10.7.1",
     "next": "15.4.2",
-    "papaparse": "^5.5.3",
-    "puppeteer": "^24.14.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
-    "tailwindcss": "^3.4.17",
-    "ts-node": "^10.9.2",
-    "xlsx": "^0.18.5"
+    "firebase": "^10.7.1",
+    "bcryptjs": "^3.0.2",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^5"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tsconfig/node16": "^16.1.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -47,6 +25,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.2",
     "firebase-tools": "^14.2.2",
-    "typescript": "^5"
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.0"
   }
 }

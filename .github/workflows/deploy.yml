@@ -14,27 +14,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
         
-    - name: Clean install
-      run: |
-        rm -f package-lock.json
-        rm -f functions/package-lock.json
-        rm -rf node_modules
-        rm -rf functions/node_modules
-        npm install
-        cd functions && npm install && cd ..
+    - name: Install dependencies
+      run: npm install
       
-    - name: Create environment file
-      run: |
-        echo "NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBfTecdVHIYbwyI822bcKAhLWs0bNNT1yM" > .env.local
-        echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=alloygator-nl.firebaseapp.com" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=alloygator-nl" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=alloygator-nl.appspot.com" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789" >> .env.local
-        echo "NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456" >> .env.local
-        echo "NODE_ENV=production" >> .env.local
-        
     - name: Build project
       run: npm run build
       
