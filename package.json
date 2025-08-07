@@ -2,10 +2,9 @@
   "name": "alloygator-nl",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "ts-node --esm ./scripts/export.ts",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "export": "node --loader ts-node/esm ./scripts/export.mts",
@@ -39,7 +38,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "@tsconfig/node16": "^16.1.4",
     "@types/node": "^20",
     "@types/react": "^19",
