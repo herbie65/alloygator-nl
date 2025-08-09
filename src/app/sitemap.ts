@@ -48,7 +48,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/dealer-login`,
+      // Dealer login verwijderd uit navigatie/sitemap
+      // url: `${baseUrl}/dealer-login`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.6,

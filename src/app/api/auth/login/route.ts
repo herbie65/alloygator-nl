@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = querySnapshot.docs[0].data()
+    const user = querySnapshot.docs[0].data() as any
 
     if (user.password !== password) {
       return NextResponse.json(
@@ -40,8 +40,9 @@ export async function POST(request: NextRequest) {
       user: {
         id: querySnapshot.docs[0].id,
         email: user.email,
-        name: user.name,
-        group: user.group || 'customer'
+        name: user.name || user.first_name || user.contact_first_name || '',
+        is_dealer: !!(user.is_dealer || user.dealer === true),
+        dealer_group: user.dealer_group || user.group || '',
       }
     })
   } catch (error) {

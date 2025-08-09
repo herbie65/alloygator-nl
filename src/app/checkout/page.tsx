@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { FirebaseClientService } from '@/lib/firebase-client'
 
 interface CartItem {
   id: string;
@@ -36,6 +36,37 @@ interface CustomerDetails {
   shippingLand?: string;
 }
 
+interface ShippingMethod {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  enabled: boolean;
+  carrier: string;
+  delivery_type: string;
+}
+
+interface PickupLocation {
+  location_name: string;
+  location_code: string;
+  address: {
+    street: string;
+    number: string;
+    postal_code: string;
+    city: string;
+    country: string;
+  };
+  opening_hours: any[];
+  distance?: number;
+}
+
+interface Settings {
+  shippingMethods: ShippingMethod[];
+  shippingCost: string;
+  freeShippingThreshold: string;
+  enabledCarriers: string[];
+}
+
 interface VatCalculation {
   vat_rate: number;
   vat_amount: number;
@@ -58,7 +89,7 @@ export default function CheckoutPage() {
     adres: "",
     postcode: "",
     plaats: "",
-    land: "Nederland",
+    land: "NL",
     bedrijfsnaam: "",
     factuurEmail: "",
     btwVerified: false,
@@ -67,14 +98,23 @@ export default function CheckoutPage() {
     shippingAdres: "",
     shippingPostcode: "",
     shippingPlaats: "",
-    shippingLand: "Nederland",
+    shippingLand: "NL",
   });
 
   const [paymentMethod, setPaymentMethod] = useState("ideal");
-  const [shippingMethod, setShippingMethod] = useState("standard");
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<{ id:string; name:string; mollie_id:string; is_active:boolean; fee_percent:number }[]>([])
+  const [allowInvoicePayment, setAllowInvoicePayment] = useState(false)
+  const [shippingMethod, setShippingMethod] = useState("");
   const [loading, setLoading] = useState(false);
   const [dealerGroup, setDealerGroup] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [settings, setSettings] = useState<Settings>({
+    shippingMethods: [],
+    shippingCost: '8.95',
+    freeShippingThreshold: '50.00',
+    enabledCarriers: ['dhl']
+  });
+
   const [vatCalculation, setVatCalculation] = useState<VatCalculation>({
     vat_rate: 21,
     vat_amount: 0,
@@ -83,7 +123,16 @@ export default function CheckoutPage() {
     vat_reason: 'Nederlandse BTW (21%)'
   });
 
-  const GROUP_DISCOUNTS: Record<string, number> = { brons: 20, zilver: 30, goud: 40 };
+  const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
+  const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null)
+  const [showPickupLocations, setShowPickupLocations] = useState(false)
+
+  const GROUP_DISCOUNTS = {
+    'bronze': 5,
+    'silver': 10,
+    'gold': 15,
+    'platinum': 20
+  }
 
   useEffect(() => {
     // Load cart from localStorage
@@ -105,21 +154,112 @@ export default function CheckoutPage() {
       setDealerGroup(dealerData.group || null);
     }
 
+    // Load settings
+    loadSettings();
+
+    // Load payment methods
+    loadPaymentMethods();
+
     // Calculate initial totals
     calculateTotals();
   }, []);
+
+  // Check invoice permission when email changes
+  useEffect(() => {
+    const checkInvoicePermission = async () => {
+      try {
+        const email = (customer.email || '').trim().toLowerCase()
+        if (!email) {
+          setAllowInvoicePayment(false)
+          return
+        }
+        const customers = await FirebaseClientService.getCustomersByEmail(email)
+        const match = Array.isArray(customers) && customers.length > 0 ? customers[0] as any : null
+        const allowed = !!match?.allow_invoice_payment
+        setAllowInvoicePayment(allowed)
+        if (allowed && match?.invoice_payment_terms_days) {
+          // Store per-order terms for invoice selection
+          // We'll send this when creating the order
+          setCustomer(prev => ({ ...prev, factuurEmail: prev.factuurEmail || email }))
+        }
+        // If not allowed but currently selected is invoice, switch to first available non-invoice
+        if (!allowed && paymentMethod === 'invoice') {
+          const first = availablePaymentMethods.find(pm => pm.is_active && pm.mollie_id !== 'invoice')
+          if (first) setPaymentMethod(first.mollie_id)
+        }
+      } catch (e) {
+        setAllowInvoicePayment(false)
+      }
+    }
+    checkInvoicePermission()
+  }, [customer.email])
+
+  const loadSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const savedSettings = data[0];
+        
+        setSettings(prev => ({
+          ...prev,
+          ...savedSettings
+        }));
+        
+        // Select the first available shipping method
+        const availableMethods = savedSettings.shippingMethods?.filter(
+          method => method.enabled && savedSettings.enabledCarriers?.includes(method.carrier)
+        ) || [];
+        
+        if (availableMethods.length > 0 && !shippingMethod) {
+          setShippingMethod(availableMethods[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  const loadPaymentMethods = async () => {
+    try {
+      const res = await fetch('/api/payment-methods')
+      if (!res.ok) return
+      const list = await res.json()
+      const active = (Array.isArray(list) ? list : []).filter((m:any)=>m.is_active)
+      setAvailablePaymentMethods(active)
+      if (active.length > 0) setPaymentMethod(active[0].mollie_id || 'ideal')
+    } catch {}
+  }
 
   const calculateTotals = () => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = dealerGroup ? (subtotal * GROUP_DISCOUNTS[dealerGroup]) / 100 : 0;
     const discountedSubtotal = subtotal - discount;
-    const vatAmount = cart.reduce((sum, item) => {
-      const priceWithVat = calculatePriceWithVat(item.price, 21);
-      const vatOnItem = priceWithVat - item.price;
-      return sum + (vatOnItem * item.quantity);
-    }, 0);
-    const shippingCost = discountedSubtotal > 50 ? 0 : 4.95;
-    const total = discountedSubtotal + vatAmount + shippingCost;
+    
+    // Calculate VAT
+    const vatAmount = discountedSubtotal * 0.21; // 21% BTW
+    
+    // Get selected shipping method and its price
+    const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+    let shippingCost = 0;
+    
+    if (selectedMethod) {
+      shippingCost = selectedMethod.price;
+    } else {
+      // Fallback to default shipping cost if no method selected
+      shippingCost = parseFloat(settings.shippingCost) || 0;
+    }
+    
+    // Check if free shipping applies
+    const finalShippingCost = discountedSubtotal >= parseFloat(settings.freeShippingThreshold) ? 0 : shippingCost;
+    
+    // Payment fee/discount by selected method (% on discountedSubtotal)
+    const currentPm = availablePaymentMethods.find(m => m.mollie_id === paymentMethod)
+    const feePercent = currentPm ? Number(currentPm.fee_percent || 0) : 0
+    const paymentFee = paymentMethod === 'invoice' ? 0 : (discountedSubtotal * feePercent) / 100
+
+    const total = discountedSubtotal + vatAmount + finalShippingCost + paymentFee;
 
     setVatCalculation({
       vat_rate: 21,
@@ -129,6 +269,11 @@ export default function CheckoutPage() {
       vat_reason: 'Nederlandse BTW (21%)'
     });
   };
+
+  // Recalculate totals when shipping method changes
+  useEffect(() => {
+    calculateTotals();
+  }, [shippingMethod, cart, dealerGroup, settings]);
 
   const validateStep = (step: CheckoutStep): boolean => {
     const newErrors: Record<string, string> = {};
@@ -147,6 +292,14 @@ export default function CheckoutPage() {
       if (!customer.shippingAdres) newErrors.shippingAdres = 'Verzendadres is verplicht';
       if (!customer.shippingPostcode) newErrors.shippingPostcode = 'Verzendpostcode is verplicht';
       if (!customer.shippingPlaats) newErrors.shippingPlaats = 'Verzendplaats is verplicht';
+    }
+
+    // Validate pickup location if pickup method is selected
+    if (step === 'shipping') {
+      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+      if (selectedMethod?.delivery_type === 'pickup' && !selectedPickupLocation) {
+        newErrors.pickupLocation = 'Selecteer een afhaalpunt';
+      }
     }
 
     setErrors(newErrors);
@@ -201,72 +354,166 @@ export default function CheckoutPage() {
     calculateTotals();
   };
 
+  const handleShippingMethodChange = (methodId: string) => {
+    setShippingMethod(methodId);
+    setSelectedPickupLocation(null);
+    setShowPickupLocations(false);
+    
+    // Clear pickup location error
+    if (errors.pickupLocation) {
+      setErrors(prev => ({ ...prev, pickupLocation: '' }));
+    }
+  };
+
+  const loadPickupLocations = async () => {
+    try {
+      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+      if (!selectedMethod || selectedMethod.delivery_type !== 'pickup') return;
+
+      const postalCode = customer.separateShippingAddress ? customer.shippingPostcode : customer.postcode;
+      if (!postalCode) {
+        alert('Vul eerst een postcode in om afhaalpunten te laden.');
+        return;
+      }
+
+      // Show loading state
+      setPickupLocations([]);
+      setShowPickupLocations(true);
+
+      console.log(`Loading pickup locations for ${selectedMethod.carrier} in ${postalCode}`);
+
+      const response = await fetch(
+        `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+          console.log(`Found ${data.data.length} pickup locations`);
+          setPickupLocations(data.data);
+        } else {
+          alert(`Geen afhaalpunten gevonden voor ${selectedMethod.carrier} in postcode ${postalCode}. Probeer een andere postcode of kies een andere verzendmethode.`);
+          setShowPickupLocations(false);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Error loading pickup locations:', errorData);
+        
+        let errorMessage = 'Onbekende fout bij het laden van afhaalpunten.';
+        
+        if (errorData.error === 'DHL settings not configured') {
+          errorMessage = 'DHL API is niet geconfigureerd. Neem contact op met de beheerder.';
+        } else if (errorData.error === 'DHL carrier not enabled') {
+          errorMessage = 'DHL is niet ingeschakeld. Kies een andere verzendmethode.';
+        } else if (errorData.details) {
+          if (errorData.details.includes('DHL API key is invalid or expired')) {
+            errorMessage = 'DHL API key is ongeldig of verlopen. Controleer de instellingen.';
+          } else if (errorData.details.includes('DHL API access denied')) {
+            errorMessage = 'Toegang tot DHL API geweigerd. Controleer of je API key voldoende rechten heeft.';
+          } else if (errorData.details.includes('No pickup locations found')) {
+            errorMessage = `Geen afhaalpunten gevonden voor ${selectedMethod.carrier} in postcode ${postalCode}. Probeer een andere postcode.`;
+          } else {
+            errorMessage = `Fout bij het laden van afhaalpunten: ${errorData.details}`;
+          }
+        } else {
+          errorMessage = `Fout bij het laden van afhaalpunten: ${errorData.error || 'Onbekende fout'}`;
+        }
+        
+        alert(errorMessage);
+        setShowPickupLocations(false);
+      }
+    } catch (error) {
+      console.error('Error loading pickup locations:', error);
+      alert('Er is een fout opgetreden bij het laden van afhaalpunten. Controleer je internetverbinding en probeer het opnieuw.');
+      setShowPickupLocations(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateStep('review')) {
-      return;
-    }
-
-    setLoading(true);
+    if (!validateStep(currentStep)) return;
 
     try {
-      // Create order object
+      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+      setLoading(true)
+
       const order = {
-        id: Date.now().toString(),
-        order_number: `AG${Date.now()}`,
         customer: customer,
         items: cart,
+        shipping_method: selectedMethod?.name || 'Standaard verzending',
+        shipping_cost: selectedMethod?.price || parseFloat(settings.shippingCost),
+        shipping_carrier: selectedMethod?.carrier || 'postnl',
+        shipping_delivery_type: selectedMethod?.delivery_type || 'standard',
+        pickup_location: selectedPickupLocation,
         subtotal: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         vat_amount: vatCalculation.vat_amount,
-        shipping_cost: vatCalculation.total_amount > 50 ? 0 : 4.95,
         total: vatCalculation.total_amount,
-        payment_method: paymentMethod,
-        shipping_method: shippingMethod,
-        status: 'pending',
-        payment_status: 'pending',
+        dealer_group: dealerGroup,
+        dealer_discount: dealerGroup ? GROUP_DISCOUNTS[dealerGroup] : 0,
         created_at: new Date().toISOString(),
-        dealer_group: dealerGroup
+        status: 'pending',
+        payment_status: 'open',
+        payment_method: paymentMethod,
+        payment_terms_days: paymentMethod === 'invoice' ? 14 : undefined
       };
 
-      // Save order to localStorage (for demo purposes)
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-      orders.push(order)
-      localStorage.setItem('orders', JSON.stringify(orders))
+      // 1) Create order in backend
+      const orderRes = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order),
+      })
+      if (!orderRes.ok) throw new Error('Failed to create order')
+      const { orderId, orderNumber } = await orderRes.json()
 
-      // Send order confirmation email
-      try {
-        const emailResponse = await fetch('/api/email/order-confirmation', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            order,
-            customer
-          })
-        })
+      // 2) If paymentMethod is invoice (op rekening), skip Mollie and mark as pending
+      if (paymentMethod === 'invoice') {
+        // Update order with payment method and pending status
+        await fetch('/api/orders', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: orderId, payment_method: 'invoice', payment_status: 'pending', status: 'pending' })
+        }).catch(()=>{})
 
-        if (emailResponse.ok) {
-          console.log('Order confirmation email sent successfully')
-        } else {
-          console.error('Failed to send order confirmation email')
-        }
-      } catch (emailError) {
-        console.error('Error sending email:', emailError)
+        localStorage.removeItem("alloygator-cart");
+        setCart([]);
+        window.location.href = `/order-confirmation/${orderId}`;
+        return
       }
 
-      // Clear cart
-      localStorage.removeItem('alloygator-cart')
-      setCart([])
+      // 2) Create Mollie payment for the order
+      const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      const returnUrl = `${window.location.origin}/payment/return?orderId=${orderId}${isLocalhost ? '&simulate=1' : ''}`
+      const webhookUrl = `${window.location.origin}/api/payment/mollie/webhook`
 
-      // Redirect to order confirmation
-      router.push(`/order-confirmation/${order.id}`);
+      const paymentRes = await fetch('/api/payment/mollie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: order.total,
+          currency: 'EUR',
+          description: `Order ${orderNumber}`,
+          redirectUrl: returnUrl, // bevat simulate=1 op localhost
+          webhookUrl,
+          metadata: { orderId },
+          methods: availablePaymentMethods.filter(pm => pm.is_active).map(pm => pm.mollie_id)
+        })
+      })
+      if (!paymentRes.ok) {
+        const err = await paymentRes.json().catch(()=>({}))
+        console.error('Create payment failed:', err)
+        throw new Error('Failed to create payment')
+      }
+      const payment = await paymentRes.json()
+
+      // 3) Redirect to Mollie checkout
+      window.location.href = payment.checkoutUrl
     } catch (error) {
       console.error('Error creating order:', error);
-      setErrors({ submit: 'Er is een fout opgetreden bij het plaatsen van de bestelling.' });
+      alert('Er is een fout opgetreden bij het plaatsen van je bestelling. Probeer het opnieuw.');
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   };
 
@@ -293,7 +540,9 @@ export default function CheckoutPage() {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const discount = dealerGroup ? (subtotal * GROUP_DISCOUNTS[dealerGroup]) / 100 : 0;
   const discountedSubtotal = subtotal - discount;
-  const shippingCost = discountedSubtotal > 50 ? 0 : 4.95;
+  const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+  const shippingCost = selectedMethod ? selectedMethod.price : parseFloat(settings.shippingCost);
+  const finalShippingCost = discountedSubtotal >= parseFloat(settings.freeShippingThreshold) ? 0 : shippingCost;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -492,20 +741,104 @@ export default function CheckoutPage() {
                     <h2 className="text-xl font-semibold text-gray-900">Verzendmethode</h2>
                     
                     <div className="space-y-4">
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="font-medium text-gray-900">Standaard verzending</h3>
-                            <p className="text-sm text-gray-600">2-3 werkdagen</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-gray-900">
-                              {shippingCost === 0 ? 'Gratis' : `€${shippingCost.toFixed(2)}`}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                      {settings.shippingMethods
+                        .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
+                        .map((method) => {
+                          // Calculate if this method would be free
+                          const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                          const discount = dealerGroup ? (subtotal * GROUP_DISCOUNTS[dealerGroup]) / 100 : 0;
+                          const discountedSubtotal = subtotal - discount;
+                          const isFree = discountedSubtotal >= parseFloat(settings.freeShippingThreshold);
+                          
+                          return (
+                            <div key={method.id} className="border border-gray-200 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <input
+                                    type="radio"
+                                    id={method.id}
+                                    name="shippingMethod"
+                                    value={method.id}
+                                    checked={shippingMethod === method.id}
+                                    onChange={(e) => handleShippingMethodChange(e.target.value)}
+                                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                  />
+                                  <div>
+                                    <label htmlFor={method.id} className="font-medium text-gray-900 cursor-pointer">
+                                      {method.name}
+                                    </label>
+                                    <p className="text-sm text-gray-600">{method.description}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-gray-900">
+                                    {isFree ? 'Gratis' : `€${method.price.toFixed(2)}`}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
+
+                    {/* Pickup Location Selection */}
+                    {(() => {
+                      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+                      return selectedMethod?.delivery_type === 'pickup' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900">Afhaalpunt Selecteren</h3>
+                            <button
+                              type="button"
+                              onClick={loadPickupLocations}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                              Afhaalpunten Laden
+                            </button>
+                          </div>
+
+                          {showPickupLocations && (
+                            <div className="space-y-3">
+                              {pickupLocations.length > 0 ? (
+                                pickupLocations.map((location, index) => (
+                                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                    <div className="flex items-center space-x-3">
+                                      <input
+                                        type="radio"
+                                        id={`pickup-${index}`}
+                                        name="pickupLocation"
+                                        checked={selectedPickupLocation?.location_code === location.location_code}
+                                        onChange={() => setSelectedPickupLocation(location)}
+                                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                      />
+                                      <div className="flex-1">
+                                        <label htmlFor={`pickup-${index}`} className="font-medium text-gray-900 cursor-pointer">
+                                          {location.location_name}
+                                        </label>
+                                        <p className="text-sm text-gray-600">
+                                          {location.address.street} {location.address.number}, {location.address.postal_code} {location.address.city}
+                                        </p>
+                                        {location.distance && (
+                                          <p className="text-xs text-gray-500">
+                                            Afstand: {location.distance}km
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-gray-500">Geen afhaalpunten gevonden voor deze postcode.</p>
+                              )}
+                            </div>
+                          )}
+
+                          {errors.pickupLocation && (
+                            <p className="text-red-500 text-sm">{errors.pickupLocation}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {customer.separateShippingAddress && (
                       <div className="space-y-4">
@@ -574,71 +907,37 @@ export default function CheckoutPage() {
                     <h2 className="text-xl font-semibold text-gray-900">Betaalmethode</h2>
                     
                     <div className="space-y-4">
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              id="ideal"
-                              name="paymentMethod"
-                              value="ideal"
-                              checked={paymentMethod === 'ideal'}
-                              onChange={(e) => setPaymentMethod(e.target.value)}
-                              className="text-green-600"
-                            />
-                            <label htmlFor="ideal" className="font-medium text-gray-900">
-                              iDEAL
-                            </label>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Direct betalen
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              id="creditcard"
-                              name="paymentMethod"
-                              value="creditcard"
-                              checked={paymentMethod === 'creditcard'}
-                              onChange={(e) => setPaymentMethod(e.target.value)}
-                              className="text-green-600"
-                            />
-                            <label htmlFor="creditcard" className="font-medium text-gray-900">
-                              Creditcard
-                            </label>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Visa, Mastercard, American Express
+                      {availablePaymentMethods.length === 0 && (
+                        <div className="text-sm text-gray-600">Geen betaalmethodes geconfigureerd. Standaard: iDEAL.</div>
+                      )}
+                      {availablePaymentMethods
+                        .filter(pm => pm.mollie_id !== 'invoice' || allowInvoicePayment)
+                        .map((pm) => (
+                        <div key={pm.id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="radio"
+                                id={`pm-${pm.id}`}
+                                name="paymentMethod"
+                                value={pm.mollie_id}
+                                checked={paymentMethod === pm.mollie_id}
+                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                              />
+                              <div>
+                                <label htmlFor={`pm-${pm.id}`} className="font-medium text-gray-900 cursor-pointer">
+                                  {pm.name}
+                                </label>
+                                <p className="text-sm text-gray-600">{pm.fee_percent ? `${pm.fee_percent > 0 ? '+' : ''}${pm.fee_percent}%` : 'Geen toeslag/korting'}</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              id="banktransfer"
-                              name="paymentMethod"
-                              value="banktransfer"
-                              checked={paymentMethod === 'banktransfer'}
-                              onChange={(e) => setPaymentMethod(e.target.value)}
-                              className="text-green-600"
-                            />
-                            <label htmlFor="banktransfer" className="font-medium text-gray-900">
-                              Bankoverschrijving
-                            </label>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Binnen 14 dagen betalen
-                          </div>
-                        </div>
-                      </div>
+                      ))}
+                      {!allowInvoicePayment && availablePaymentMethods.some(pm => pm.mollie_id === 'invoice') && (
+                        <div className="text-xs text-gray-500">Op rekening is niet beschikbaar voor dit e-mailadres.</div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -646,11 +945,24 @@ export default function CheckoutPage() {
                 {/* Review Step */}
                 {currentStep === 'review' && (
                   <div className="space-y-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Bestelling controleren</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Bestelling Overzicht</h2>
                     
                     <div className="space-y-4">
                       <div className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="font-medium text-gray-900 mb-2">Klantgegevens</h3>
+                        <h3 className="font-medium text-gray-900 mb-3">Producten</h3>
+                        {cart.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between py-2">
+                            <div>
+                              <p className="font-medium text-gray-900">{item.name}</p>
+                              <p className="text-sm text-gray-600">Aantal: {item.quantity}</p>
+                            </div>
+                            <p className="font-medium text-gray-900">€{(item.price * item.quantity).toFixed(2)}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <h3 className="font-medium text-gray-900 mb-3">Klantgegevens</h3>
                         <p className="text-sm text-gray-600">
                           {customer.voornaam} {customer.achternaam}<br />
                           {customer.email}<br />
@@ -661,19 +973,29 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="font-medium text-gray-900 mb-2">Verzendmethode</h3>
+                        <h3 className="font-medium text-gray-900 mb-3">Verzending</h3>
                         <p className="text-sm text-gray-600">
-                          Standaard verzending (2-3 werkdagen)
+                          {selectedMethod ? selectedMethod.name : 'Standaard verzending'}
                         </p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="font-medium text-gray-900 mb-2">Betaalmethode</h3>
-                        <p className="text-sm text-gray-600">
-                          {paymentMethod === 'ideal' && 'iDEAL'}
-                          {paymentMethod === 'creditcard' && 'Creditcard'}
-                          {paymentMethod === 'banktransfer' && 'Bankoverschrijving'}
-                        </p>
+                        {selectedPickupLocation && (
+                          <div className="mt-2 p-3 bg-gray-50 rounded">
+                            <p className="text-sm font-medium text-gray-900">Afhaalpunt:</p>
+                            <p className="text-sm text-gray-600">
+                              {selectedPickupLocation.location_name}<br />
+                              {selectedPickupLocation.address.street} {selectedPickupLocation.address.number}<br />
+                              {selectedPickupLocation.address.postal_code} {selectedPickupLocation.address.city}
+                            </p>
+                          </div>
+                        )}
+                        {customer.separateShippingAddress && (
+                          <div className="mt-2 p-3 bg-gray-50 rounded">
+                            <p className="text-sm font-medium text-gray-900">Verzendadres:</p>
+                            <p className="text-sm text-gray-600">
+                              {customer.shippingAdres}<br />
+                              {customer.shippingPostcode} {customer.shippingPlaats}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -703,16 +1025,12 @@ export default function CheckoutPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                      className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {loading ? 'Bestelling plaatsen...' : 'Bestelling plaatsen'}
                     </button>
                   )}
                 </div>
-
-                {errors.submit && (
-                  <p className="text-red-500 text-sm mt-4">{errors.submit}</p>
-                )}
               </form>
             </div>
           </div>
@@ -720,70 +1038,60 @@ export default function CheckoutPage() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Besteloverzicht</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Besteloverzicht</h2>
               
-              {/* Cart Items */}
               <div className="space-y-4 mb-6">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                      <div className="text-gray-400 text-lg">🛞</div>
+                  <div key={item.id} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
+                        🛞
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{item.name}</p>
+                        <p className="text-sm text-gray-600">Aantal: {item.quantity}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">{item.name}</h3>
-                      <p className="text-xs text-gray-500">Aantal: {item.quantity}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        €{(item.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
+                    <p className="font-medium text-gray-900">€{(item.price * item.quantity).toFixed(2)}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Totals */}
-              <div className="space-y-2 border-t pt-4">
+              <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Subtotaal</span>
+                  <span>Subtotaal:</span>
                   <span>€{subtotal.toFixed(2)}</span>
                 </div>
                 
                 {discount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span>Dealer korting ({GROUP_DISCOUNTS[dealerGroup!]}%)</span>
+                    <span>Korting ({dealerGroup}):</span>
                     <span>-€{discount.toFixed(2)}</span>
                   </div>
                 )}
                 
                 <div className="flex justify-between text-sm">
-                  <span>BTW (21%)</span>
+                  <span>BTW (21%):</span>
                   <span>€{vatCalculation.vat_amount.toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between text-sm">
-                  <span>Verzendkosten</span>
-                  <span className={shippingCost === 0 ? 'text-green-600' : ''}>
-                    {shippingCost === 0 ? 'Gratis' : `€${shippingCost.toFixed(2)}`}
-                  </span>
+                  <span>Verzendkosten:</span>
+                  <span>{finalShippingCost === 0 ? 'Gratis' : `€${finalShippingCost.toFixed(2)}`}</span>
                 </div>
                 
-                <div className="border-t pt-2">
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Totaal</span>
-                    <span>€{vatCalculation.total_amount.toFixed(2)}</span>
-                  </div>
+                <div className="flex justify-between text-lg font-semibold border-t pt-2">
+                  <span>Totaal:</span>
+                  <span>€{vatCalculation.total_amount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="mt-6 text-center">
-                <Link
-                  href="/cart"
-                  className="text-green-600 hover:text-green-700 transition-colors text-sm"
-                >
-                  Winkelwagen bewerken
-                </Link>
-              </div>
+              <Link
+                href="/cart"
+                className="block text-center mt-4 text-green-600 hover:text-green-700 text-sm"
+              >
+                Winkelwagen bewerken
+              </Link>
             </div>
           </div>
         </div>

@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import Header from './components/Header'
 import Footer from './components/Footer'
-import AdminLayoutWrapper from './components/AdminLayoutWrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -126,9 +125,11 @@ export default function RootLayout({
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={inter.className}>
-        <AdminLayoutWrapper>
+        <Header />
+        <main>
           {children}
-        </AdminLayoutWrapper>
+        </main>
+        <Footer />
       </body>
     </html>
   )

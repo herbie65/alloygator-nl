@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { collection, addDoc, getDocs, query, where, orderBy, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, getDocs, query, where, orderBy } from 'firebase/firestore'
+import { EmailService } from '@/lib/email'
+import { FirebaseService } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const orderData = await request.json()
 
+    // Validate required fields
     if (!orderData.customer || !orderData.items || orderData.items.length === 0) {
       return NextResponse.json(
         { error: 'Klant en producten zijn verplicht' },
@@ -15,15 +18,115 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Add timestamp
-    const order = {
-      ...orderData,
-      createdAt: new Date().toISOString(),
+    // Generate order number
+    const timestamp = Date.now()
+    const orderNumber = `AG${timestamp}`
+
+    // Create order object
+    const createdAt = new Date().toISOString()
+    const order: any = {
+      orderNumber,
+      customer: orderData.customer,
+      items: orderData.items,
+      subtotal: orderData.subtotal,
+      vat_amount: orderData.vat_amount,
+      shipping_cost: orderData.shipping_cost,
+      total: orderData.total,
+      shipping_method: orderData.shipping_method,
+      payment_method: orderData.payment_method,
+      payment_status: 'open',
       status: 'pending',
-      orderNumber: `ORD-${Date.now()}`
+      createdAt,
+      updatedAt: createdAt
+    }
+    // Default payment terms for invoice
+    if (orderData.payment_method === 'invoice') {
+      order.payment_status = 'pending'
+      order.payment_terms_days = orderData.payment_terms_days || 14
+      const dueDate = new Date()
+      dueDate.setDate(dueDate.getDate() + (order.payment_terms_days || 14))
+      order.due_at = dueDate.toISOString()
     }
 
+    // Add order to Firestore
     const docRef = await addDoc(collection(db, 'orders'), order)
+
+    // Update product stock
+    try {
+      for (const item of orderData.items) {
+        const productRef = doc(db, 'products', item.id)
+        const productDoc = await getDoc(productRef)
+        
+        if (productDoc.exists()) {
+          const productData = productDoc.data()
+          const currentStock = productData.stock || 0
+          const newStock = Math.max(0, currentStock - item.quantity)
+          
+          await updateDoc(productRef, {
+            stock: newStock,
+            updated_at: new Date().toISOString()
+          })
+          
+          console.log(`Updated stock for product ${item.id}: ${currentStock} -> ${newStock}`)
+        } else {
+          console.warn(`Product ${item.id} not found for stock update`)
+        }
+      }
+    } catch (stockError) {
+      console.error('Error updating product stock:', stockError)
+      // Don't fail the order creation if stock update fails
+    }
+
+    // Send e-mails
+    try {
+      // Haal settings op uit de database
+      const settingsArray = await FirebaseService.getSettings()
+      let emailService: EmailService
+      
+      if (settingsArray && settingsArray.length > 0) {
+        const settings = settingsArray[0]
+        emailService = new EmailService({
+          smtpHost: settings.smtpHost || '',
+          smtpPort: settings.smtpPort || '587',
+          smtpUser: settings.smtpUser || '',
+          smtpPass: settings.smtpPass || '',
+          adminEmail: settings.adminEmail || '',
+          emailNotifications: settings.emailNotifications || false
+        })
+      } else {
+        // Fallback naar environment variables
+        emailService = new EmailService()
+      }
+      
+      // Prepare email data
+      const emailData = {
+        orderNumber: order.orderNumber,
+        customerName: `${orderData.customer.voornaam} ${orderData.customer.achternaam}`,
+        customerEmail: orderData.customer.email,
+        items: orderData.items,
+        subtotal: orderData.subtotal,
+        vat_amount: orderData.vat_amount,
+        shipping_cost: orderData.shipping_cost,
+        total: orderData.total,
+        shipping_method: orderData.shipping_method,
+        payment_status: order.payment_status || 'open',
+        created_at: order.createdAt,
+        payment_method: order.payment_method,
+        due_at: order.due_at,
+        payment_terms_days: order.payment_terms_days
+      }
+
+      // Send order confirmation to customer
+      await emailService.sendOrderConfirmation(emailData)
+      
+      // Send notification to admin
+      await emailService.sendOrderNotification(emailData)
+      
+      console.log('E-mails verzonden voor order:', order.orderNumber)
+    } catch (emailError) {
+      console.error('Error sending e-mails:', emailError)
+      // Don't fail the order creation if e-mail sending fails
+    }
 
     return NextResponse.json({
       success: true,
@@ -72,6 +175,32 @@ export async function GET(request: NextRequest) {
     console.error('Orders fetch error:', error)
     return NextResponse.json(
       { error: 'Er is een fout opgetreden bij het ophalen van bestellingen' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, ...update } = body
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Order ID is verplicht' },
+        { status: 400 }
+      )
+    }
+
+    update.updatedAt = new Date().toISOString()
+
+    await FirebaseService.updateDocument('orders', id, update)
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Order update error:', error)
+    return NextResponse.json(
+      { error: 'Er is een fout opgetreden bij het bijwerken van de bestelling' },
       { status: 500 }
     )
   }

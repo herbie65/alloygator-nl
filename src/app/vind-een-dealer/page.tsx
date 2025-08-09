@@ -2,6 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+import { FirebaseService } from '@/lib/firebase'
+
+// Dynamically import the map component to avoid SSR issues
+const MapComponent = dynamic(() => import('./MapComponent'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 bg-gray-200 rounded-lg flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+        <p className="text-gray-600">Kaart laden...</p>
+      </div>
+    </div>
+  )
+})
 
 interface Dealer {
   id: string
@@ -20,6 +35,7 @@ interface Dealer {
   reviews?: number
   services: string[]
   created_at: string
+  show_on_map?: boolean // Added for filtering
 }
 
 // Static dealer data (in real app, this would come from Firebase)
@@ -37,6 +53,7 @@ const staticDealers: Dealer[] = [
     latitude: 52.3676,
     longitude: 4.9041,
     is_active: true,
+    show_on_map: true,
     rating: 4.5,
     reviews: 127,
     services: ['AlloyGator montage', 'Velg reparatie', 'Auto onderhoud'],
@@ -55,6 +72,7 @@ const staticDealers: Dealer[] = [
     latitude: 51.9225,
     longitude: 4.4792,
     is_active: true,
+    show_on_map: true,
     rating: 4.8,
     reviews: 89,
     services: ['AlloyGator montage', 'Velg bescherming', 'Tire service'],
@@ -73,6 +91,7 @@ const staticDealers: Dealer[] = [
     latitude: 52.0705,
     longitude: 4.3007,
     is_active: true,
+    show_on_map: true,
     rating: 4.2,
     reviews: 156,
     services: ['AlloyGator montage', 'Auto onderhoud', 'Velg service'],
@@ -91,6 +110,7 @@ const staticDealers: Dealer[] = [
     latitude: 52.0907,
     longitude: 5.1214,
     is_active: true,
+    show_on_map: true,
     rating: 4.6,
     reviews: 203,
     services: ['AlloyGator montage', 'Velg reparatie', 'Tire fitting'],
@@ -103,16 +123,82 @@ export default function VindEenDealerPage() {
   const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCity, setSelectedCity] = useState('')
+  const [locationSearch, setLocationSearch] = useState('')
+  const [searchRadius, setSearchRadius] = useState(30) // Default 30km
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedService, setSelectedService] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null)
 
-  useEffect(() => {
-    // Load dealers from static data
-    setDealers(staticDealers)
-    setFilteredDealers(staticDealers)
-    setLoading(false)
+    useEffect(() => {
+    const loadDealers = async () => {
+      try {
+        setLoading(true)
+        
+        // First try to load customers who are dealers
+        const customers = await FirebaseService.getCustomers()
+        const allCustomerDealers = customers?.filter(customer => customer.is_dealer) || []
+        const customerDealersWithLocation = allCustomerDealers.filter(customer => 
+          customer.latitude && customer.longitude && customer.latitude !== 0 && customer.longitude !== 0
+        )
+        
+        console.log(`Found ${allCustomerDealers.length} customer dealers total, ${customerDealersWithLocation.length} with valid coordinates`)
+        
+        const customerDealers = customerDealersWithLocation
+          ?.map(customer => ({
+            id: customer.id,
+            name: customer.name,
+            company_name: customer.company_name || customer.name,
+            address: customer.address,
+            city: customer.city,
+            postal_code: customer.postal_code,
+            phone: customer.phone,
+            email: customer.email,
+            website: customer.website || '',
+            latitude: customer.latitude,
+            longitude: customer.longitude,
+            is_active: customer.status === 'active',
+            show_on_map: customer.show_on_map !== false, // Default to true if not set
+            rating: 4.5, // Default rating
+            reviews: 25, // Default reviews
+            services: ['AlloyGator montage', 'Velg service'],
+            created_at: customer.created_at || new Date().toISOString()
+          }))
+          .filter(dealer => dealer.show_on_map) // Only show dealers that should be on map
+          || []
+
+        if (customerDealers.length > 0) {
+          // Use customer dealers
+          console.log(`Using ${customerDealers.length} customer dealers for map`)
+          setDealers(customerDealers)
+          setFilteredDealers(customerDealers)
+        } else {
+          // Try separate dealers collection as fallback
+          const firebaseDealers = await FirebaseService.getDealers()
+          
+          if (firebaseDealers && firebaseDealers.length > 0) {
+            const filteredDealers = firebaseDealers.filter(dealer => dealer.show_on_map !== false)
+            setDealers(filteredDealers)
+            setFilteredDealers(filteredDealers)
+          } else {
+            // No fallback: show empty list
+            console.log('No dealers found in customers or dealers collection')
+            setDealers([])
+            setFilteredDealers([])
+          }
+        }
+      } catch (error) {
+        console.error('Error loading dealers:', error)
+        // Show empty list on error
+        setDealers([])
+        setFilteredDealers([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDealers()
 
     // Get user location
     if (navigator.geolocation) {
@@ -130,6 +216,43 @@ export default function VindEenDealerPage() {
     }
   }, [])
 
+  // Helper function to calculate distance between two points (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371 // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    return R * c
+  }
+
+  // Function to search for a location and get coordinates
+  const handleLocationSearch = async () => {
+    if (!locationSearch.trim()) return
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationSearch)}&countrycodes=nl&limit=1`
+      )
+      const data = await response.json()
+      
+      if (data && data.length > 0) {
+        const location = data[0]
+        const lat = parseFloat(location.lat)
+        const lng = parseFloat(location.lon)
+        setSearchCenter({ lat, lng })
+      } else {
+        alert('Locatie niet gevonden. Probeer een andere plaatsnaam.')
+      }
+    } catch (error) {
+      console.error('Error searching location:', error)
+      alert('Fout bij het zoeken naar de locatie.')
+    }
+  }
+
   useEffect(() => {
     // Filter dealers based on search criteria
     let filtered = dealers.filter(dealer => dealer.is_active)
@@ -143,8 +266,17 @@ export default function VindEenDealerPage() {
       )
     }
 
-    if (selectedCity) {
-      filtered = filtered.filter(dealer => dealer.city === selectedCity)
+    // Filter by search center and radius
+    if (searchCenter) {
+      filtered = filtered.filter(dealer => {
+        const distance = calculateDistance(
+          searchCenter.lat, 
+          searchCenter.lng, 
+          dealer.latitude, 
+          dealer.longitude
+        )
+        return distance <= searchRadius
+      })
     }
 
     if (selectedService) {
@@ -177,18 +309,9 @@ export default function VindEenDealerPage() {
     })
 
     setFilteredDealers(filtered)
-  }, [dealers, searchTerm, selectedCity, selectedService, sortBy, userLocation])
+  }, [dealers, searchTerm, searchCenter, searchRadius, selectedService, sortBy, userLocation])
 
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 6371 // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180
-    const dLng = (lng2 - lng1) * Math.PI / 180
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }
+
 
   const getCities = () => {
     const cities = [...new Set(dealers.map(dealer => dealer.city))]
@@ -203,7 +326,7 @@ export default function VindEenDealerPage() {
 
   const clearFilters = () => {
     setSearchTerm('')
-    setSelectedCity('')
+    // setSelectedCity('') // Removed as selectedCity is no longer used
     setSelectedService('')
     setSortBy('name')
   }
@@ -223,262 +346,229 @@ export default function VindEenDealerPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Vind een AlloyGator Dealer</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Zoek een erkende AlloyGator dealer bij jou in de buurt voor professionele montage en service
           </p>
         </div>
 
-        {/* Search and Filters */}
+        {/* Data Source Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-600">
+                {dealers.length > 0 && dealers !== staticDealers 
+                  ? `Toont ${dealers.length} echte dealers uit uw klantendatabase` 
+                  : dealers.length > 0 
+                    ? `Toont ${dealers.length} voorbeelddealer(s) - geen echte dealers gevonden in klantendatabase`
+                    : 'Dealers laden...'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Location Search */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Location Search */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Zoek locatie
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Plaatsnaam bijv. Amsterdam, Utrecht..."
+                  value={locationSearch}
+                  onChange={(e) => setLocationSearch(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleLocationSearch()}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <button
+                  onClick={handleLocationSearch}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  Zoek
+                </button>
+              </div>
+            </div>
+
+            {/* Radius */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Zoeken
+                Radius (km)
+              </label>
+              <select
+                value={searchRadius}
+                onChange={(e) => setSearchRadius(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value={10}>10 km</option>
+                <option value={20}>20 km</option>
+                <option value={30}>30 km</option>
+                <option value={50}>50 km</option>
+                <option value={100}>100 km</option>
+              </select>
+            </div>
+
+            {/* General Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Zoek dealer
               </label>
               <input
                 type="text"
-                placeholder="Zoek op naam, stad of adres..."
+                placeholder="Naam of bedrijf..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
 
-            {/* City Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stad
-              </label>
-              <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Alle steden</option>
-                {getCities().map(city => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Service Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Service
-              </label>
-              <select
-                value={selectedService}
-                onChange={(e) => setSelectedService(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Alle services</option>
-                {getServices().map(service => (
-                  <option key={service} value={service}>{service}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sorteren
-              </label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="name">Naam A-Z</option>
-                <option value="rating">Hoogste beoordeling</option>
-                <option value="reviews">Meeste reviews</option>
-                <option value="distance">Dichtstbij</option>
-              </select>
-            </div>
           </div>
 
-          {/* Clear Filters */}
-          {(searchTerm || selectedCity || selectedService) && (
-            <div className="mt-4">
-              <button
-                onClick={clearFilters}
-                className="text-sm text-gray-600 hover:text-green-600 transition-colors"
-              >
-                Alle filters wissen
-              </button>
+          {searchCenter && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-700">
+                Toont dealers binnen {searchRadius} km van {locationSearch}
+                <button
+                  onClick={() => setSearchCenter(null)}
+                  className="ml-2 text-green-600 hover:text-green-800 underline"
+                >
+                  (Wissen)
+                </button>
+              </p>
             </div>
           )}
         </div>
 
-        {/* Results Summary */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            {filteredDealers.length} dealer{filteredDealers.length !== 1 ? 's' : ''} gevonden
-            {searchTerm && ` voor "${searchTerm}"`}
-            {selectedCity && ` in ${selectedCity}`}
-          </p>
-        </div>
-
-        {/* Dealers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDealers.map((dealer) => {
-            const distance = userLocation ? 
-              calculateDistance(userLocation.lat, userLocation.lng, dealer.latitude, dealer.longitude) : null
-
-            return (
-              <div key={dealer.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="p-6">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{dealer.name}</h3>
-                      <p className="text-sm text-gray-600">{dealer.company_name}</p>
-                    </div>
-                    {dealer.rating && (
-                      <div className="flex items-center">
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <svg
-                              key={star}
-                              className={`w-4 h-4 ${
-                                star <= dealer.rating! ? 'text-yellow-400' : 'text-gray-300'
-                              }`}
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <span className="ml-1 text-sm text-gray-600">
-                          ({dealer.reviews})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Address */}
-                  <div className="mb-4">
-                    <div className="flex items-start space-x-2">
-                      <svg className="w-5 h-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <div>
-                        <p className="text-sm text-gray-700">{dealer.address}</p>
-                        <p className="text-sm text-gray-600">{dealer.postal_code} {dealer.city}</p>
-                        {distance && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {distance.toFixed(1)} km van jouw locatie
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Contact */}
-                  <div className="mb-4 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                      <a href={`tel:${dealer.phone}`} className="text-sm text-gray-700 hover:text-green-600">
-                        {dealer.phone}
-                      </a>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <a href={`mailto:${dealer.email}`} className="text-sm text-gray-700 hover:text-green-600">
-                        {dealer.email}
-                      </a>
-                    </div>
-                  </div>
-
-                  {/* Services */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Services</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {dealer.services.map((service, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full"
-                        >
-                          {service}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex space-x-2">
-                    <a
-                      href={`https://maps.google.com/?q=${dealer.latitude},${dealer.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-center text-sm"
-                    >
-                      Route
-                    </a>
-                    {dealer.website && (
-                      <a
-                        href={dealer.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors text-center text-sm"
-                      >
-                        Website
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* No Results */}
-        {filteredDealers.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">🔍</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Geen dealers gevonden</h3>
-            <p className="text-gray-600 mb-4">
-              Probeer andere zoektermen of filters aan te passen.
-            </p>
-            <button
-              onClick={clearFilters}
-              className="text-green-600 hover:text-green-700 font-medium"
-            >
-              Alle filters wissen
-            </button>
+        {/* 50/50 Layout: Map Links, Dealers Rechts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-[600px]">
+          {/* Left: Map */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Kaart</h2>
+            </div>
+            <div className="h-[550px]">
+              <MapComponent 
+                dealers={filteredDealers}
+                userLocation={userLocation}
+                onDealerSelect={(dealer: Dealer | null) => setSelectedDealer(dealer)}
+                selectedDealer={selectedDealer}
+                searchCenter={searchCenter}
+                searchRadius={searchRadius}
+              />
+            </div>
           </div>
-        )}
 
-        {/* Become a Dealer CTA */}
-        <div className="mt-12 bg-white rounded-lg shadow-md p-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Word AlloyGator Dealer</h2>
-          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-            Bent u geïnteresseerd om AlloyGator dealer te worden? Neem contact met ons op voor meer informatie over onze dealer programma's en voordelen.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/dealer-login"
-              className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition-colors font-medium"
-            >
-              Dealer Login
-            </Link>
-            <Link
-              href="/contact"
-              className="bg-gray-100 text-gray-700 px-6 py-3 rounded-md hover:bg-gray-200 transition-colors font-medium"
-            >
-              Contact opnemen
-            </Link>
+          {/* Right: Dealers List */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Dealers ({filteredDealers.length})
+                </h2>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                >
+                  <option value="name">Naam A-Z</option>
+                  <option value="rating">Hoogste rating</option>
+                  <option value="distance">Dichtstbij</option>
+                </select>
+              </div>
+            </div>
+            <div className="h-[550px] overflow-y-auto p-4 space-y-4">
+              {filteredDealers.map((dealer) => {
+                const distance = searchCenter ? 
+                  calculateDistance(searchCenter.lat, searchCenter.lng, dealer.latitude, dealer.longitude) : 
+                  userLocation ? calculateDistance(userLocation.lat, userLocation.lng, dealer.latitude, dealer.longitude) : null
+
+                return (
+                  <div 
+                    key={dealer.id} 
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => setSelectedDealer(dealer)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{dealer.company_name}</h3>
+                      </div>
+                      {dealer.rating && (
+                        <div className="flex items-center text-sm">
+                          <span className="text-yellow-400">★</span>
+                          <span className="ml-1">{dealer.rating}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 mb-2">
+                      <p>{dealer.address}</p>
+                      <p>{dealer.postal_code} {dealer.city}</p>
+                      {distance && (
+                        <p className="text-green-600 font-medium">{distance.toFixed(1)} km</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center">
+                        <a 
+                          href={`tel:${dealer.phone}`}
+                          className="text-green-600 hover:text-green-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          📞 {dealer.phone}
+                        </a>
+                      </div>
+                      <div className="flex items-center">
+                        <a 
+                          href={`mailto:${dealer.email}`}
+                          className="text-blue-600 hover:text-blue-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ✉️ {dealer.email}
+                        </a>
+                      </div>
+                      {dealer.website && (
+                        <div className="flex items-center">
+                          <a 
+                            href={dealer.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-purple-600 hover:text-purple-700"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            🌐 Website
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              
+              {filteredDealers.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Geen dealers gevonden</p>
+                  {searchCenter && (
+                    <p className="text-sm text-gray-400 mt-2">
+                      Probeer een grotere radius of andere locatie
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
-} 
+}

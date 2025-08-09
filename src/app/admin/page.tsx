@@ -2,45 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
+import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    products: 0,
-    customers: 0,
-    orders: 0
-  })
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true)
-        const [products, customers, orders] = await Promise.all([
-          FirebaseService.getProducts(),
-          FirebaseService.getCustomers(),
-          FirebaseService.getOrders()
-        ])
-        
-        setStats({
-          products: products.length,
-          customers: customers.length,
-          orders: orders.length
-        })
-      } catch (error) {
-        console.error('Error fetching stats:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStats()
-  }, [])
+  const [products] = useFirebaseRealtime('products')
+  const [customers] = useFirebaseRealtime('customers')
+  const [orders] = useFirebaseRealtime('orders')
+  
+  const stats = {
+    products: products.length,
+    customers: customers.length,
+    orders: orders.length
+  }
+  
+  const loading = false // Real-time updates don't need loading state
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welkom bij het AlloyGator admin panel</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Welkom bij het AlloyGator admin panel - Live database cijfers</p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -55,6 +38,9 @@ export default function AdminDashboard() {
               <p className="text-3xl font-bold text-blue-600">
                 {loading ? '...' : stats.products}
               </p>
+              {!loading && (
+                <p className="text-xs text-gray-500">Live updates</p>
+              )}
             </div>
           </div>
         </div>
@@ -69,6 +55,9 @@ export default function AdminDashboard() {
               <p className="text-3xl font-bold text-green-600">
                 {loading ? '...' : stats.customers}
               </p>
+              {!loading && (
+                <p className="text-xs text-gray-500">Live updates</p>
+              )}
             </div>
           </div>
         </div>
@@ -83,6 +72,9 @@ export default function AdminDashboard() {
               <p className="text-3xl font-bold text-purple-600">
                 {loading ? '...' : stats.orders}
               </p>
+              {!loading && (
+                <p className="text-xs text-gray-500">Live updates</p>
+              )}
             </div>
           </div>
         </div>
@@ -107,18 +99,25 @@ export default function AdminDashboard() {
             <p className="text-sm text-green-700">Bekijk en beheer klantgegevens</p>
           </a>
           <a 
-            href="/admin/orders" 
+            href="/admin/customer-groups" 
             className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left"
           >
-            <h3 className="font-semibold text-purple-900">Bestellingen</h3>
-            <p className="text-sm text-purple-700">Bekijk en verwerk bestellingen</p>
+            <h3 className="font-semibold text-purple-900">Klantgroepen</h3>
+            <p className="text-sm text-purple-700">Beheer klantgroepen en kortingen</p>
+          </a>
+          <a 
+            href="/admin/orders" 
+            className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left"
+          >
+            <h3 className="font-semibold text-orange-900">Bestellingen</h3>
+            <p className="text-sm text-orange-700">Bekijk en verwerk bestellingen</p>
           </a>
           <a 
             href="/admin/settings" 
-            className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left"
+            className="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors text-left"
           >
-            <h3 className="font-semibold text-orange-900">Instellingen</h3>
-            <p className="text-sm text-orange-700">Configureer website instellingen</p>
+            <h3 className="font-semibold text-yellow-900">Instellingen</h3>
+            <p className="text-sm text-yellow-700">Configureer website instellingen</p>
           </a>
         </div>
       </div>
@@ -129,15 +128,8 @@ export default function AdminDashboard() {
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
             <div>
-              <h3 className="font-semibold text-green-900">Database</h3>
-              <p className="text-sm text-green-700">Firebase verbinding actief</p>
-            </div>
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          </div>
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
               <h3 className="font-semibold text-green-900">Website</h3>
-              <p className="text-sm text-green-700">Online en functioneel</p>
+              <p className="text-sm text-green-700">Lokaal draaiend op localhost:3001</p>
             </div>
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
           </div>
@@ -148,7 +140,23 @@ export default function AdminDashboard() {
             </div>
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
           </div>
+          <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+            <div>
+              <h3 className="font-semibold text-yellow-900">Database</h3>
+              <p className="text-sm text-yellow-700">Firebase verbinding beschikbaar</p>
+            </div>
+            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+          </div>
         </div>
+      </div>
+
+      {/* Info Box */}
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+        <h3 className="font-semibold text-blue-900 mb-2">ℹ️ Informatie</h3>
+        <p className="text-sm text-blue-700">
+          Deze admin sectie draait lokaal. De data wordt opgehaald van Firebase als database service. 
+          Als er geen data wordt getoond, kan dit betekenen dat de database leeg is of dat er connectiviteitsproblemen zijn.
+        </p>
       </div>
     </div>
   )

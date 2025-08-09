@@ -9,12 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/leaflet": "^1.9.20",
+    "@types/nodemailer": "^6.4.17",
+    "bcryptjs": "^3.0.2",
+    "firebase": "^10.7.1",
+    "leaflet": "^1.9.4",
     "next": "15.4.2",
+    "nodemailer": "^7.0.5",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "firebase": "^10.7.1",
-    "bcryptjs": "^3.0.2",
-    "@types/bcryptjs": "^2.4.6",
     "typescript": "^5"
   },
   "devDependencies": {

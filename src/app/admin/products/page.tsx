@@ -2,26 +2,106 @@
 
 import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
+import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
+import ProductModal from './ProductModal'
+import CSVImport from './CSVImport'
+
+interface Product {
+  id: string
+  name?: string
+  title?: string  // Mogelijk alternatieve naam veld
+  description: string
+  price: number
+  cost_price?: number  // Kostprijs
+  vat_category?: string
+  category?: string
+  image_url?: string
+  image?: string  // Alternatief image veld
+  sku?: string
+  ean_code?: string
+  stock_quantity?: number
+  stock?: number  // Alternatief voorraad veld
+  weight?: number
+  dimensions?: string
+  material?: string
+  color?: string
+  warranty?: string
+  instructions?: string
+  features?: string[]
+  specifications?: Record<string, any>
+  created_at?: string
+  updated_at?: string
+  reviews?: { rating: number; comment: string }[]
+  // Voeg alle mogelijke velden toe die in Firebase kunnen staan
+  [key: string]: any  // Catch-all voor onbekende velden
+}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [products, loading, error] = useFirebaseRealtime<Product>('products')
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [showCSVImport, setShowCSVImport] = useState(false)
 
-  useEffect(() => {
-    const fetchProducts = async () => {
+  // Debug logging
+  console.log('ProductsPage - Products:', products)
+  console.log('ProductsPage - Loading:', loading)
+  console.log('ProductsPage - Error:', error)
+  console.log('ProductsPage - Products length:', products.length)
+  console.log('ProductsPage - Products details:', products.map(p => ({ 
+    id: p.id, 
+    name: p.name, 
+    title: p.title,
+    price: p.price,
+    cost_price: p.cost_price,
+    stock_quantity: p.stock_quantity,
+    stock: p.stock
+  })))
+
+
+  const handleViewProduct = (product: Product) => {
+    setSelectedProduct(product)
+    setShowProductModal(true)
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product)
+    setShowProductModal(true)
+  }
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (confirm('Weet je zeker dat je dit product wilt verwijderen?')) {
       try {
-        setLoading(true)
-        const data = await FirebaseService.getProducts()
-        setProducts(data)
+        await FirebaseService.deleteProduct(productId)
+        // Products will be updated automatically via the real-time listener
       } catch (error) {
-        console.error('Error fetching products:', error)
-      } finally {
-        setLoading(false)
+        console.error('Error deleting product:', error)
+        alert('Fout bij het verwijderen van het product')
       }
     }
+  }
 
-    fetchProducts()
-  }, [])
+
+
+  const handleCSVImport = async (importedProducts: any[]) => {
+    try {
+      console.log(`Importing ${importedProducts.length} products from CSV...`)
+      
+      for (const product of importedProducts) {
+        try {
+          await FirebaseService.addProduct(product)
+          console.log(`Imported product: ${product.name || product.sku}`)
+        } catch (error) {
+          console.error(`Error importing product ${product.sku}:`, error)
+        }
+      }
+      
+      alert(`${importedProducts.length} producten succesvol geïmporteerd!`)
+    } catch (error) {
+      console.error('CSV import error:', error)
+      alert('Fout bij importeren van producten')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -30,9 +110,24 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Producten Beheren</h1>
           <p className="text-gray-600">Beheer uw productcatalogus</p>
         </div>
-        <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-          + Nieuw Product
-        </button>
+        <div className="flex space-x-3">
+          <button 
+            onClick={() => {
+              setSelectedProduct(null)
+              setEditingProduct(null)
+              setShowProductModal(true)
+            }}
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+          >
+            + Nieuw Product
+          </button>
+                    <button 
+            onClick={() => setShowCSVImport(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          >
+            📁 CSV Import
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -58,7 +153,16 @@ export default function ProductsPage() {
                     Prijs
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Kostprijs
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Voorraad
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    SKU
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    EAN Code
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acties
@@ -66,17 +170,33 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product: any) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
+                {products.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      <div className="flex flex-col items-center">
+                        <div className="text-6xl mb-4">📦</div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Geen producten gevonden</h3>
+                        <p className="text-sm text-gray-500 mb-4">Er zijn nog geen producten toegevoegd aan de database.</p>
+                        <button 
+                          onClick={() => window.location.href = '/winkel'}
+                          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          Ga naar winkel om producten te laden
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : products.map((product: any, index: number) => (
+                  <tr key={`${product.id}-${index}`} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 bg-gray-200 rounded-lg flex items-center justify-center">
                           📦
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.name || product.title || 'Onbekend product'}
-                          </div>
+                                                  <div className="text-sm font-medium text-gray-900">
+                          {product.name || product.title || product.id || 'Onbekend product'}
+                        </div>
                           <div className="text-sm text-gray-500">
                             ID: {product.id}
                           </div>
@@ -87,18 +207,45 @@ export default function ProductsPage() {
                       {product.category || 'Algemeen'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      €{product.price || '0.00'}
+                      €{(product.price || product.cost_price || 0).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                        Actief
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      €{(product.cost_price || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        (product.stock_quantity || product.stock || 0) > 10 
+                          ? 'bg-green-100 text-green-800' 
+                          : (product.stock_quantity || product.stock || 0) > 0 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : 'bg-red-100 text-red-800'
+                      }`}>
+                        {product.stock_quantity || product.stock || 0} stuks
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.sku || 'Geen SKU'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.ean_code || 'Geen EAN'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-blue-600 hover:text-blue-900 mr-3">
+                      <button 
+                        onClick={() => handleViewProduct(product)}
+                        className="text-green-600 hover:text-green-900 mr-3"
+                      >
+                        Bekijken
+                      </button>
+                      <button 
+                        onClick={() => handleEditProduct(product)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
                         Bewerken
                       </button>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
                         Verwijderen
                       </button>
                     </td>
@@ -109,6 +256,35 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+
+      <ProductModal
+        product={selectedProduct || editingProduct}
+        isEditing={!!editingProduct}
+        isOpen={showProductModal}
+        onClose={() => {
+          setShowProductModal(false)
+          setSelectedProduct(null)
+          setEditingProduct(null)
+        }}
+        onSave={async (productData) => {
+          try {
+            if (editingProduct) {
+              await FirebaseService.updateProduct(productData.id, productData)
+            } else {
+              await FirebaseService.addProduct(productData)
+            }
+          } catch (error) {
+            console.error('Error saving product:', error)
+            alert('Fout bij opslaan van product')
+          }
+        }}
+      />
+
+      <CSVImport
+        isOpen={showCSVImport}
+        onClose={() => setShowCSVImport(false)}
+        onImport={handleCSVImport}
+      />
     </div>
   )
 }

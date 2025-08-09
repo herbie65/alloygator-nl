@@ -1,15 +1,17 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, setDoc } from 'firebase/firestore';
 
 // Firebase configuratie
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyBfTecdVHIYbwyI822bcKAhLWs0bNNT1yM',
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'alloygator-nl.firebaseapp.com',
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'alloygator-nl',
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'alloygator-nl.firebasestorage.app',
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '501404252412',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:501404252412:web:0dd2bd394f9a13117a3f79'
 };
+
+console.log('Firebase config loaded successfully');
 
 // Initialize Firebase only if not already initialized
 let app;
@@ -17,8 +19,10 @@ try {
   const apps = getApps();
   if (apps.length === 0) {
     app = initializeApp(firebaseConfig);
+    console.log('Firebase initialized successfully');
   } else {
     app = apps[0];
+    console.log('Firebase already initialized');
   }
 } catch (error) {
   console.error('Firebase initialization error:', error);
@@ -27,6 +31,7 @@ try {
 }
 
 const db = getFirestore(app);
+console.log('Firestore database initialized');
 
 // Database service functies
 export class FirebaseService {
@@ -86,12 +91,16 @@ export class FirebaseService {
 
   static async updateDocument(collectionName: string, docId: string, data: any) {
     try {
+      if (!docId || typeof docId !== 'string') {
+        throw new Error(`Invalid document id for collection ${collectionName}`)
+      }
       const docRef = doc(db, collectionName, docId);
-      await updateDoc(docRef, {
-        ...data,
-        updated_at: new Date()
-      });
-      return { id: docId, ...data };
+      const { id, ...updateData } = data; // Remove id from data to avoid conflicts
+      await setDoc(docRef, {
+        ...updateData,
+        updated_at: new Date().toISOString()
+      }, { merge: true }); // Use setDoc with merge instead of updateDoc
+      return { id: docId, ...updateData };
     } catch (error) {
       console.error('Error updating document:', error);
       throw error;
@@ -303,7 +312,71 @@ export class FirebaseService {
   }
 
   static async updatePaymentSettings(id: string, paymentData: any) {
-    return this.updateDocument('payment_settings', id, paymentData);
+    return await this.updateDocument('payment_settings', id, paymentData);
+  }
+
+  // Categories
+  static async getCategories() {
+    return await this.getDocuments('categories', []);
+  }
+
+  static async getCategoryById(id: string) {
+    return await this.getDocument('categories', id);
+  }
+
+  static async createCategory(categoryData: any) {
+    return await this.addDocument('categories', categoryData);
+  }
+
+  static async updateCategory(id: string, categoryData: any) {
+    return await this.updateDocument('categories', id, categoryData);
+  }
+
+  static async deleteCategory(id: string) {
+    return await this.deleteDocument('categories', id);
+  }
+
+  // Product Attributes
+  static async getProductAttributes() {
+    return await this.getDocuments('product_attributes', []);
+  }
+
+  static async createProductAttribute(attributeData: any) {
+    return await this.addDocument('product_attributes', attributeData);
+  }
+
+  static async updateProductAttribute(id: string, attributeData: any) {
+    return await this.updateDocument('product_attributes', id, attributeData);
+  }
+
+  static async deleteProductAttribute(id: string) {
+    return await this.deleteDocument('product_attributes', id);
+  }
+
+  // Product Colors
+  static async getProductColors() {
+    return await this.getDocuments('product_colors', []);
+  }
+
+  static async createProductColor(colorData: any) {
+    return await this.addDocument('product_colors', colorData);
+  }
+
+  static async updateProductColor(id: string, colorData: any) {
+    return await this.updateDocument('product_colors', id, colorData);
+  }
+
+  static async deleteProductColor(id: string) {
+    return await this.deleteDocument('product_colors', id);
+  }
+
+  // Settings
+  static async getSettings() {
+    return await this.getDocuments('settings', []);
+  }
+
+  static async updateSettings(id: string, settingsData: any) {
+    return await this.updateDocument('settings', id, settingsData);
   }
 }
 

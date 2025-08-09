@@ -4,49 +4,22 @@ import { FirebaseService } from '@/lib/firebase'
 export async function GET() {
   try {
     const shippingMethods = await FirebaseService.getShippingMethods()
-    return NextResponse.json(shippingMethods)
+    return NextResponse.json(shippingMethods || [])
   } catch (error) {
     console.error('Error fetching shipping methods:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch shipping methods' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch shipping methods' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { name, description, price, delivery_time, is_active } = body
-
-    // Validate required fields
-    if (!name || !description || price === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    const shippingMethod = {
-      id: Date.now().toString(),
-      name,
-      description,
-      price: Number(price),
-      delivery_time,
-      is_active: is_active !== undefined ? is_active : true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-
-    await FirebaseService.createShippingMethod(shippingMethod)
+    const shippingMethod = await request.json()
     
-    return NextResponse.json(shippingMethod, { status: 201 })
+    const result = await FirebaseService.createShippingMethod(shippingMethod)
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
     console.error('Error creating shipping method:', error)
-    return NextResponse.json(
-      { error: 'Failed to create shipping method' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create shipping method' }, { status: 500 })
   }
 }
 

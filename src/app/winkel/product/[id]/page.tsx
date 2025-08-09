@@ -181,7 +181,8 @@ export default function ProductDetailPage() {
       quantity: quantity,
       image: product.image_url,
       vat_category: product.vat_category,
-      sku: product.sku
+      sku: product.sku,
+      category: (product as any).category
     }
 
     const existingCart = JSON.parse(localStorage.getItem('alloygator-cart') || '[]')

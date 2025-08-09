@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { FirebaseClientService } from '@/lib/firebase-client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface Order {
   id: string
-  order_number: string
+  orderNumber: string
   customer: {
     voornaam: string
     achternaam: string
@@ -32,7 +33,7 @@ interface Order {
   shipping_method: string
   status: string
   payment_status: string
-  created_at: string
+  createdAt: string
   dealer_group?: string
 }
 
@@ -45,16 +46,19 @@ export default function OrderConfirmationPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get order from localStorage (in real app, this would come from API)
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const foundOrder = orders.find((o: Order) => o.id === orderId)
-    
-    if (foundOrder) {
-      setOrder(foundOrder)
-    } else {
-      router.push('/winkel')
+    const load = async () => {
+      try {
+        const fetched = await FirebaseClientService.getOrderById(orderId)
+        if (fetched) {
+          setOrder(fetched as Order)
+        } else {
+          router.push('/winkel')
+        }
+      } finally {
+        setLoading(false)
+      }
     }
-    setLoading(false)
+    load()
   }, [orderId, router])
 
   if (loading) {
@@ -137,12 +141,12 @@ export default function OrderConfirmationPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Bestelnummer</h3>
-                  <p className="text-lg font-semibold text-gray-900">{order.order_number}</p>
+                  <p className="text-lg font-semibold text-gray-900">{order.orderNumber}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Besteldatum</h3>
                   <p className="text-lg font-semibold text-gray-900">
-                    {new Date(order.created_at).toLocaleDateString('nl-NL')}
+                    {new Date(order.createdAt).toLocaleDateString('nl-NL')}
                   </p>
                 </div>
                 <div>

@@ -1,172 +1,214 @@
-# Firebase Setup Guide
+# 🔥 Firebase Setup voor AlloyGator
 
-## 🚀 Firebase Project Setup
+## 📋 Vereisten
 
-### 1. Firebase Console
+### 1. Firebase Project
 1. Ga naar [Firebase Console](https://console.firebase.google.com/)
-2. Klik "Create a project" of "Add project"
-3. Geef je project een naam: `alloygator-nl`
-4. Schakel Google Analytics uit (optioneel)
-5. Klik "Create project"
+2. Maak een nieuw project aan: `alloygator-nl`
+3. Schakel Google Analytics in (optioneel)
 
 ### 2. Firestore Database
 1. In je Firebase project, ga naar "Firestore Database"
 2. Klik "Create database"
 3. Kies "Start in test mode" (voor development)
-4. Kies een locatie (bijv. `europe-west1` voor Nederland)
-5. Klik "Done"
+4. Selecteer een locatie (bijv. europe-west3)
 
-### 3. Web App Toevoegen
-1. Ga naar "Project settings" (tandwiel icoon)
-2. Scroll naar "Your apps" sectie
-3. Klik het web icoon (`</>`)
-4. Geef je app een naam: `alloygator-nl-web`
-5. Schakel "Firebase Hosting" uit
-6. Klik "Register app"
-7. Kopieer de configuratie:
+### 3. Authentication
+1. Ga naar "Authentication" in Firebase Console
+2. Klik "Get started"
+3. Schakel "Email/Password" in
+4. Voeg je admin email toe als gebruiker
 
-```javascript
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
-};
-```
+### 4. Hosting (optioneel)
+1. Ga naar "Hosting" in Firebase Console
+2. Klik "Get started"
+3. Volg de setup instructies
 
-### 4. Environment Variables
-Voeg deze environment variables toe aan je `.env.local` bestand:
+---
+
+## 🔧 Environment Variables
+
+Maak een `.env.local` bestand aan in de root van het project:
 
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBfTecdVHIYbwyI822bcKAhLWs0bNNT1yM
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=alloygator-nl.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=alloygator-nl
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=alloygator-nl.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=501404252412
+NEXT_PUBLIC_FIREBASE_APP_ID=1:501404252412:web:0dd2bd394f9a13117a3f79
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-QY0QVXYJ5H
+NODE_ENV=development
 ```
 
-### 5. Netlify Environment Variables
-Voeg dezelfde environment variables toe in Netlify:
-1. Ga naar je Netlify dashboard
-2. Ga naar Site settings > Environment variables
-3. Voeg alle Firebase configuratie toe
+---
 
-## 📊 Database Migratie
+## 🚀 Deployment
 
-### 1. Export Huidige Data
+### 1. Firebase CLI Installeren
 ```bash
-# Exporteer de huidige SQLite database
-node export_database.js
+npm install -g firebase-tools
 ```
 
-### 2. Migreer naar Firebase
+### 2. Login op Firebase
 ```bash
-# Update de Firebase configuratie in migrate_to_firebase.js
-# Voer je eigen Firebase configuratie in
-
-# Voer de migratie uit
-node migrate_to_firebase.js
+firebase login
 ```
 
-### 3. Verificeer Migratie
-1. Ga naar Firebase Console > Firestore Database
-2. Controleer of alle collections zijn aangemaakt:
-   - `customers` (115 documents)
-   - `products` (5 documents)
-   - `vat_settings` (5 documents)
-   - `shipping_settings` (3 documents)
-   - `payment_settings` (1 document)
-   - etc.
+### 3. Project Initialiseren
+```bash
+firebase init
+```
 
-## 🔒 Security Rules
+Selecteer:
+- Firestore
+- Hosting (optioneel)
+- Functions (optioneel)
 
-### Firestore Security Rules
+### 4. Database Regels Instellen
+
 Ga naar Firebase Console > Firestore Database > Rules en voeg deze rules toe:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all users under any document
-    // WARNING: This is for development only!
+    // Admin access
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null && request.auth.token.email == 'admin@alloygator.nl';
+    }
+    
+    // Public read access for products and pages
+    match /products/{productId} {
+      allow read: if true;
+    }
+    
+    match /cms_pages/{pageId} {
+      allow read: if true;
+    }
+    
+    // Customer access to own data
+    match /customers/{customerId} {
+      allow read, write: if request.auth != null && request.auth.uid == customerId;
+    }
+    
+    // Orders - customers can read/write their own orders
+    match /orders/{orderId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.customer_email == request.auth.token.email || 
+         request.auth.token.email == 'admin@alloygator.nl');
     }
   }
 }
 ```
 
-**⚠️ Waarschuwing:** Deze rules staan alle toegang toe. Voor productie moet je specifieke rules maken.
+---
 
-## 🧪 Test Setup
+## 📊 Database Schema
 
-### 1. Lokale Test
-```bash
-# Start development server
-npm run dev
+### Collections
 
-# Test API endpoints
-curl http://localhost:3000/api/customers
-curl http://localhost:3000/api/products
+#### customers
+```javascript
+{
+  id: "auto-generated",
+  name: "string",
+  email: "string (unique)",
+  phone: "string",
+  address: "string",
+  city: "string",
+  postal_code: "string",
+  country: "string",
+  customer_group_id: "string",
+  is_dealer: "boolean",
+  first_name: "string",
+  last_name: "string",
+  company_name: "string",
+  vat_number: "string",
+  created_at: "timestamp",
+  updated_at: "timestamp"
+}
 ```
 
-### 2. Productie Test
-```bash
-# Build voor productie
-npm run build
-
-# Test met NODE_ENV=production
-NODE_ENV=production npm start
+#### products
+```javascript
+{
+  id: "auto-generated",
+  sku: "string (unique)",
+  name: "string",
+  description: "string",
+  price: "number",
+  category: "string",
+  stock: "number",
+  is_active: "boolean",
+  created_at: "timestamp",
+  updated_at: "timestamp"
+}
 ```
 
-## 📈 Firebase Spark Plan Limieten
+#### orders
+```javascript
+{
+  id: "auto-generated",
+  order_number: "string (unique)",
+  customer_email: "string",
+  customer_name: "string",
+  items: "array",
+  total_amount: "number",
+  status: "string",
+  created_at: "timestamp"
+}
+```
 
-### Gratis Tier Limieten:
-- **1GB** opslag
-- **50K reads** per dag
-- **20K writes** per dag
-- **20K deletes** per dag
+#### vat_settings
+```javascript
+{
+  id: "auto-generated",
+  country_code: "string",
+  country_name: "string",
+  standard_rate: "number",
+  reduced_rate: "number",
+  is_eu_member: "boolean",
+  created_at: "timestamp"
+}
+```
 
-### Monitoring:
-1. Ga naar Firebase Console > Usage and billing
-2. Monitor je dagelijkse gebruik
-3. Stel alerts in voor limieten
+---
 
-## 🔧 Troubleshooting
+## 🔍 Troubleshooting
 
-### Veelvoorkomende Problemen:
+### 1. Firebase Connection Errors
+- Controleer of alle environment variables correct zijn ingesteld
+- Zorg dat Firebase project online is
+- Controleer Firebase Console voor errors
 
-1. **"Firebase App named '[DEFAULT]' already exists"**
-   - Zorg dat je Firebase maar één keer initialiseert
+### 2. Permission Errors
+- Controleer Firestore Rules
+- Zorg dat admin email correct is ingesteld
+- Test met Firebase Console
 
-2. **"Missing or insufficient permissions"**
-   - Controleer je Firestore security rules
-   - Zorg dat je API key correct is
+### 3. Build Errors
+- Controleer of Firebase dependencies geïnstalleerd zijn
+- Zorg dat TypeScript types correct zijn
+- Test lokaal voor deployment
 
-3. **"Quota exceeded"**
-   - Monitor je Firebase usage
-   - Overweeg upgrade naar Blaze plan
+---
 
-4. **"Network error"**
-   - Controleer je internet verbinding
-   - Controleer Firebase project locatie
+## 📚 Handige Links
 
-## 📞 Support
+- [Firebase Documentation](https://firebase.google.com/docs)
+- [Firestore Rules](https://firebase.google.com/docs/firestore/security/get-started)
+- [Firebase Console](https://console.firebase.google.com/)
+- [Firebase CLI](https://firebase.google.com/docs/cli)
 
-Voor vragen over Firebase setup:
-1. [Firebase Documentation](https://firebase.google.com/docs)
-2. [Firebase Console](https://console.firebase.google.com/)
-3. [Firebase Support](https://firebase.google.com/support)
+---
 
-## 🎯 Volgende Stappen
+## ✅ Checklist
 
-1. ✅ **Firebase project aanmaken**
-2. ✅ **Environment variables configureren**
-3. ✅ **Database migreren**
-4. ✅ **Security rules instellen**
-5. ✅ **Testen in development**
-6. ✅ **Deployen naar Netlify**
-7. ✅ **Monitoring instellen** 
+- [ ] Firebase project aangemaakt
+- [ ] Firestore database geïnitialiseerd
+- [ ] Authentication geconfigureerd
+- [ ] Environment variables ingesteld
+- [ ] Firestore rules geconfigureerd
+- [ ] Lokaal testen gedaan
+- [ ] Deployment getest 

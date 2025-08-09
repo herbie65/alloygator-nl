@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+    </style>
+</head>
+<body>
+    <h1>Checkout Test</h1>
+    
+    <div class="test-section info">
+        <h3>1. Settings API Test</h3>
+        <div id="settings-result">Loading...</div>
+    </div>
+    
+    <div class="test-section info">
+        <h3>2. Checkout Page Test</h3>
+        <div id="checkout-result">Loading...</div>
+    </div>
+    
+    <div class="test-section info">
+        <h3>3. MyParcel API Test</h3>
+        <div id="myparcel-result">Loading...</div>
+    </div>
+
+    <script>
+        // Test 1: Settings API
+        fetch('/api/settings')
+            .then(response => response.json())
+            .then(data => {
+                const settings = data[0];
+                const shippingMethods = settings.shippingMethods || [];
+                const enabledCarriers = settings.enabledCarriers || [];
+                
+                let html = `
+                    <p><strong>Status:</strong> ✅ Settings geladen</p>
+                    <p><strong>Enabled Carriers:</strong> ${enabledCarriers.join(', ')}</p>
+                    <p><strong>Shipping Methods:</strong> ${shippingMethods.length}</p>
+                    <ul>
+                `;
+                
+                shippingMethods.forEach(method => {
+                    if (method.enabled && enabledCarriers.includes(method.carrier)) {
+                        html += `<li>✅ ${method.name} (${method.carrier}-${method.delivery_type}) - €${method.price}</li>`;
+                    } else {
+                        html += `<li>❌ ${method.name} (${method.carrier}-${method.delivery_type}) - €${method.price}</li>`;
+                    }
+                });
+                
+                html += '</ul>';
+                document.getElementById('settings-result').innerHTML = html;
+            })
+            .catch(error => {
+                document.getElementById('settings-result').innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            });
+
+        // Test 2: Checkout Page
+        fetch('/checkout')
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById('checkout-result').innerHTML = `
+                        <p><strong>Status:</strong> ✅ Checkout pagina bereikbaar</p>
+                        <p><strong>URL:</strong> <a href="/checkout" target="_blank">http://localhost:3001/checkout</a></p>
+                    `;
+                } else {
+                    document.getElementById('checkout-result').innerHTML = `
+                        <p class="error"><strong>Status:</strong> ❌ Checkout pagina niet bereikbaar (${response.status})</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('checkout-result').innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            });
+
+        // Test 3: MyParcel API
+        fetch('/api/myparcel/pickup-locations?postal_code=1000AA&carrier=postnl')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('myparcel-result').innerHTML = `
+                        <p class="error"><strong>Status:</strong> ❌ MyParcel API Error: ${data.error}</p>
+                    `;
+                } else {
+                    document.getElementById('myparcel-result').innerHTML = `
+                        <p><strong>Status:</strong> ✅ MyParcel API bereikbaar</p>
+                        <p><strong>Pickup Locations:</strong> ${data.data ? data.data.length : 0} gevonden</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('myparcel-result').innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            });
+    </script>
+</body>
+</html>

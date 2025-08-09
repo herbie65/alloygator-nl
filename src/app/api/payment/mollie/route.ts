@@ -1,13 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { FirebaseService } from '@/lib/firebase'
 
 // Mollie API configuration
-const MOLLIE_API_KEY = process.env.MOLLIE_API_KEY || 'test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 const MOLLIE_API_URL = 'https://api.mollie.com/v2'
+
+async function getMollieApiKey(): Promise<string> {
+  // Prefer env var; fallback to settings in Firestore
+  const envKey = process.env.MOLLIE_API_KEY
+  if (envKey && envKey.trim().length > 0) return envKey
+  try {
+    const settingsArray = await FirebaseService.getSettings()
+    if (settingsArray && settingsArray.length > 0) {
+      const s = settingsArray[0] as any
+      return s.mollieApiKey || s.mollie_api_key || 'test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    }
+  } catch {}
+  return 'test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { amount, currency, description, redirectUrl, webhookUrl, metadata } = body
+    const { amount, currency, description, redirectUrl, webhookUrl, metadata, methods } = body
 
     // Validate required fields
     if (!amount || !currency || !description || !redirectUrl) {
@@ -27,24 +41,40 @@ export async function POST(request: NextRequest) {
       redirectUrl,
       webhookUrl,
       metadata: metadata || {},
-      methods: ['ideal', 'creditcard', 'banktransfer'], // Supported payment methods
+      methods: Array.isArray(methods) && methods.length > 0 ? methods : ['ideal'],
       locale: 'nl_NL'
+    }
+
+    const apiKey = await getMollieApiKey()
+
+    // Development/local simulation: always simulate on localhost or when simulate=1 present
+    const host = request.headers.get('host') || ''
+    const isLocal = host.includes('localhost') || (redirectUrl && redirectUrl.includes('localhost'))
+    const wantsSim = !!(redirectUrl && redirectUrl.includes('simulate=1'))
+    if (isLocal || wantsSim) {
+      const simulatedCheckoutUrl = `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}simulate=1`
+      return NextResponse.json({
+        id: 'tr_test_simulated',
+        status: 'open',
+        checkoutUrl: simulatedCheckoutUrl,
+      })
     }
 
     const response = await fetch(`${MOLLIE_API_URL}/payments`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${MOLLIE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(paymentData)
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error('Mollie API error:', errorData)
+      let errorBody: any = null
+      try { errorBody = await response.json() } catch { errorBody = await response.text() }
+      console.error('Mollie API error:', errorBody)
       return NextResponse.json(
-        { error: 'Failed to create payment' },
+        { error: 'Failed to create payment', details: errorBody },
         { status: response.status }
       )
     }
@@ -80,10 +110,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get payment status from Mollie
+    const apiKey = await getMollieApiKey()
+
     const response = await fetch(`${MOLLIE_API_URL}/payments/${paymentId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${MOLLIE_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       }
     })

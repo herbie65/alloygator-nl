@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, getDocs, query, where, orderBy, limit, doc, getDoc, addDoc, updateDoc, deleteDoc, connectFirestoreEmulator } from 'firebase/firestore';
 
 // Firebase configuratie
@@ -12,8 +12,8 @@ const firebaseConfig = {
   measurementId: "G-QY0QVXYJ5H"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase (guard against duplicate app)
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 // Prevent auth errors in static export
@@ -101,6 +101,19 @@ export class FirebaseClientService {
     } catch (error) {
       console.error('Error fetching orders:', error);
       return [];
+    }
+  }
+
+  // Get customer by ID
+  static async getCustomerById(id: string) {
+    try {
+      const docRef = doc(db, 'customers', id)
+      const snap = await getDoc(docRef)
+      if (snap.exists()) return { id: snap.id, ...snap.data() }
+      return null
+    } catch (error) {
+      console.error('Error fetching customer by id:', error)
+      return null
     }
   }
 
@@ -247,6 +260,25 @@ getCompanyInfo
     }
   }
 
+  // Get customers by email
+  static async getCustomersByEmail(email: string) {
+    try {
+      const q = query(
+        collection(db, 'customers'),
+        where('email', '==', email)
+      );
+      const querySnapshot = await getDocs(q);
+      const customers = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      return customers;
+    } catch (error) {
+      console.error('Error fetching customers by email:', error);
+      return [];
+    }
+  }
+
   // Get order by ID
   static async getOrderById(id: string) {
     try {
@@ -260,6 +292,52 @@ getCompanyInfo
       console.error('Error fetching order:', error);
       return null;
     }
+  }
+
+  // Dealer activities (visits/contact moments)
+  static async getActivitiesByEmail(email: string) {
+    try {
+      const q = query(collection(db, 'customer_activities'), where('customer_email', '==', email))
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+    } catch (e) {
+      console.error('Error fetching activities:', e)
+      return []
+    }
+  }
+
+  static async addActivity(data: any) {
+    try {
+      const ref = await addDoc(collection(db, 'customer_activities'), { ...data, created_at: new Date().toISOString() })
+      return { id: ref.id, ...data }
+    } catch (e) { console.error('Error adding activity:', e); throw e }
+  }
+
+  static async deleteActivity(id: string) {
+    try { await deleteDoc(doc(db, 'customer_activities', id)); return true } catch (e) { console.error('Error deleting activity:', e); throw e }
+  }
+
+  // Dealer documents (metadata only)
+  static async getCustomerDocumentsByEmail(email: string) {
+    try {
+      const q = query(collection(db, 'customer_documents'), where('customer_email', '==', email))
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+    } catch (e) {
+      console.error('Error fetching documents:', e)
+      return []
+    }
+  }
+
+  static async addCustomerDocument(meta: any) {
+    try {
+      const ref = await addDoc(collection(db, 'customer_documents'), { ...meta, uploaded_at: new Date().toISOString() })
+      return { id: ref.id, ...meta }
+    } catch (e) { console.error('Error adding document:', e); throw e }
+  }
+
+  static async deleteCustomerDocument(id: string) {
+    try { await deleteDoc(doc(db, 'customer_documents', id)); return true } catch (e) { console.error('Error deleting document:', e); throw e }
   }
 
   // VAT verification with VIES

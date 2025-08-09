@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 
 interface Product {
   id: string
@@ -12,56 +13,41 @@ interface Product {
   category: string
 }
 
-// Static product data
-const staticProducts: Product[] = [
-  {
-    id: '1',
-    name: 'AlloyGator Complete Set 17"',
-    description: 'Complete set voor 17 inch velgen inclusief montagehulpmiddelen',
-    price: 89.95,
-    category: 'alloygator-set'
-  },
-  {
-    id: '2',
-    name: 'AlloyGator Complete Set 18"',
-    description: 'Complete set voor 18 inch velgen inclusief montagehulpmiddelen',
-    price: 99.95,
-    category: 'alloygator-set'
-  },
-  {
-    id: '3',
-    name: 'AlloyGator Complete Set 19"',
-    description: 'Complete set voor 19 inch velgen inclusief montagehulpmiddelen',
-    price: 109.95,
-    category: 'alloygator-set'
-  }
-]
+
 
 export default function AlloyGatorSetPage() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [allProducts, loading, error] = useFirebaseRealtime<Product>('products', 'created_at')
   const [isDealer, setIsDealer] = useState(false)
+
+  // Filter products for this category
+  const products = allProducts.filter(p => p.category === 'alloygator-set')
 
   useEffect(() => {
     // Check if user is logged in as dealer
     const dealerSession = localStorage.getItem('dealerSession')
     setIsDealer(!!dealerSession)
-
-    // Use static products
-    setProducts(staticProducts)
   }, [])
 
   const addToCart = (product: Product) => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]')
+    const cart = JSON.parse(localStorage.getItem('alloygator-cart') || '[]')
     const existingItem = cart.find((item: any) => item.id === product.id)
-    
+
+    const itemToStore = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      image: (product as any).image,
+      category: product.category
+    }
+
     if (existingItem) {
       existingItem.quantity += 1
     } else {
-      cart.push({ ...product, quantity: 1 })
+      cart.push(itemToStore)
     }
-    
-    localStorage.setItem('cart', JSON.stringify(cart))
-    // Trigger cart update event
+
+    localStorage.setItem('alloygator-cart', JSON.stringify(cart))
     window.dispatchEvent(new Event('cartUpdated'))
   }
 

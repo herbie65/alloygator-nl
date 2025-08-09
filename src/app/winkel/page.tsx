@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils'
+import { FirebaseService } from '@/lib/firebase'
+import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 
 interface Product {
   id: string
@@ -44,91 +46,10 @@ interface CartItem {
   quantity: number
   image?: string
   vat_category?: string
+  category?: string
 }
 
-// Static product data
-const staticProducts: Product[] = [
-  {
-    id: '1',
-    name: 'AlloyGator Complete Set 17"',
-    description: 'Complete set voor 17 inch velgen inclusief montagehulpmiddelen',
-    price: 89.95,
-    vat_category: 'standard',
-    category: 'alloygator-set',
-    sku: 'AG-17-SET',
-    stock_quantity: 50,
-    weight: 2.5,
-    dimensions: '17 inch',
-    material: 'Kunststof',
-    color: 'Zwart',
-    warranty: '2 jaar',
-    instructions: 'Inclusief montagehandleiding',
-    features: ['Complete set', 'Montagehulpmiddelen', 'Handleiding'],
-    specifications: {},
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  },
-  {
-    id: '2',
-    name: 'AlloyGator Complete Set 18"',
-    description: 'Complete set voor 18 inch velgen inclusief montagehulpmiddelen',
-    price: 99.95,
-    vat_category: 'standard',
-    category: 'alloygator-set',
-    sku: 'AG-18-SET',
-    stock_quantity: 45,
-    weight: 2.8,
-    dimensions: '18 inch',
-    material: 'Kunststof',
-    color: 'Zwart',
-    warranty: '2 jaar',
-    instructions: 'Inclusief montagehandleiding',
-    features: ['Complete set', 'Montagehulpmiddelen', 'Handleiding'],
-    specifications: {},
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  },
-  {
-    id: '3',
-    name: 'Montage Tool Set',
-    description: 'Professionele montagehulpmiddelen voor eenvoudige installatie',
-    price: 24.95,
-    vat_category: 'standard',
-    category: 'montagehulpmiddelen',
-    sku: 'MT-TOOL-SET',
-    stock_quantity: 100,
-    weight: 0.5,
-    dimensions: 'Toolbox',
-    material: 'Staal',
-    color: 'Zilver',
-    warranty: '1 jaar',
-    instructions: 'Professionele gereedschappen',
-    features: ['Complete gereedschap', 'Professioneel', 'Duurzaam'],
-    specifications: {},
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  },
-  {
-    id: '4',
-    name: 'Vervangingsonderdelen Set',
-    description: 'Extra onderdelen voor onderhoud en reparatie',
-    price: 19.95,
-    vat_category: 'standard',
-    category: 'accessoires',
-    sku: 'VR-ONDERDELEN',
-    stock_quantity: 75,
-    weight: 0.3,
-    dimensions: 'Klein',
-    material: 'Kunststof',
-    color: 'Zwart',
-    warranty: '1 jaar',
-    instructions: 'Vervangingsonderdelen',
-    features: ['Onderdelen', 'Onderhoud', 'Reparatie'],
-    specifications: {},
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  }
-]
+
 
 // Static VAT settings
 const staticVatSettings: VatSettings[] = [
@@ -144,9 +65,8 @@ const staticVatSettings: VatSettings[] = [
 ]
 
 export default function WinkelPage() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, loading, error] = useFirebaseRealtime<Product>('products')
   const [vatSettings, setVatSettings] = useState<VatSettings[]>([])
-  const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -157,9 +77,15 @@ export default function WinkelPage() {
   const [availabilityFilter, setAvailabilityFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState(0)
 
+  // Debug logging
+  console.log('WinkelPage - Products:', products)
+  console.log('WinkelPage - Loading:', loading)
+  console.log('WinkelPage - Error:', error)
+  console.log('WinkelPage - Products length:', products.length)
+  console.log('WinkelPage - Products details:', products.map(p => ({ id: p.id, name: p.name, price: p.price })))
+
   useEffect(() => {
-    // Use static data
-    setProducts(staticProducts)
+    // Load VAT settings and local storage data
     setVatSettings(staticVatSettings)
     
     // Load cart from localStorage
@@ -167,14 +93,12 @@ export default function WinkelPage() {
     if (savedCart) {
       setCart(JSON.parse(savedCart))
     }
-
+    
     // Load wishlist from localStorage
     const savedWishlist = localStorage.getItem('alloygator-wishlist')
     if (savedWishlist) {
       setWishlist(JSON.parse(savedWishlist))
     }
-    
-    setLoading(false)
   }, [])
 
   // Filter and sort products (new logic)
@@ -227,7 +151,8 @@ export default function WinkelPage() {
         price: product.price,
         quantity: 1,
         image: product.image_url,
-        vat_category: product.vat_category
+        vat_category: product.vat_category,
+        category: product.category
       }
       const updatedCart = [...cart, newItem]
       setCart(updatedCart)
@@ -533,8 +458,26 @@ export default function WinkelPage() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => {
+        {filteredProducts.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <div className="text-6xl mb-4">📦</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Geen producten beschikbaar</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Er zijn momenteel geen producten in de database. 
+              {loading ? ' Bezig met laden...' : ' Gebruik de admin om producten toe te voegen.'}
+            </p>
+            {!loading && (
+              <a
+                href="/admin/products"
+                className="inline-block bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                Ga naar Admin
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProducts.map((product) => {
             const priceWithVat = calculatePriceWithVat(product.price, 21) // 21% VAT for Netherlands
             const vatText = getVatDisplayText(21, 'NL')
             
@@ -569,7 +512,7 @@ export default function WinkelPage() {
                   {/* Features */}
                   <div className="mb-4">
                     <div className="flex flex-wrap gap-1">
-                      {product.features.slice(0, 3).map((feature, index) => (
+                      {(product.features || []).slice(0, 3).map((feature, index) => (
                         <span
                           key={index}
                           className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full"
@@ -676,16 +619,6 @@ export default function WinkelPage() {
               </div>
             )
           })}
-        </div>
-
-        {/* No Results */}
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">🔍</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Geen producten gevonden</h3>
-            <p className="text-gray-600">
-              Probeer andere zoektermen of filters aan te passen.
-            </p>
           </div>
         )}
 

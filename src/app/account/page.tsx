@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { FirebaseClientService } from '@/lib/firebase-client'
 import Link from 'next/link'
 
 interface User {
@@ -37,18 +38,67 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [year, setYear] = useState<number>(new Date().getFullYear())
+  const [groupTargets, setGroupTargets] = useState<Record<string, number>>({})
+  const [setsSold, setSetsSold] = useState<number>(0)
+  const [activities, setActivities] = useState<any[]>([])
+  const [documents, setDocuments] = useState<any[]>([])
 
   useEffect(() => {
-    // Get user data from localStorage (in real app, this would come from API)
-    const userData = localStorage.getItem('userData')
-    const ordersData = JSON.parse(localStorage.getItem('orders') || '[]')
-    
-    if (userData) {
-      setUser(JSON.parse(userData))
+    // Get session user
+    const currentUser = localStorage.getItem('currentUser')
+    if (currentUser) {
+      try { setUser(JSON.parse(currentUser)) } catch {}
     }
-    setOrders(ordersData)
     setLoading(false)
   }, [])
+
+  // Load targets and compute dealer progress
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const groups = await FirebaseClientService.getCustomerGroups()
+        const map: Record<string, number> = {}
+        groups.forEach((g:any)=> { map[(g.name||'').toLowerCase()] = Number(g.annual_target_sets || 0) })
+        setGroupTargets(map)
+        if (!user) return
+        // Load all orders for this user from Firestore
+        const allOrders = await FirebaseClientService.getOrders()
+        const myOrders = (allOrders as any[]).filter(o => (o.customer?.email === user.email)) as any[]
+        // Map to Account Order interface
+        const mapped: Order[] = myOrders.map((o:any)=> ({
+          id: o.id,
+          order_number: o.orderNumber || o.order_number || o.id,
+          status: o.status || 'pending',
+          payment_status: o.payment_status || 'open',
+          total: Number(o.total || 0),
+          created_at: o.createdAt || o.created_at || new Date().toISOString(),
+          items: (o.items||[]).map((it:any)=> ({ name: it.name, quantity: Number(it.quantity||0), price: Number(it.price||0) }))
+        }))
+        setOrders(mapped)
+        // Activities & documents
+        try {
+          const [acts, docs] = await Promise.all([
+            FirebaseClientService.getActivitiesByEmail(user.email),
+            FirebaseClientService.getCustomerDocumentsByEmail(user.email)
+          ])
+          setActivities(acts as any[])
+          setDocuments(docs as any[])
+        } catch {}
+        if (user.is_dealer) {
+          const start = new Date(year, 0, 1).getTime()
+          const end = new Date(year + 1, 0, 1).getTime()
+          const qty = myOrders
+            .filter(o => { const t = new Date(o.createdAt || o.created_at || new Date()).getTime(); return t >= start && t < end })
+            .flatMap(o => o.items || [])
+            .filter((it: any) => { const c=(it.category||'').toLowerCase(); if(c==='alloygator-set') return true; const n=(it.name||'').toLowerCase(); return !c && n.includes('alloygator') && n.includes('set') })
+            .reduce((s: number, it: any) => s + Number(it.quantity || 0), 0)
+          setSetsSold(qty)
+        }
+      } catch {}
+    }
+    load()
+  }, [user, year])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -168,7 +218,7 @@ export default function AccountPage() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="flex items-center">
                       <div className="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -214,6 +264,53 @@ export default function AccountPage() {
                       </div>
                     </div>
                   </div>
+
+                   {user.is_dealer && (
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-600">Dealer Target {year}</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                    {setsSold} / {(() => { const g=(user.dealer_group||'').toLowerCase(); return groupTargets[g]||0 })()}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <select value={year} onChange={(e)=>setYear(parseInt(e.target.value,10))} className="text-sm border rounded px-2 py-1">
+                            {[year-1, year, year+1].map(y => (<option key={y} value={y}>{y}</option>))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="mt-4 bg-gray-100 rounded h-2 overflow-hidden">
+                        {(() => {
+                          const g = (user.dealer_group || '').toLowerCase()
+                          const target = groupTargets[g] || 0
+                          const pct = target > 0 ? Math.min(100, Math.round((setsSold / target) * 100)) : 0
+                          return <div className={`h-full ${pct>=100?'bg-green-500':pct>=50?'bg-yellow-500':'bg-red-500'}`} style={{ width: pct + '%' }} />
+                        })()}
+                      </div>
+                       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                         <div className="bg-gray-50 rounded p-4">
+                           <div className="text-gray-500">Laatste bestelling</div>
+                           <div className="font-medium text-gray-900">{orders[0] ? new Date(orders[0].created_at).toLocaleDateString('nl-NL') : '-'}</div>
+                         </div>
+                         <div className="bg-gray-50 rounded p-4">
+                           <div className="text-gray-500">Openstaande status</div>
+                           <div className="font-medium text-gray-900">{orders.find(o=>o.payment_status!=='paid') ? 'Open' : '—'}</div>
+                         </div>
+                         <div className="bg-gray-50 rounded p-4">
+                           <div className="text-gray-500">Dealer groep</div>
+                           <div className="font-medium text-gray-900">{user.dealer_group || '-'}</div>
+                         </div>
+                       </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Recent Orders */}
@@ -378,6 +475,48 @@ export default function AccountPage() {
                   <button className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors">
                     Profiel bewerken
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Activities Tab (dealer-friendly) */}
+            {activeTab === 'addresses' && user.is_dealer && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Bezoeken & Contactmomenten</h2>
+                  {activities.length === 0 ? (
+                    <p className="text-sm text-gray-600">Nog geen activiteiten geregistreerd.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {activities.map((a:any)=> (
+                        <div key={a.id} className="border rounded p-3 text-sm flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">{a.type || 'activiteit'} — {new Date(a.date || a.created_at).toLocaleDateString('nl-NL')}</div>
+                            <div className="text-gray-600">{a.notes || '-'}</div>
+                          </div>
+                          <span className="text-xs text-gray-500">{a.user || ''}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Documenten</h2>
+                  {documents.length === 0 ? (
+                    <p className="text-sm text-gray-600">Nog geen documenten.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {documents.map((d:any)=> (
+                        <div key={d.id} className="border rounded p-3 text-sm flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">{d.title || d.file_name || 'Document'}</div>
+                            <div className="text-gray-600">Geüpload: {new Date(d.uploaded_at).toLocaleDateString('nl-NL')}</div>
+                          </div>
+                          {d.url && <a href={d.url} target="_blank" rel="noreferrer" className="text-green-600 text-sm">Bekijken</a>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
+import { FirebaseClientService } from '@/lib/firebase-client'
 import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 
@@ -11,7 +12,7 @@ function PaymentReturnContent() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const paymentId = searchParams.get('paymentId')
+    const paymentId = searchParams.get('id') || searchParams.get('paymentId')
     const orderIdParam = searchParams.get('orderId')
 
     if (!paymentId) {
@@ -22,32 +23,55 @@ function PaymentReturnContent() {
 
     setOrderId(orderIdParam)
 
-    // Check if this is a test payment
-    if (paymentId.startsWith('tr_test_')) {
-      // Simulate successful test payment
-      setTimeout(() => {
-        setStatus('success')
-      }, 1000)
-      return
-    }
-
-    // Check payment status (simulated for static export)
-    const checkPaymentStatus = async () => {
+    const finalize = async () => {
       try {
-        // Simulate payment status check for static export
-        // In a real implementation, you would use a payment service
-        setTimeout(() => {
+        const simulate = searchParams.get('simulate') === '1'
+        if (simulate && orderIdParam) {
+          // Markeer lokaal als betaald zonder Mollie-call
+          await fetch('/api/orders', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: orderIdParam, payment_status: 'paid', status: 'processing' })
+          }).catch(() => {})
           setStatus('success')
           setOrderId(orderIdParam)
-        }, 1000)
-      } catch (error) {
-        console.error('Error checking payment status:', error)
+          return
+        }
+
+        // 1) If Mollie provided paymentId, fetch its status via our API
+        if (paymentId) {
+          const res = await fetch(`/api/payment/mollie?id=${encodeURIComponent(paymentId)}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.status === 'paid') {
+              setStatus('success')
+            } else if (data.status === 'canceled') {
+              setStatus('cancelled')
+            } else if (data.status === 'failed' || data.status === 'expired') {
+              setStatus('failed')
+            } else {
+              setStatus('success')
+            }
+          } else {
+            // Fallback to success to avoid blocking the user
+            setStatus('success')
+          }
+        } else {
+          setStatus('success')
+        }
+
+        // 2) Optional: re-fetch order to ensure UI has latest status
+        if (orderIdParam) {
+          await FirebaseClientService.getOrderById(orderIdParam)
+        }
+      } catch (e) {
+        console.error(e)
         setStatus('failed')
         setError('Fout bij controleren van betalingsstatus')
       }
     }
 
-    checkPaymentStatus()
+    finalize()
   }, [searchParams])
 
   if (status === 'loading') {

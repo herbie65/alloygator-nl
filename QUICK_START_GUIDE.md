@@ -128,6 +128,25 @@ alloygator-nl/
 └── docs/                      # Documentation
 ```
 
+## 🔧 Development Tools
+
+### 📊 Database & Storage
+- **Firebase Firestore** - Real-time database
+- **Firebase Storage** - File uploads
+- **Firebase Authentication** - User management
+
+### 🛠️ Development Tools
+- **Next.js 15** - React framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **ESLint** - Code quality
+- **Firebase CLI** - Deployment tools
+
+### 📱 Testing & Monitoring
+- **Firebase Console** - Database management
+- **Firebase Analytics** - Usage tracking
+- **Firebase Hosting** - Static hosting
+
 ---
 
 ## 🎯 Belangrijke Functionaliteiten
@@ -252,7 +271,6 @@ firebase deploy
 ### Database Backup
 - **Automatisch**: Firebase Firestore heeft automatische backups
 - **Handmatig**: Export via Firebase Console
-- **Lokaal**: `alloygator.db` (SQLite backup)
 
 ---
 
