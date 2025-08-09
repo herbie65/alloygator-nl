@@ -1,8 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 export default function SettingsPage() {
+  const params = useSearchParams()
+  const currentTab = (params.get('tab') || 'general') as 'general'|'shipping'|'payments'|'email'|'dhl'|'taxmap'|'social'
   const [settings, setSettings] = useState({
     siteName: '',
     siteDescription: '',
@@ -14,6 +17,10 @@ export default function SettingsPage() {
     analyticsGoogle: '',
     socialFacebook: '',
     socialInstagram: '',
+    facebook_page_id: '',
+    facebook_access_token: '',
+    instagram_user_id: '',
+    instagram_access_token: '',
     socialLinkedin: '',
     mapCenterLat: 52.3676,
     mapCenterLng: 4.9041,
@@ -75,6 +82,9 @@ export default function SettingsPage() {
   const [dhlTestMessage, setDhlTestMessage] = useState('')
   const [emailTestStatus, setEmailTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
   const [emailTestMessage, setEmailTestMessage] = useState('')
+  const [socialTestStatus, setSocialTestStatus] = useState<'idle'|'testing'|'success'|'error'>('idle')
+  const [socialTestMessage, setSocialTestMessage] = useState('')
+  const [socialPreview, setSocialPreview] = useState<Array<{id:string; platform:'facebook'|'instagram'; image_url:string; permalink:string; caption?:string}>>([])
   const [paymentMethods, setPaymentMethods] = useState<Array<{id:string; name:string; description:string; mollie_id:string; is_active:boolean; fee_percent:number;}>>([])
   const [pmLoading, setPmLoading] = useState(false)
   const [pmError, setPmError] = useState('')
@@ -407,9 +417,21 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Instellingen</h1>
         <p className="text-gray-600">Configureer website instellingen</p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+          {[
+            {id:'general',label:'Algemeen'},
+            {id:'shipping',label:'Verzending'},
+            {id:'payments',label:'Betalingen'},
+            {id:'email',label:'E-mail'},
+            {id:'dhl',label:'DHL'},
+            {id:'social',label:'Social media'},
+            {id:'taxmap',label:'BTW/Map'}
+          ].map(t=> (
+            <a key={t.id} href={`/admin/settings?tab=${t.id}`} className={`px-3 py-1 rounded border ${currentTab===t.id ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>{t.label}</a>
+          ))}
+        </div>
       </div>
-
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='general' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Algemene Instellingen</h2>
         </div>
@@ -504,10 +526,9 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div>)}
 
-      {/* CRM Targets */}
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='general' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">CRM Targets</h2>
         </div>
@@ -525,10 +546,9 @@ export default function SettingsPage() {
             <input type="number" value={settings.targetBronze} onChange={(e)=>setSettings({...settings, targetBronze: parseInt(e.target.value || '0',10)})} className="w-full px-3 py-2 border rounded" />
           </div>
         </div>
-      </div>
+      </div>)}
 
-      {/* Mollie Settings */}
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='payments' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Mollie Instellingen</h2>
         </div>
@@ -571,10 +591,9 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div>)}
 
-      {/* Betalingsmethodes beheren */}
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='payments' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Betalingsmethodes</h2>
           <p className="text-sm text-gray-600">Zet methodes aan/uit en stel extra kosten of korting in (negatief bedrag is korting).</p>
@@ -621,10 +640,9 @@ export default function SettingsPage() {
             <PaymentMethodForm onSubmit={addPaymentMethod} />
           </div>
         </div>
-      </div>
+      </div>)}
 
-      {/* DHL eCommerce API Settings */}
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='dhl' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">DHL eCommerce API Instellingen</h2>
         </div>
@@ -713,10 +731,9 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div>)}
 
-      {/* E-mail Settings */}
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='email' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">E-mail Instellingen</h2>
         </div>
@@ -839,11 +856,91 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div>)}
 
 
 
-      <div className="bg-white rounded-lg shadow">
+      {currentTab==='social' && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Social media</h2>
+            <p className="text-sm text-gray-600">Configureer Facebook en Instagram feed voor de pagina Foto's & media.</p>
+          </div>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Facebook Page ID</label>
+                <input type="text" value={settings.facebook_page_id} onChange={(e)=>setSettings({...settings, facebook_page_id: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Facebook Access Token</label>
+                <input type="password" value={settings.facebook_access_token} onChange={(e)=>setSettings({...settings, facebook_access_token: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Instagram User ID</label>
+                <input type="text" value={settings.instagram_user_id} onChange={(e)=>setSettings({...settings, instagram_user_id: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Access Token</label>
+                <input type="password" value={settings.instagram_access_token} onChange={(e)=>setSettings({...settings, instagram_access_token: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              </div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
+              Tip: Je kunt deze waarden ook via environment variables instellen. Waarden hier overschrijven de env-waarden.
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async ()=>{
+                  try {
+                    setSocialTestStatus('testing')
+                    setSocialTestMessage('')
+                    setSocialPreview([])
+                    const res = await fetch('/api/social/feed', { cache: 'no-store' })
+                    const data = await res.json()
+                    const items = Array.isArray(data?.items) ? data.items : []
+                    const errors: string[] = Array.isArray(data?.errors) ? data.errors : []
+                    if (items.length === 0) {
+                      setSocialTestStatus(errors.length ? 'error' : 'error')
+                      setSocialTestMessage(
+                        errors.length ? `Fouten: \n- ${errors.join('\n- ')}` : (data?.note || 'Geen items ontvangen (controleer tokens/permissions)')
+                      )
+                    } else {
+                      setSocialTestStatus('success')
+                      setSocialPreview(items.slice(0,3))
+                      setSocialTestMessage('Feed werkt. Onderstaand een preview van 3 posts.')
+                    }
+                  } catch (e:any) {
+                    setSocialTestStatus('error')
+                    setSocialTestMessage(e.message || 'Fout bij ophalen feed')
+                  }
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400"
+              >
+                {socialTestStatus==='testing' ? 'Testen…' : 'Feed testen'}
+              </button>
+              {socialTestMessage && (
+                <pre className={`text-sm whitespace-pre-wrap ${socialTestStatus==='success' ? 'text-green-700' : 'text-red-700'}`}>{socialTestMessage}</pre>
+              )}
+            </div>
+            {socialPreview.length>0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {socialPreview.map((it)=> (
+                  <a key={it.id} href={it.permalink} target="_blank" rel="noreferrer" className="block border rounded-md overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={it.image_url} alt={it.caption || 'post'} className="w-full h-48 object-cover" />
+                    <div className="px-3 py-2 text-xs text-gray-600 flex justify-between">
+                      <span className="uppercase">{it.platform}</span>
+                      <span>Bekijken →</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {currentTab==='shipping' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Verzending Instellingen</h2>
         </div>
@@ -949,7 +1046,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </div>)}
 
       <div className="flex justify-end space-x-4">
         <button

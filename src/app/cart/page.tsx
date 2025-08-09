@@ -103,6 +103,33 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (cartItems.length > 0) {
+      // Prefill customer details from currentUser if available
+      try {
+        const sessionStr = localStorage.getItem('currentUser')
+        if (sessionStr) {
+          const u = JSON.parse(sessionStr)
+          const existing = JSON.parse(localStorage.getItem('customerDetails') || '{}')
+          const merged = {
+            voornaam: existing.voornaam || u.voornaam || u.name || '',
+            achternaam: existing.achternaam || u.achternaam || '',
+            email: existing.email || u.email || '',
+            telefoon: existing.telefoon || u.telefoon || u.phone || '',
+            adres: existing.adres || u.adres || u.address || '',
+            postcode: existing.postcode || u.postcode || u.postal_code || '',
+            plaats: existing.plaats || u.plaats || u.city || '',
+            land: existing.land || u.land || u.country || 'NL',
+            bedrijfsnaam: existing.bedrijfsnaam || u.company_name || '',
+            factuurEmail: existing.factuurEmail || u.invoice_email || u.email || '',
+            btwNummer: existing.btwNummer || u.vat_number || '',
+            separateShippingAddress: existing.separateShippingAddress ?? !!u.separate_shipping_address,
+            shippingAdres: existing.shippingAdres || u.shipping_address || '',
+            shippingPostcode: existing.shippingPostcode || u.shipping_postal_code || '',
+            shippingPlaats: existing.shippingPlaats || u.shipping_city || '',
+            shippingLand: existing.shippingLand || u.shipping_country || 'NL'
+          }
+          localStorage.setItem('customerDetails', JSON.stringify(merged))
+        }
+      } catch {}
       router.push('/checkout');
     }
   };

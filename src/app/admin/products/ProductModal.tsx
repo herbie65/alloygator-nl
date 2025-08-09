@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
+import MediaPickerModal from '../components/MediaPickerModal'
 
 interface Product {
   id: string
@@ -41,6 +42,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   const [productAttributes, setProductAttributes] = useState<any[]>([])
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({})
   const [productColors, setProductColors] = useState<any[]>([])
+  const [showMedia, setShowMedia] = useState(false)
 
   useEffect(() => {
     if (product && isOpen) {
@@ -79,17 +81,18 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           FirebaseService.getProductAttributes(),
           FirebaseService.getProductColors()
         ])
-        
-        setProductAttributes(attributes || [])
-        setProductColors(colors || [])
-        
+        const attrs: any[] = Array.isArray(attributes) ? attributes : []
+        setProductAttributes(attrs)
+        setProductColors(Array.isArray(colors) ? colors : [])
+
         // Load existing dynamic values from product if editing
         if (product) {
           const dynamic: Record<string, any> = {}
-          (attributes || []).forEach((attr: any) => {
-            if (product[attr.name as keyof Product] !== undefined) {
-              dynamic[attr.name] = product[attr.name as keyof Product]
-            }
+          attrs.forEach((attr: any) => {
+            const key = attr?.name
+            if (!key) return
+            const value = (product as any)[key]
+            if (value !== undefined) dynamic[key] = value
           })
           setDynamicValues(dynamic)
         }
@@ -356,12 +359,26 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                   Image URL
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.image_url || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
                   disabled={!isEditing && product}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 />
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowMedia(true)}
+                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+                  >
+                    Kies uit Media…
+                  </button>
+                </div>
+                {formData.image_url && (
+                  <div className="mt-3">
+                    <img src={String(formData.image_url)} alt="preview" className="max-h-32 rounded border" />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -517,6 +534,11 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           </div>
         )}
       </div>
+      <MediaPickerModal
+        isOpen={showMedia}
+        onClose={() => setShowMedia(false)}
+        onSelect={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
+      />
     </div>
   )
 }

@@ -24,7 +24,27 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data?.error || 'Inloggen mislukt')
       // Save lightweight session for UI
       localStorage.setItem('isLoggedIn', '1')
-      localStorage.setItem('currentUser', JSON.stringify({ id: data.user.id, voornaam: data.user.name || email, achternaam: '', email, is_dealer: !!data.user.is_dealer, dealer_group: data.user.dealer_group || '' }))
+      localStorage.setItem('currentUser', JSON.stringify({
+        id: data.user.id,
+        voornaam: data.user.voornaam || data.user.name || '',
+        achternaam: data.user.achternaam || '',
+        email,
+        telefoon: data.user.telefoon || '',
+        adres: data.user.adres || '',
+        postcode: data.user.postcode || '',
+        plaats: data.user.plaats || '',
+        land: data.user.land || 'Nederland',
+        company_name: data.user.company_name || '',
+        invoice_email: data.user.invoice_email || '',
+        vat_number: data.user.vat_number || '',
+        separate_shipping_address: !!data.user.separate_shipping_address,
+        shipping_address: data.user.shipping_address || '',
+        shipping_postal_code: data.user.shipping_postal_code || '',
+        shipping_city: data.user.shipping_city || '',
+        shipping_country: data.user.shipping_country || '',
+        is_dealer: !!data.user.is_dealer,
+        dealer_group: data.user.dealer_group || ''
+      }))
       // Redirect: dealers naar account (met dealer-sectie), particulieren idem
       router.push('/account')
     } catch (e:any) {

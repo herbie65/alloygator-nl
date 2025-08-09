@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ensureInvoice } from '@/lib/invoice'
 import { FirebaseService } from '@/lib/firebase'
 const MOLLIE_API_URL = 'https://api.mollie.com/v2'
 
@@ -107,6 +108,15 @@ export async function POST(request: NextRequest) {
     }
 
     await FirebaseService.updateDocument('orders', orderId, update)
+
+    // Generate + email invoice only when paid
+    try {
+      if (update.payment_status === 'paid') {
+        await ensureInvoice(orderId)
+      }
+    } catch (e) {
+      console.error('ensureInvoice error', e)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

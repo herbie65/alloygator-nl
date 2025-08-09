@@ -147,6 +147,42 @@ export default function CheckoutPage() {
       setCustomer(JSON.parse(savedCustomer));
     }
 
+    // Prefill from logged-in user session if available
+    try {
+      const sessionStr = localStorage.getItem('currentUser')
+      if (sessionStr) {
+        const u = JSON.parse(sessionStr)
+        setCustomer(prev => ({
+          ...prev,
+          voornaam: prev.voornaam || u.voornaam || u.name || '',
+          achternaam: prev.achternaam || u.achternaam || '',
+          email: prev.email || u.email || '',
+          telefoon: prev.telefoon || u.telefoon || u.phone || '',
+          adres: prev.adres || u.adres || u.address || '',
+          postcode: prev.postcode || u.postcode || u.postal_code || '',
+          plaats: prev.plaats || u.plaats || u.city || '',
+          land: prev.land || u.land || u.country || 'NL',
+          bedrijfsnaam: prev.bedrijfsnaam || u.company_name || '',
+          factuurEmail: prev.factuurEmail || u.invoice_email || u.email || '',
+          btwNummer: prev.btwNummer || u.vat_number || '',
+          separateShippingAddress: prev.separateShippingAddress ?? !!u.separate_shipping_address,
+          shippingAdres: prev.shippingAdres || u.shipping_address || '',
+          shippingPostcode: prev.shippingPostcode || u.shipping_postal_code || '',
+          shippingPlaats: prev.shippingPlaats || u.shipping_city || '',
+          shippingLand: prev.shippingLand || u.shipping_country || 'NL',
+        }))
+
+        // Map dealer group for discount UI (optional)
+        const g = String(u.dealer_group || '').toLowerCase()
+        let mapped: string | null = null
+        if (g.startsWith('goud') || g === 'gold') mapped = 'gold'
+        else if (g.startsWith('zilver') || g === 'silver') mapped = 'silver'
+        else if (g.startsWith('brons') || g === 'bronze') mapped = 'bronze'
+        else if (g === 'platinum') mapped = 'platinum'
+        setDealerGroup(u.is_dealer ? mapped : null)
+      }
+    } catch {}
+
     // Check if user is dealer
     const dealerSession = localStorage.getItem("dealerSession");
     if (dealerSession) {
@@ -163,6 +199,11 @@ export default function CheckoutPage() {
     // Calculate initial totals
     calculateTotals();
   }, []);
+
+  // Persist customer form as user types
+  useEffect(() => {
+    try { localStorage.setItem('customerDetails', JSON.stringify(customer)) } catch {}
+  }, [customer])
 
   // Check invoice permission when email changes
   useEffect(() => {
@@ -226,9 +267,10 @@ export default function CheckoutPage() {
       const res = await fetch('/api/payment-methods')
       if (!res.ok) return
       const list = await res.json()
-      const active = (Array.isArray(list) ? list : []).filter((m:any)=>m.is_active)
-      setAvailablePaymentMethods(active)
-      if (active.length > 0) setPaymentMethod(active[0].mollie_id || 'ideal')
+      const all = (Array.isArray(list) ? list : [])
+      setAvailablePaymentMethods(all)
+      const firstActive = all.find((m:any)=>m.is_active && m.mollie_id !== 'invoice') || all.find((m:any)=>m.is_active)
+      if (firstActive) setPaymentMethod(firstActive.mollie_id || 'ideal')
     } catch {}
   }
 
@@ -910,8 +952,7 @@ export default function CheckoutPage() {
                       {availablePaymentMethods.length === 0 && (
                         <div className="text-sm text-gray-600">Geen betaalmethodes geconfigureerd. Standaard: iDEAL.</div>
                       )}
-                      {availablePaymentMethods
-                        .filter(pm => pm.mollie_id !== 'invoice' || allowInvoicePayment)
+                      {(allowInvoicePayment ? availablePaymentMethods : availablePaymentMethods.filter(pm => pm.mollie_id !== 'invoice'))
                         .map((pm) => (
                         <div key={pm.id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">

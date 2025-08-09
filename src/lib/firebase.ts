@@ -288,6 +288,19 @@ export class FirebaseService {
     return this.updateDocument('header_settings', id, headerData);
   }
 
+  // Header/Footer (HTML blocks)
+  static async getHeaderFooter() {
+    return this.getDocuments('header_footer')
+  }
+
+  static async updateHeaderFooter(id: string, data: any) {
+    return this.updateDocument('header_footer', id, data)
+  }
+
+  static async createHeaderFooter(data: any) {
+    return this.addDocument('header_footer', data)
+  }
+
   // Specific operations for DHL settings
   static async getDhlSettings() {
     return this.getDocuments('dhl_settings');

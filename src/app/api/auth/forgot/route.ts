@@ -26,8 +26,13 @@ export async function POST(request: NextRequest) {
       password_reset_expires: new Date(Date.now() + 1000 * 60 * 30).toISOString() // 30 min
     })
 
-    const base = process.env.NEXT_PUBLIC_BASE_URL || (request.headers.get('origin') || '')
-    const resetUrl = `${base}/auth/reset?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
+    // Build absolute base URL robustly
+    const envBase = process.env.NEXT_PUBLIC_BASE_URL
+    const origin = request.headers.get('origin')
+    const host = request.headers.get('host')
+    const inferred = origin || (host ? `https://${host}` : '')
+    const base = envBase || inferred || 'http://localhost:3000'
+    const resetUrl = `${base.replace(/\/$/, '')}/auth/reset?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
 
     // Try to send email
     try {
@@ -46,7 +51,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Resetlink gegenereerd.', resetUrl })
     }
 
-    return NextResponse.json({ message: 'E‑mail met resetlink verzonden.' })
+    // In development, geef ook de URL terug voor snelle test
+    const body: any = { message: 'E‑mail met resetlink verzonden.' }
+    if (process.env.NODE_ENV !== 'production') body.resetUrl = resetUrl
+    return NextResponse.json(body)
   } catch (e) {
     console.error('Forgot error:', e)
     return NextResponse.json({ message: 'Er ging iets mis' }, { status: 500 })

@@ -151,14 +151,24 @@ export class FirebaseClientService {
   static async getFooter() {
     try {
       const querySnapshot = await getDocs(collection(db, 'footer'));
-      const footer = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const footer = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       return footer[0] || null;
     } catch (error) {
       console.error('Error fetching footer:', error);
       return null;
+    }
+  }
+
+  // New: header/footer HTML blocks from 'header_footer' collection
+  static async getHeaderFooterByType(type: 'header' | 'footer') {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'header_footer'))
+      const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+      const item = items.find((i:any)=> (i.type||'').toLowerCase() === type)
+      return item || null
+    } catch (e) {
+      console.error('Error fetching header_footer:', e)
+      return null
     }
   }
 

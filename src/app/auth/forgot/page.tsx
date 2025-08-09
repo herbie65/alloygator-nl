@@ -14,7 +14,11 @@ export default function ForgotPasswordPage() {
     try {
       const res = await fetch('/api/auth/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
       const data = await res.json()
-      setMessage(data.message || (res.ok ? 'Als het e‑mailadres bekend is, is er een resetlink verzonden.' : 'Kon geen resetlink verzenden.'))
+      let msg = data.message || (res.ok ? 'Als het e‑mailadres bekend is, is er een resetlink verzonden.' : 'Kon geen resetlink verzenden.')
+      if (data.resetUrl) {
+        msg += `\n\nResetlink (dev): ${data.resetUrl}`
+      }
+      setMessage(msg)
     } catch {
       setMessage('Kon geen resetlink verzenden.')
     } finally {
@@ -27,7 +31,18 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Wachtwoord vergeten</h1>
         <p className="text-sm text-gray-600 mb-6">Vul je e‑mail in; als deze bij ons bekend is, sturen we een resetlink.</p>
-        {message && <div className="mb-4 text-sm text-gray-700">{message}</div>}
+        {message && (
+          <div className="mb-4 text-sm text-gray-700 whitespace-pre-wrap">
+            {message}
+            {message.includes('http') && (
+              <div className="mt-2 text-green-700">
+                <a className="underline" href={message.split('http').slice(1).join('http').trim()}>
+                  Open resetlink
+                </a>
+              </div>
+            )}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-700 mb-1">E‑mail</label>

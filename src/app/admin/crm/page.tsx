@@ -290,7 +290,13 @@ export default function CRMPage() {
           try {
             const groups = await FirebaseClientService.getCustomerGroups()
             const map: Record<string, number> = {}
-            groups.forEach((g:any)=> { map[(g.name||'').toLowerCase()] = Number(g.annual_target_sets || 0) })
+            groups.forEach((g:any)=> {
+              const nameKey = (g.name||'').toLowerCase()
+              const idKey = String(g.id||'').toLowerCase()
+              const val = Number(g.annual_target_sets || 0)
+              if (nameKey) map[nameKey] = val
+              if (idKey) map[idKey] = val
+            })
             setGroupTargets(map)
           } catch {}
         } catch (firebaseError) {
@@ -904,8 +910,17 @@ export default function CRMPage() {
                   {(() => {
                     const id = customer.email || customer.id
                     const sold = salesByCustomer[id] || 0
-                    const group = (customer.dealer_group || '').toLowerCase()
-                    const target = groupTargets[group] || 0
+                    const groupKey = String(customer.dealer_group || '').toLowerCase()
+                    let target = groupTargets[groupKey] || 0
+                    if (!target) {
+                      const fuzzy = Object.entries(groupTargets).find(([k,v]) => Number(v)>0 && (groupKey.includes(k) || k.includes(groupKey)))
+                      if (fuzzy) target = Number(fuzzy[1])
+                    }
+                    if (!target) {
+                      if (groupKey.includes('goud')||groupKey.includes('gold')) target = 30
+                      else if (groupKey.includes('zilver')||groupKey.includes('silver')) target = 20
+                      else if (groupKey.includes('brons')||groupKey.includes('bronze')) target = 10
+                    }
                     const pct = target > 0 ? Math.min(100, Math.round((sold / target) * 100)) : 0
                     const badge = pct >= 100 ? 'bg-green-100 text-green-800' : pct >= 50 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                     return (

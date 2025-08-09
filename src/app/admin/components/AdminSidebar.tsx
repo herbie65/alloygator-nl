@@ -25,6 +25,24 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onNavigate }) =>
             >
               Bestellingen
             </button>
+            <ul className="ml-4 space-y-1 mt-1">
+              <li>
+                <button
+                  onClick={() => onNavigate('invoices')}
+                  className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'invoices' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
+                >
+                  Facturen
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('credit-invoices')}
+                  className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'credit-invoices' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
+                >
+                  Creditfacturen
+                </button>
+              </li>
+            </ul>
           </li>
           <li>
             <div className="font-medium py-2 px-4">Klanten</div>
@@ -123,59 +141,44 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onNavigate }) =>
           </li>
           <li>
             <div className="font-medium py-2 px-4">Instellingen</div>
-            <ul className="ml-4 space-y-1">
-              <li>
-                <button
-                  onClick={() => onNavigate('settings')}
-                  className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
-                >
-                  Algemene Instellingen
-                </button>
+            <ul className="ml-2 space-y-1">
+              <li className="mt-1">
+                <div className="text-xs uppercase tracking-wider text-gray-500 px-4">Algemeen</div>
+                <ul className="ml-2 mt-1 space-y-1">
+                  <li>
+                    <button onClick={() => onNavigate('settings')} className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}>Algemene instellingen</button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigate('vat-settings')} className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'vat-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}>BTW</button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigate('map-settings')} className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'map-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}>Kaart</button>
+                  </li>
+                </ul>
               </li>
-              <li>
-                <button
-                  onClick={() => onNavigate('vat-settings')}
-                  className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'vat-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
-                >
-                  BTW Instellingen
-                </button>
+              <li className="mt-2">
+                <div className="text-xs uppercase tracking-wider text-gray-500 px-4">Verzending</div>
+                <ul className="ml-2 mt-1 space-y-1">
+                  <li>
+                    <button onClick={() => onNavigate('shipping-settings')} className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'shipping-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}>Verzendmethodes</button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigate('dhl-settings')} className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'dhl-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}>DHL Parcel</button>
+                  </li>
+                </ul>
               </li>
-              <li>
-                <button
-                  onClick={() => onNavigate('map-settings')}
-                  className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'map-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
-                >
-                  Kaart Instellingen
-                </button>
+              <li className="mt-2">
+                <div className="text-xs uppercase tracking-wider text-gray-500 px-4">Betalingen</div>
+                <ul className="ml-2 mt-1 space-y-1">
+                  <li>
+                    <button onClick={() => onNavigate('payment-settings')} className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'payment-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}>Betaalmethodes</button>
+                  </li>
+                </ul>
               </li>
-                      <li>
-          <button
-            onClick={() => onNavigate('dhl-settings')}
-            className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'dhl-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
-          >
-            DHL Parcel
-          </button>
-        </li>
-        <li>
-          <button
-            onClick={() => onNavigate('shipping-settings')}
-            className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'shipping-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
-          >
-            Verzendinstellingen
-          </button>
-        </li>
-        <li>
-          <button
-            onClick={() => onNavigate('payment-settings')}
-            className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'payment-settings' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
-          >
-            Betalingsinstellingen
-          </button>
-        </li>
             </ul>
           </li>
           <li>
-            <div className="font-medium py-2 px-4">Database</div>
+            <div className="font-medium py-2 px-4">Tools</div>
             <ul className="ml-4 space-y-1">
               <li>
                 <button

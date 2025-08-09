@@ -113,6 +113,13 @@ export default function AdminDashboard() {
             <p className="text-sm text-orange-700">Bekijk en verwerk bestellingen</p>
           </a>
           <a 
+            href="/admin/users" 
+            className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+          >
+            <h3 className="font-semibold text-gray-900">Gebruikers</h3>
+            <p className="text-sm text-gray-700">Beheer backend gebruikers</p>
+          </a>
+          <a 
             href="/admin/settings" 
             className="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors text-left"
           >

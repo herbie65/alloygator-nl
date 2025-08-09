@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ensureInvoice } from '@/lib/invoice'
 import { collection, addDoc, getDocs, query, where, orderBy, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { EmailService } from '@/lib/email'
@@ -18,9 +19,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate order number
-    const timestamp = Date.now()
-    const orderNumber = `AG${timestamp}`
+    // Generate sequential order number: next = AG-05000 (configurable via counter)
+    let orderNumber = ''
+    try {
+      const counter = await FirebaseService.getDocument('counters', 'order_number') as any
+      let nextSeq = 5000
+      if (!counter || typeof counter.seq !== 'number') {
+        await FirebaseService.updateDocument('counters', 'order_number', { seq: nextSeq })
+      } else {
+        nextSeq = Number(counter.seq || 5000) + 1
+        await FirebaseService.updateDocument('counters', 'order_number', { seq: nextSeq })
+      }
+      orderNumber = `AG-${String(nextSeq).padStart(5, '0')}`
+    } catch (e) {
+      // Fallback to timestamp if counters fail
+      const timestamp = Date.now()
+      orderNumber = `AG-${timestamp}`
+    }
 
     // Create order object
     const createdAt = new Date().toISOString()
@@ -77,7 +92,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the order creation if stock update fails
     }
 
-    // Send e-mails
+    // Send e-mails (no invoice attachment here anymore)
     try {
       // Haal settings op uit de database
       const settingsArray = await FirebaseService.getSettings()
@@ -123,6 +138,7 @@ export async function POST(request: NextRequest) {
       await emailService.sendOrderNotification(emailData)
       
       console.log('E-mails verzonden voor order:', order.orderNumber)
+      // Do not auto-generate/send invoice on creation anymore; wait until payment is paid
     } catch (emailError) {
       console.error('Error sending e-mails:', emailError)
       // Don't fail the order creation if e-mail sending fails

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
+import dynamic from 'next/dynamic'
+const TipTapEditor = dynamic(() => import('./TipTapEditor'), { ssr: false })
 
 interface CMSPage {
   id: string
@@ -42,8 +44,118 @@ export default function CMSPage() {
         // Try to load Firebase data first
         try {
           const pagesData = await FirebaseService.getCMSPages()
+
+          // Helpers: dedupe by slug and robust date parsing/formatting
+          const parseTs = (v: any): number => {
+            if (!v) return 0
+            if (typeof v === 'string') { const d = new Date(v); return isNaN(+d) ? 0 : +d }
+            if (v instanceof Date) return +v
+            if (typeof v?.toDate === 'function') return +v.toDate()
+            if (typeof v?.seconds === 'number') return v.seconds * 1000
+            return 0
+          }
+          const dedupeBySlug = (list: any[]): any[] => {
+            const map = new Map<string, any>()
+            for (const p of list || []) {
+              const key = String(p.slug || '').toLowerCase()
+              const prev = map.get(key)
+              if (!prev || parseTs(p.updated_at) >= parseTs(prev.updated_at)) {
+                map.set(key, p)
+              }
+            }
+            return Array.from(map.values())
+          }
+
           if (pagesData && pagesData.length > 0) {
-            setPages(pagesData)
+            let normalized = dedupeBySlug(pagesData as any)
+            setPages(normalized)
+
+            // Auto-fix: ensure retourvoorwaarden content contains link to /returns and PDF
+            try {
+              const existingRetour = normalized.find((p:any)=> (p.slug||'').toLowerCase() === 'wat-zijn-onze-retourvoorwaarden')
+              if (existingRetour && typeof existingRetour.content === 'string' && !existingRetour.content.includes('/returns')) {
+                const res = await fetch('/cms/wat-zijn-onze-retourvoorwaarden.html')
+                if (res.ok) {
+                  const html = await res.text()
+                  await FirebaseService.updateCMSPage(existingRetour.id, {
+                    ...existingRetour,
+                    content: html,
+                    updated_at: new Date().toISOString(),
+                  })
+                  normalized = normalized.map((p:any)=> p.id===existingRetour.id ? { ...p, content: html, updated_at: new Date().toISOString() } : p)
+                  setPages(normalized)
+                }
+              }
+            } catch (_) {}
+            // Ensure 'algemene-voorwaarden' exists; if missing, seed from public HTML
+            if (!pagesData.some((p: any) => (p.slug || '').toLowerCase() === 'algemene-voorwaarden')) {
+              try {
+                const res = await fetch('/cms/algemene-voorwaarden.html')
+                if (res.ok) {
+                  const html = await res.text()
+                  const newPage: CMSPage = {
+                    id: `seed-${Date.now()}-av`,
+                    title: 'Algemene voorwaarden',
+                    slug: 'algemene-voorwaarden',
+                    content: html,
+                    meta_description: 'Algemene voorwaarden AlloyGator',
+                    is_published: true,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  }
+                  try {
+                    const created = await FirebaseService.createCMSPage(newPage)
+                    setPages(prev => dedupeBySlug([...(prev || []), created as any]))
+                  } catch (_) {}
+                }
+              } catch (_) {}
+            }
+            // Ensure 'privacy-policy' exists; if missing, seed from public HTML
+            if (!pagesData.some((p: any) => (p.slug || '').toLowerCase() === 'privacy-policy')) {
+              try {
+                const res = await fetch('/cms/privacy-policy.html')
+                if (res.ok) {
+                  const html = await res.text()
+                  const newPage: CMSPage = {
+                    id: `seed-${Date.now()}-privacy`,
+                    title: 'Privacy Policy',
+                    slug: 'privacy-policy',
+                    content: html,
+                    meta_description: 'Privacyverklaring AlloyGator',
+                    is_published: true,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  }
+                  try {
+                    const created = await FirebaseService.createCMSPage(newPage)
+                    setPages(prev => dedupeBySlug([...(prev || []), created as any]))
+                  } catch (_) {}
+                }
+              } catch (_) {}
+            }
+            // Ensure 'wat-zijn-onze-retourvoorwaarden' exists; if missing, seed from public HTML
+            if (!pagesData.some((p: any) => (p.slug || '').toLowerCase() === 'wat-zijn-onze-retourvoorwaarden')) {
+              try {
+                const res = await fetch('/cms/wat-zijn-onze-retourvoorwaarden.html')
+                if (res.ok) {
+                  const html = await res.text()
+                  const newPage: CMSPage = {
+                    id: `seed-${Date.now()}-retour`,
+                    title: 'Ruilen en retourneren',
+                    slug: 'wat-zijn-onze-retourvoorwaarden',
+                    content: html,
+                    meta_description: 'Ruilen en retourneren bij AlloyGator',
+                    is_published: true,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  }
+                  try {
+                    const created = await FirebaseService.createCMSPage(newPage)
+                    setPages(prev => dedupeBySlug([...(prev || []), created as any]))
+                  } catch (_) {}
+                }
+              } catch (_) {}
+            }
           } else {
             // Fallback to dummy data
             const dummyPages: CMSPage[] = [
@@ -79,6 +191,63 @@ export default function CMSPage() {
               }
             ]
             setPages(dummyPages)
+            // Also try to seed 'algemene-voorwaarden' from static HTML when Firestore returned empty
+            try {
+              const res = await fetch('/cms/algemene-voorwaarden.html')
+              if (res.ok) {
+                const html = await res.text()
+                const newPage: CMSPage = {
+                  id: `seed-${Date.now()}-av`,
+                  title: 'Algemene voorwaarden',
+                  slug: 'algemene-voorwaarden',
+                  content: html,
+                  meta_description: 'Algemene voorwaarden AlloyGator',
+                  is_published: true,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+                try { await FirebaseService.createCMSPage(newPage) } catch (_) {}
+                setPages(prev => [...prev, newPage])
+              }
+            } catch (_) {}
+
+            // And seed 'privacy-policy' similarly
+            try {
+              const res2 = await fetch('/cms/privacy-policy.html')
+              if (res2.ok) {
+                const html2 = await res2.text()
+                const newPage2: CMSPage = {
+                  id: `seed-${Date.now()}-privacy`,
+                  title: 'Privacy Policy',
+                  slug: 'privacy-policy',
+                  content: html2,
+                  meta_description: 'Privacyverklaring AlloyGator',
+                  is_published: true,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+                try { const created2 = await FirebaseService.createCMSPage(newPage2); setPages(prev => [...(prev||[]), created2 as any]) } catch (_) {}
+              }
+            } catch (_) {}
+
+            // And seed 'wat-zijn-onze-retourvoorwaarden' similarly
+            try {
+              const res3 = await fetch('/cms/wat-zijn-onze-retourvoorwaarden.html')
+              if (res3.ok) {
+                const html3 = await res3.text()
+                const newPage3: CMSPage = {
+                  id: `seed-${Date.now()}-retour`,
+                  title: 'Ruilen en retourneren',
+                  slug: 'wat-zijn-onze-retourvoorwaarden',
+                  content: html3,
+                  meta_description: 'Ruilen en retourneren bij AlloyGator',
+                  is_published: true,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+                try { const created3 = await FirebaseService.createCMSPage(newPage3); setPages(prev => [...(prev||[]), created3 as any]) } catch (_) {}
+              }
+            } catch (_) {}
           }
 
           // Load header/footer data
@@ -217,17 +386,12 @@ export default function CMSPage() {
       setSaving(true)
       setError('')
 
-      if (editingHeaderFooter) {
-        // Update existing header/footer
-        try {
-          await FirebaseService.updateHeaderFooter(headerFooterData.id, headerFooterData)
-        } catch (error) {
-          console.log('Firebase update not available, local update')
-        }
-        
-        setHeaderFooter(prev => prev.map(hf => 
-          hf.id === headerFooterData.id ? headerFooterData : hf
-        ))
+      if (editingHeaderFooter && editingHeaderFooter.id) {
+        await FirebaseService.updateHeaderFooter(String(editingHeaderFooter.id), { ...headerFooterData, updated_at: new Date().toISOString() })
+        setHeaderFooter(prev => prev.map(hf => hf.id === editingHeaderFooter.id ? { ...headerFooterData, id: editingHeaderFooter.id } : hf))
+      } else {
+        const created = await FirebaseService.createHeaderFooter({ ...headerFooterData, updated_at: new Date().toISOString() })
+        setHeaderFooter(prev => [...prev, created as any])
       }
 
       setShowHeaderFooterModal(false)
@@ -384,8 +548,8 @@ export default function CMSPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {pages.map((page) => (
-                <tr key={page.id} className="hover:bg-gray-50 transition-colors duration-200">
+              {pages.map((page, index) => (
+                <tr key={`${page.id || page.slug || 'row'}-${index}`} className="hover:bg-gray-50 transition-colors duration-200">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 bg-gradient-to-r from-green-400 to-green-600 rounded-lg flex items-center justify-center text-white font-bold">
@@ -414,7 +578,11 @@ export default function CMSPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(page.updated_at).toLocaleDateString('nl-NL')}
+                    {(() => {
+                      const v: any = (page as any).updated_at
+                      const d = typeof v?.toDate === 'function' ? v.toDate() : (typeof v === 'object' && typeof v?.seconds === 'number' ? new Date(v.seconds * 1000) : new Date(v))
+                      return isNaN(+d) ? '-' : d.toLocaleDateString('nl-NL')
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
@@ -649,10 +817,13 @@ function HeaderFooterModal({ headerFooter, onSave, onClose, saving }: HeaderFoot
     content: '',
     updated_at: ''
   })
+  const [mode, setMode] = useState<'visual' | 'source'>('visual')
 
   useEffect(() => {
     if (headerFooter) {
       setFormData(headerFooter)
+      const html = headerFooter.content || ''
+      setMode(/<header|<footer|<div|<section/i.test(html) ? 'source' : 'visual')
     }
   }, [headerFooter])
 
@@ -682,17 +853,27 @@ function HeaderFooterModal({ headerFooter, onSave, onClose, saving }: HeaderFoot
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              HTML Content
-            </label>
-            <textarea
-              value={formData.content}
-              onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-              rows={20}
-              required
-              placeholder="<header class='bg-white shadow-lg'>...</header>"
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Inhoud</label>
+              <div className="space-x-2 text-xs">
+                <button type="button" onClick={()=>setMode('visual')} className={`px-2 py-1 border rounded ${mode==='visual'?'bg-green-600 text-white border-green-600':'bg-white'}`}>Visueel</button>
+                <button type="button" onClick={()=>setMode('source')} className={`px-2 py-1 border rounded ${mode==='source'?'bg-green-600 text-white border-green-600':'bg-white'}`}>HTML bron</button>
+              </div>
+            </div>
+            {mode==='visual' ? (
+              <TipTapEditor value={formData.content} onChange={(html)=> setFormData(prev => ({ ...prev, content: html }))} />
+            ) : (
+              <textarea
+                value={formData.content}
+                onChange={(e)=> setFormData(prev => ({ ...prev, content: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                rows={20}
+                placeholder={headerFooter?.type === 'header' ? '<header>...</header>' : '<footer>...</footer>'}
+              />
+            )}
+            {mode==='visual' && (
+              <p className="text-xs text-gray-500 mt-1">Let op: de visuele editor toont alleen gangbare elementen (koppen, lijsten, paragrafen, afbeeldingen). Voor complexe lay-out kun je overschakelen naar HTML.</p>
+            )}
           </div>
 
           <div className="flex justify-end space-x-4 pt-6">

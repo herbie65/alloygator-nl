@@ -791,6 +791,64 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
               />
             </div>
 
+            {/* Apart verzendadres toggle */}
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="separate_shipping_address"
+                checked={!!formData.separate_shipping_address}
+                onChange={(e) => setFormData(prev => ({ ...prev, separate_shipping_address: e.target.checked }))}
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+              />
+              <label htmlFor="separate_shipping_address" className="ml-2 block text-sm text-gray-900">
+                Apart verzendadres
+              </label>
+            </div>
+
+            {formData.separate_shipping_address && (
+              <div className="mt-4 space-y-4">
+                <h4 className="text-sm font-medium text-gray-900">Verzendadres</h4>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
+                  <input
+                    type="text"
+                    value={formData.shipping_address || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, shipping_address: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                    <input
+                      type="text"
+                      value={formData.shipping_postal_code || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, shipping_postal_code: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Plaats</label>
+                    <input
+                      type="text"
+                      value={formData.shipping_city || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, shipping_city: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Land</label>
+                  <input
+                    type="text"
+                    value={formData.shipping_country || 'Nederland'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, shipping_country: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Location Section */}
             <div className="border-t pt-4">
               <h4 className="text-md font-medium text-gray-900 mb-4">Locatie</h4>

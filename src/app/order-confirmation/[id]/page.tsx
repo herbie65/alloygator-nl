@@ -348,6 +348,16 @@ export default function OrderConfirmationPage() {
             >
               Verder Winkelen
             </Link>
+            {order && (
+              <a
+                href={`/api/invoices/generate?id=${encodeURIComponent(order.id)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-md hover:bg-gray-50 transition-colors font-medium"
+              >
+                Download factuur (PDF)
+              </a>
+            )}
             <Link
               href="/account"
               className="bg-gray-100 text-gray-700 px-6 py-3 rounded-md hover:bg-gray-200 transition-colors font-medium"

@@ -1,8 +1,31 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
 import { FirebaseClientService } from '@/lib/firebase-client'
 import Link from 'next/link'
+import { Pie } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+} from 'chart.js'
+
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler
+)
 
 interface User {
   id: string
@@ -38,11 +61,13 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
-  const [year, setYear] = useState<number>(new Date().getFullYear())
   const [groupTargets, setGroupTargets] = useState<Record<string, number>>({})
   const [setsSold, setSetsSold] = useState<number>(0)
   const [activities, setActivities] = useState<any[]>([])
   const [documents, setDocuments] = useState<any[]>([])
+  const [openInvoices, setOpenInvoices] = useState<{count:number; total:number; oldestDays:number}>({ count: 0, total: 0, oldestDays: 0 })
+  const [avgPaymentDays, setAvgPaymentDays] = useState<number>(0)
+  const [firstOrderDate, setFirstOrderDate] = useState<Date | null>(null)
 
   useEffect(() => {
     // Get session user
@@ -59,7 +84,13 @@ export default function AccountPage() {
       try {
         const groups = await FirebaseClientService.getCustomerGroups()
         const map: Record<string, number> = {}
-        groups.forEach((g:any)=> { map[(g.name||'').toLowerCase()] = Number(g.annual_target_sets || 0) })
+        groups.forEach((g:any)=> {
+          const nameKey = (g.name||'').toLowerCase()
+          const idKey = String(g.id||'').toLowerCase()
+          const val = Number(g.annual_target_sets || 0)
+          if (nameKey) map[nameKey] = val
+          if (idKey) map[idKey] = val
+        })
         setGroupTargets(map)
         if (!user) return
         // Load all orders for this user from Firestore
@@ -86,19 +117,64 @@ export default function AccountPage() {
           setDocuments(docs as any[])
         } catch {}
         if (user.is_dealer) {
-          const start = new Date(year, 0, 1).getTime()
-          const end = new Date(year + 1, 0, 1).getTime()
-          const qty = myOrders
-            .filter(o => { const t = new Date(o.createdAt || o.created_at || new Date()).getTime(); return t >= start && t < end })
-            .flatMap(o => o.items || [])
+          // Determine first-ever order date for this customer
+          const allSorted = [...myOrders].sort((a:any,b:any)=> new Date(a.createdAt || a.created_at || 0).getTime() - new Date(b.createdAt || b.created_at || 0).getTime())
+          const firstOrderTs = allSorted.length ? new Date(allSorted[0].createdAt || allSorted[0].created_at || new Date()).getTime() : 0
+          const firstOrd = firstOrderTs ? new Date(firstOrderTs) : null
+          setFirstOrderDate(firstOrd)
+          // Rolling 12 months window from today
+          const now = new Date()
+          const from = new Date(now)
+          from.setMonth(now.getMonth() - 12)
+          const fromMs = from.getTime()
+          const toMs = now.getTime()
+
+          const itemsInYear = myOrders
+            .filter(o => { const t = new Date(o.createdAt || o.created_at || new Date()).getTime(); return t >= fromMs && t <= toMs })
+            .flatMap(o => (o.items || []).map((it:any) => ({...it, _month: new Date(o.createdAt || o.created_at || new Date()).getMonth()})))
             .filter((it: any) => { const c=(it.category||'').toLowerCase(); if(c==='alloygator-set') return true; const n=(it.name||'').toLowerCase(); return !c && n.includes('alloygator') && n.includes('set') })
-            .reduce((s: number, it: any) => s + Number(it.quantity || 0), 0)
+
+          const qty = itemsInYear.reduce((s:number, it:any) => s + Number(it.quantity || 0), 0)
           setSetsSold(qty)
         }
+
+        // Open invoice stats and payment speed (for all customers)
+        try {
+          const invOrders = myOrders.filter((o:any) => (o.payment_method === 'invoice'))
+          const open = invOrders.filter((o:any) => (o.payment_status !== 'paid'))
+          const openTotal = open.reduce((s:number,o:any)=> s + Number(o.total||0), 0)
+          const today = Date.now()
+          const oldest = open.reduce((min:number,o:any)=> {
+            const due = new Date(o.due_at || o.createdAt || o.created_at || new Date()).getTime()
+            const days = Math.max(0, Math.floor((today - due) / (1000*60*60*24)))
+            return Math.max(min, days)
+          }, 0)
+          setOpenInvoices({ count: open.length, total: openTotal, oldestDays: oldest })
+
+          // Average payment time in days for paid invoice orders
+          const paidInv = invOrders.filter((o:any)=> (o.payment_status === 'paid'))
+          const durations = paidInv.map((o:any) => {
+            const created = new Date(o.createdAt || o.created_at || new Date()).getTime()
+            const paid = new Date(o.paid_at || o.updatedAt || o.updated_at || created).getTime()
+            return Math.max(0, Math.round((paid - created) / (1000*60*60*24)))
+          })
+          const avg = durations.length ? Math.round(durations.reduce((a,b)=>a+b,0)/durations.length) : 0
+          setAvgPaymentDays(avg)
+        } catch {}
       } catch {}
     }
     load()
-  }, [user, year])
+  }, [user])
+
+  const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
+
+  const groupVisual = (() => {
+    const name = (user?.dealer_group || '').toLowerCase()
+    if (name.startsWith('goud')) return { label: 'Goud', hex: '#D4AF37', glow: 'rgba(212,175,55,0.55)', text: '#111' }
+    if (name.startsWith('zilver')) return { label: 'Zilver', hex: '#C0C0C0', glow: 'rgba(192,192,192,0.55)', text: '#111' }
+    if (name.startsWith('brons')) return { label: 'Brons', hex: '#CD7F32', glow: 'rgba(205,127,50,0.55)', text: '#fff' }
+    return { label: user?.dealer_group || '-', hex: '#8bc34a', glow: 'rgba(139,195,66,0.5)', text: '#111' }
+  })()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -217,98 +293,147 @@ export default function AccountPage() {
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Totaal Bestellingen</p>
-                        <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-green-100 text-green-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                        </svg>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Totale Uitgaven</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          €{orders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Lid sinds</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {new Date(user.created_at).toLocaleDateString('nl-NL')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                   {user.is_dealer && (
+                {/* Stats + Target */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                  {/* Left column stacked cards */}
+                  <div className="space-y-6 md:col-span-1">
+                    {/* Openstaande facturen */}
                     <div className="bg-white rounded-lg shadow-md p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Dealer Target {year}</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                    {setsSold} / {(() => { const g=(user.dealer_group||'').toLowerCase(); return groupTargets[g]||0 })()}
-                            </p>
-                          </div>
+                      <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-red-100 text-red-600">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+                          </svg>
                         </div>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-gray-600">Openstaande facturen</p>
+                          <p className="text-xl font-bold text-gray-900">{openInvoices.count} €{openInvoices.total.toFixed(2)}</p>
+                          <p className="text-xs text-gray-500 mt-1">Oudste: {openInvoices.oldestDays} dagen</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                      <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                          </svg>
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-gray-600">Totaal Bestellingen</p>
+                          <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                      <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-green-100 text-green-600">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                          </svg>
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-gray-600">Totale Uitgaven</p>
+                        <p className="text-2xl font-bold text-gray-900">€{orders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right large dealer target block */}
+                  {user.is_dealer && (
+                    <div className="bg-white rounded-lg shadow-md p-6 md:col-span-3">
+                      {/* Dealer group visual block */}
+                      <div
+                        className="rounded-md p-4 mb-4"
+                        style={{
+                          background: `linear-gradient(135deg, ${groupVisual.hex} 0%, ${groupVisual.hex} 70%, #ffffff 100%)`,
+                          boxShadow: `0 0 20px ${groupVisual.glow}`,
+                          color: groupVisual.text,
+                        }}
+                      >
+                        <div className="text-sm opacity-90">Dealergroep</div>
+                        <div className="text-xl font-semibold flex items-center gap-3">
+                          <span>{groupVisual.label}</span>
+                          <span className="text-xs opacity-90">• Dealer sinds {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL') : '-'}</span>
+                        </div>
+                      </div>
+                        <div className="flex items-center justify-between flex-wrap gap-3">
                         <div>
-                          <select value={year} onChange={(e)=>setYear(parseInt(e.target.value,10))} className="text-sm border rounded px-2 py-1">
-                            {[year-1, year, year+1].map(y => (<option key={y} value={y}>{y}</option>))}
-                          </select>
+                          <p className="text-sm font-medium text-gray-600">Dealer Target (laatste 12 maanden)</p>
+                          <p className="text-2xl font-bold text-gray-900">{setsSold} / {(() => {
+                            const g=(user.dealer_group||'').toLowerCase()
+                            if (!g) return 0
+                            // Exact match by name or id
+                            let t = groupTargets[g]
+                            if (typeof t === 'number' && t > 0) return t
+                            // Fuzzy: find key that includes the group or vice versa
+                            const fuzzy = Object.entries(groupTargets).find(([k,v]) => Number(v)>0 && (g.includes(k) || k.includes(g)))
+                            if (fuzzy) return Number(fuzzy[1])
+                            // Fallback defaults by label
+                            if (g.includes('goud')||g.includes('gold')) return 30
+                            if (g.includes('zilver')||g.includes('silver')) return 20
+                            if (g.includes('brons')||g.includes('bronze')) return 10
+                            return 0
+                          })()}</p>
+                          <p className="text-xs text-gray-600 mt-1">Dealer sinds {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL') : '-'}</p>
                         </div>
+                        <div></div>
                       </div>
-                      <div className="mt-4 bg-gray-100 rounded h-2 overflow-hidden">
-                        {(() => {
-                          const g = (user.dealer_group || '').toLowerCase()
-                          const target = groupTargets[g] || 0
-                          const pct = target > 0 ? Math.min(100, Math.round((setsSold / target) * 100)) : 0
-                          return <div className={`h-full ${pct>=100?'bg-green-500':pct>=50?'bg-yellow-500':'bg-red-500'}`} style={{ width: pct + '%' }} />
-                        })()}
+
+                      {(() => {
+                        const g = (user.dealer_group || '').toLowerCase()
+                        let target = groupTargets[g] || 0
+                        if (!target) {
+                          const fuzzy = Object.entries(groupTargets).find(([k,v]) => Number(v)>0 && (g.includes(k) || k.includes(g)))
+                          if (fuzzy) target = Number(fuzzy[1])
+                        }
+                        if (!target) {
+                          if (g.includes('goud')||g.includes('gold')) target = 30
+                          else if (g.includes('zilver')||g.includes('silver')) target = 20
+                          else if (g.includes('brons')||g.includes('bronze')) target = 10
+                        }
+                        return (
+                          <div className="mt-4 space-y-4">
+                            {/* Pie chart only */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="bg-white rounded border p-3">
+                                <Pie
+                                  data={{
+                                    labels: ['Behaald', 'Resterend'],
+                                    datasets: [{
+                                      data: [Math.min(setsSold, target), Math.max(target - setsSold, 0)],
+                                      backgroundColor: ['#16a34a', '#e5e7eb'],
+                                      borderWidth: 0,
+                                    }],
+                                  }}
+                                  options={{ plugins: { legend: { position: 'bottom' } } }}
+                                />
+                              </div>
+                              <div className="flex items-center text-sm text-gray-700">
+                                <div className="space-y-2">
+                                  <div>Doel: {target} sets</div>
+                                  <div>Behaald (12 mnd): {setsSold} sets</div>
+                                  <div className={`${(target-setsSold) <= 0 ? 'text-green-600' : 'text-red-600'}`}>{(target-setsSold) <= 0 ? 'Target gehaald' : `Nog nodig: ${target - setsSold} sets`}</div>
+                                  <div className="text-gray-600">Gem. betaaltermijn: {avgPaymentDays} dagen</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="bg-gray-50 rounded p-4">
+                          <div className="text-gray-500">Laatste bestelling</div>
+                          <div className="font-medium text-gray-900">{orders[0] ? new Date(orders[0].created_at).toLocaleDateString('nl-NL') : '-'}</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-4">
+                          <div className="text-gray-500">Openstaande status</div>
+                          <div className="font-medium text-gray-900">{orders.find(o=>o.payment_status!=='paid') ? 'Open' : '—'}</div>
+                        </div>
+                        
                       </div>
-                       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                         <div className="bg-gray-50 rounded p-4">
-                           <div className="text-gray-500">Laatste bestelling</div>
-                           <div className="font-medium text-gray-900">{orders[0] ? new Date(orders[0].created_at).toLocaleDateString('nl-NL') : '-'}</div>
-                         </div>
-                         <div className="bg-gray-50 rounded p-4">
-                           <div className="text-gray-500">Openstaande status</div>
-                           <div className="font-medium text-gray-900">{orders.find(o=>o.payment_status!=='paid') ? 'Open' : '—'}</div>
-                         </div>
-                         <div className="bg-gray-50 rounded p-4">
-                           <div className="text-gray-500">Dealer groep</div>
-                           <div className="font-medium text-gray-900">{user.dealer_group || '-'}</div>
-                         </div>
-                       </div>
                     </div>
                   )}
                 </div>

@@ -6,6 +6,7 @@ import { FirebaseService } from '@/lib/firebase'
 interface Order {
   id: string
   order_number: string
+  rma_number?: string
   customer: {
     voornaam: string
     achternaam: string
@@ -44,6 +45,7 @@ export default function OrdersPage() {
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [error, setError] = useState('')
+  const adminToken = process.env.NEXT_PUBLIC_ADMIN_PAYMENT_TOKEN || ''
   type SortKey = 'order_number' | 'customer' | 'items' | 'total' | 'status' | 'payment_status' | 'due_at' | 'created_at'
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -54,14 +56,31 @@ export default function OrdersPage() {
         setError('')
 
         // Get all orders from Firebase
-        const data = await FirebaseService.getOrders()
+        const [data, returns] = await Promise.all([
+          FirebaseService.getOrders(),
+          FirebaseService.getDocuments('return_requests')
+        ])
         console.log('Fetched orders:', data)
+        const rmaByOrder: Record<string, any> = {}
+        ;(returns || []).forEach((rr: any) => {
+          const key = String(rr.orderNumber || rr.order_number || '').toLowerCase()
+          if (!key) return
+          // Keep the latest by created_at
+          const prev = rmaByOrder[key]
+          const getTs = (v:any)=> v ? +new Date(v) : 0
+          if (!prev || getTs(rr.created_at) > getTs(prev.created_at)) rmaByOrder[key] = rr
+        })
         
         if (data && data.length > 0) {
           // Transform the data to match the expected format
           const transformedOrders = data.map((order: any) => ({
             id: order.id,
             order_number: order.orderNumber || order.order_number || `ORD-${order.id}`,
+            rma_number: (()=>{
+              const k = String(order.orderNumber || order.order_number || '').toLowerCase()
+              const rr = rmaByOrder[k]
+              return rr?.rmaNumber || null
+            })(),
             customer: order.customer || {
               voornaam: 'Onbekend',
               achternaam: 'Klant',
@@ -380,14 +399,17 @@ export default function OrdersPage() {
                   }
                 })
                 .map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-200">
+                <tr key={order.id} className={`transition-colors duration-200 ${order.rma_number ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 bg-gradient-to-r from-green-400 to-green-600 rounded-lg flex items-center justify-center text-white font-bold">
-                        🛒
-                      </div>
+                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold ${order.rma_number ? 'bg-orange-500' : 'bg-gradient-to-r from-green-400 to-green-600'}`}>🛒</div>
                       <div className="ml-4 text-sm font-semibold text-gray-900">
                         #{order.order_number}
+                        {order.rma_number && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
+                            RMA: {order.rma_number}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -439,6 +461,16 @@ export default function OrdersPage() {
                       className="text-blue-600 hover:text-blue-900 mr-4 transition-colors duration-200"
                     >
                       Bekijken
+                    </button>
+                    <button
+                      onClick={() => {
+                        const url = `/api/invoices/generate?id=${encodeURIComponent(order.id)}${adminToken ? `&token=${encodeURIComponent(adminToken)}` : ''}`
+                        window.open(url, '_blank')
+                      }}
+                      className="text-gray-700 hover:text-gray-900 mr-4 transition-colors duration-200"
+                      title="Download factuur (wordt gegenereerd als hij nog niet bestaat)"
+                    >
+                      Download factuur
                     </button>
                     {order.payment_method === 'invoice' && order.payment_status !== 'paid' && (
                       <button

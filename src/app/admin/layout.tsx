@@ -20,7 +20,8 @@ export default function AdminLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
-  const [expandedSections, setExpandedSections] = useState<string[]>(['klanten'])
+  const [expandedSections, setExpandedSections] = useState<string[]>(['klanten', 'instellingen'])
+  const [role, setRole] = useState<'admin'|'staff'|'guest'>('guest')
 
   useEffect(() => {
     // Hide header and footer for admin pages
@@ -34,6 +35,14 @@ export default function AdminLayout({
     setTimeout(() => {
       setIsLoading(false)
     }, 500)
+    // Restore admin session
+    try {
+      const raw = localStorage.getItem('adminSessionV2')
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (s?.email && s?.role) setRole(s.role)
+      }
+    } catch {}
 
     // Cleanup function to restore header and footer
     return () => {
@@ -84,18 +93,33 @@ export default function AdminLayout({
       icon: '🛒',
       color: 'bg-orange-500'
     },
-    { 
+    ...(role === 'admin' ? [{ 
       name: 'Content', 
       href: '#', 
       icon: '📝',
       color: 'bg-indigo-500',
       children: [
         { name: 'CMS Pagina\'s', href: '/admin/cms', icon: '📄', color: 'bg-indigo-400' },
-        { name: 'Dealers', href: '/admin/dealers', icon: '🏢', color: 'bg-indigo-400' },
-        { name: 'Instellingen', href: '/admin/settings', icon: '⚙️', color: 'bg-indigo-400' },
-        { name: 'Kleuren', href: '/admin/settings/colors', icon: '🎨', color: 'bg-indigo-400' }
+        // Dealers verwijderd uit Content
+        { name: 'Media', href: '/admin/media', icon: '🖼️', color: 'bg-indigo-400' }
       ]
-    },
+    }] : []),
+    ...(role === 'admin' ? [{ 
+      name: 'Instellingen', 
+      href: '#', 
+      icon: '⚙️',
+      color: 'bg-teal-500',
+      children: [
+        { name: 'Algemeen', href: '/admin/settings?tab=general', icon: '⚙️', color: 'bg-teal-400' },
+        { name: 'Verzending', href: '/admin/settings?tab=shipping', icon: '🚚', color: 'bg-teal-400' },
+        { name: 'Betalingen', href: '/admin/settings?tab=payments', icon: '💳', color: 'bg-teal-400' },
+        { name: 'E-mail', href: '/admin/settings?tab=email', icon: '✉️', color: 'bg-teal-400' },
+        { name: 'DHL', href: '/admin/settings?tab=dhl', icon: '📦', color: 'bg-teal-400' },
+        { name: 'Social media', href: '/admin/settings?tab=social', icon: '📱', color: 'bg-teal-400' },
+        { name: 'BTW/Map', href: '/admin/settings?tab=taxmap', icon: '🧭', color: 'bg-teal-400' },
+        { name: 'Kleuren', href: '/admin/settings/colors', icon: '🎨', color: 'bg-teal-400' }
+      ]
+    }] : []),
     { 
       name: 'Tools', 
       href: '#', 

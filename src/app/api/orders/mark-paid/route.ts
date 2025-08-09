@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FirebaseService } from '@/lib/firebase'
+import { ensureInvoice } from '@/lib/invoice'
 
 // Simple secure link to mark orders as paid from accounting system
 // Usage: GET /api/orders/mark-paid?id=ORDER_ID&token=YOUR_ADMIN_TOKEN
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     await FirebaseService.updateDocument('orders', id, update)
+    try { await ensureInvoice(id) } catch (e) { console.error('ensureInvoice after mark-paid error', e) }
 
     return NextResponse.json({ success: true })
   } catch (e) {

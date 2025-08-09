@@ -1,5 +1,4 @@
 const nextConfig = {
-  distDir: 'out',
   images: {
     unoptimized: true,
   },
@@ -11,6 +10,12 @@ const nextConfig = {
   },
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
+  async rewrites() {
+    return [
+      { source: '/agadmin', destination: '/admin' },
+      { source: '/agadmin/:path*', destination: '/admin/:path*' },
+    ]
   },
 };
 

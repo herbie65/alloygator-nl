@@ -149,6 +149,42 @@ export class EmailService {
     }
   }
 
+  // Factuur mailen als PDF-bijlage
+  async sendInvoiceEmail(
+    meta: { orderNumber: string; customerName: string; customerEmail: string },
+    pdfBuffer: Buffer,
+    invoiceNumber: string
+  ): Promise<boolean> {
+    try {
+      const adminEmail = this.settings?.adminEmail || process.env.ADMIN_EMAIL || process.env.SMTP_USER
+      const attachments = [{ filename: `factuur-${invoiceNumber}.pdf`, content: pdfBuffer }]
+
+      // Naar klant
+      await this.transporter.sendMail({
+        from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        to: meta.customerEmail,
+        subject: `Factuur ${invoiceNumber} - Order #${meta.orderNumber}`,
+        html: `<p>Hallo ${meta.customerName},</p><p>In de bijlage vind je de factuur voor je bestelling #${meta.orderNumber}.</p><p>Bedankt voor je bestelling!</p>`,
+        attachments
+      })
+
+      // Naar admin
+      if (adminEmail) {
+        await this.transporter.sendMail({
+          from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+          to: adminEmail,
+          subject: `Factuur ${invoiceNumber} gestuurd - Order #${meta.orderNumber}`,
+          html: `<p>Factuur ${invoiceNumber} voor order #${meta.orderNumber} is naar ${meta.customerEmail} gemaild.</p>`,
+          attachments
+        })
+      }
+      return true
+    } catch (e) {
+      console.error('sendInvoiceEmail error', e)
+      return false
+    }
+  }
+
   // HTML templates
   private generateOrderConfirmationHTML(data: OrderEmailData): string {
     return `

@@ -94,6 +94,9 @@ export default function Header() {
             <Link href="/vind-een-dealer" className="text-gray-700 hover:text-green-600 transition-colors">
               Vind een Dealer
             </Link>
+            <Link href="/fotos-media" className="text-gray-700 hover:text-green-600 transition-colors">
+              Foto's & media
+            </Link>
             <Link href="/contact" className="text-gray-700 hover:text-green-600 transition-colors">
               Contact
             </Link>
