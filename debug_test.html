@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { margin: 5px; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Debug Test - localStorage Synchronisatie</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Maak Test Instellingen</h2>
+        <button onclick="createTestSettings()">Maak Test Instellingen</button>
+        <div id="test1-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Controleer localStorage</h2>
+        <button onclick="checkLocalStorage()">Controleer localStorage</button>
+        <div id="test2-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Simuleer Checkout Laden</h2>
+        <button onclick="simulateCheckoutLoad()">Simuleer Checkout</button>
+        <div id="test3-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Huidige localStorage Inhoud</h2>
+        <pre id="localStorage-content"></pre>
+    </div>
+
+    <script>
+        function createTestSettings() {
+            // Test verzendinstellingen
+            const shippingSettings = {
+                methods: [
+                    {
+                        method_name: 'test_standard',
+                        display_name: 'Test Standaard Verzending',
+                        cost: 10.00,
+                        description: 'Test verzending',
+                        delivery_time: '1-2 dagen',
+                        is_active: true,
+                        sort_order: 1
+                    },
+                    {
+                        method_name: 'test_express',
+                        display_name: 'Test Express Verzending',
+                        cost: 15.00,
+                        description: 'Test express verzending',
+                        delivery_time: '1 dag',
+                        is_active: true,
+                        sort_order: 2
+                    }
+                ],
+                updated_at: new Date().toISOString()
+            };
+            
+            // Test betalingsinstellingen
+            const paymentSettings = {
+                id: 'test',
+                provider_name: 'Test Provider',
+                is_active: true,
+                api_key: 'test_key',
+                api_secret: 'test_secret',
+                webhook_url: 'https://test.com/webhook',
+                test_mode: true,
+                supported_methods: '["test_ideal","test_creditcard","test_banktransfer"]',
+                updated_at: new Date().toISOString()
+            };
+            
+            localStorage.setItem('shippingSettings', JSON.stringify(shippingSettings));
+            localStorage.setItem('paymentSettings', JSON.stringify(paymentSettings));
+            
+            document.getElementById('test1-result').innerHTML = `
+                <div class="success">
+                    <h3>✅ Test instellingen aangemaakt!</h3>
+                    <p>Verzendmethodes: ${shippingSettings.methods.length}</p>
+                    <p>Betaalmethodes: ${JSON.parse(paymentSettings.supported_methods).length}</p>
+                </div>
+            `;
+            
+            updateLocalStorageDisplay();
+        }
+        
+        function checkLocalStorage() {
+            const shippingSettings = localStorage.getItem('shippingSettings');
+            const paymentSettings = localStorage.getItem('paymentSettings');
+            
+            let result = '<div>';
+            
+            if (shippingSettings) {
+                try {
+                    const shipping = JSON.parse(shippingSettings);
+                    result += `
+                        <div class="success">
+                            <h3>✅ Verzendinstellingen gevonden</h3>
+                            <p>Aantal methodes: ${shipping.methods ? shipping.methods.length : 0}</p>
+                            <pre>${JSON.stringify(shipping, null, 2)}</pre>
+                        </div>
+                    `;
+                } catch (e) {
+                    result += `
+                        <div class="error">
+                            <h3>❌ Fout bij parsen verzendinstellingen</h3>
+                            <p>Error: ${e.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                result += `
+                    <div class="error">
+                        <h3>❌ Geen verzendinstellingen gevonden</h3>
+                    </div>
+                `;
+            }
+            
+            if (paymentSettings) {
+                try {
+                    const payment = JSON.parse(paymentSettings);
+                    result += `
+                        <div class="success">
+                            <h3>✅ Betalingsinstellingen gevonden</h3>
+                            <p>Provider: ${payment.provider_name}</p>
+                            <p>Ondersteunde methodes: ${payment.supported_methods}</p>
+                            <pre>${JSON.stringify(payment, null, 2)}</pre>
+                        </div>
+                    `;
+                } catch (e) {
+                    result += `
+                        <div class="error">
+                            <h3>❌ Fout bij parsen betalingsinstellingen</h3>
+                            <p>Error: ${e.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                result += `
+                    <div class="error">
+                        <h3>❌ Geen betalingsinstellingen gevonden</h3>
+                    </div>
+                `;
+            }
+            
+            result += '</div>';
+            document.getElementById('test2-result').innerHTML = result;
+        }
+        
+        function simulateCheckoutLoad() {
+            // Simuleer de checkout pagina logica
+            let result = '<div>';
+            
+            // Test verzendmethodes laden
+            const savedShippingSettings = localStorage.getItem('shippingSettings');
+            if (savedShippingSettings) {
+                try {
+                    const settings = JSON.parse(savedShippingSettings);
+                    if (settings.methods && Array.isArray(settings.methods)) {
+                        const transformedMethods = settings.methods.map((method) => ({
+                            method_name: method.method_name,
+                            display_name: method.display_name,
+                            cost: method.cost
+                        }));
+                        
+                        result += `
+                            <div class="success">
+                                <h3>✅ Verzendmethodes geladen voor checkout</h3>
+                                <p>Aantal methodes: ${transformedMethods.length}</p>
+                                <pre>${JSON.stringify(transformedMethods, null, 2)}</pre>
+                            </div>
+                        `;
+                    } else {
+                        result += `
+                            <div class="error">
+                                <h3>❌ Geen methodes gevonden in verzendinstellingen</h3>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    result += `
+                        <div class="error">
+                            <h3>❌ Fout bij laden verzendmethodes</h3>
+                            <p>Error: ${e.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                result += `
+                    <div class="error">
+                        <h3>❌ Geen verzendinstellingen gevonden</h3>
+                    </div>
+                `;
+            }
+            
+            // Test betaalmethodes laden
+            const savedPaymentSettings = localStorage.getItem('paymentSettings');
+            if (savedPaymentSettings) {
+                try {
+                    const settings = JSON.parse(savedPaymentSettings);
+                    if (settings.supported_methods) {
+                        let methods;
+                        if (typeof settings.supported_methods === 'string') {
+                            methods = JSON.parse(settings.supported_methods);
+                        } else if (Array.isArray(settings.supported_methods)) {
+                            methods = settings.supported_methods;
+                        } else {
+                            methods = settings.supported_methods.split(',').map((m) => m.trim());
+                        }
+                        
+                        result += `
+                            <div class="success">
+                                <h3>✅ Betaalmethodes geladen voor checkout</h3>
+                                <p>Aantal methodes: ${methods.length}</p>
+                                <pre>${JSON.stringify(methods, null, 2)}</pre>
+                            </div>
+                        `;
+                    } else {
+                        result += `
+                            <div class="error">
+                                <h3>❌ Geen ondersteunde methodes gevonden</h3>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    result += `
+                        <div class="error">
+                            <h3>❌ Fout bij laden betaalmethodes</h3>
+                            <p>Error: ${e.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                result += `
+                    <div class="error">
+                        <h3>❌ Geen betalingsinstellingen gevonden</h3>
+                    </div>
+                `;
+            }
+            
+            result += '</div>';
+            document.getElementById('test3-result').innerHTML = result;
+        }
+        
+        function updateLocalStorageDisplay() {
+            const content = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    try {
+                        content[key] = JSON.parse(localStorage.getItem(key));
+                    } catch (e) {
+                        content[key] = localStorage.getItem(key);
+                    }
+                }
+            }
+            document.getElementById('localStorage-content').textContent = JSON.stringify(content, null, 2);
+        }
+        
+        // Initial load
+        updateLocalStorageDisplay();
+    </script>
+</body>
+</html> 

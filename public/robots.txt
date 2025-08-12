@@ -1,0 +1,38 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: http://localhost:3000/sitemap.xml
+
+# Disallow admin and API routes
+Disallow: /admin
+Disallow: /api/
+Disallow: /dealer-login
+Disallow: /customer/account/
+
+# Allow important pages
+Allow: /winkel
+Allow: /winkel/alloygator-set
+Allow: /winkel/montagehulpmiddelen
+Allow: /winkel/accessoires
+Allow: /waarom-alloygator
+Allow: /velgrandbescherming
+Allow: /velgrandbescherming/velgen-beschermen-tegen-stoeprand
+Allow: /velgrandbescherming/kunststof-velgbescherming
+Allow: /vind-een-dealer
+Allow: /gallery
+Allow: /over-ons
+Allow: /contact
+Allow: /reviews
+Allow: /testing
+Allow: /wat-zijn-onze-retourvoorwaarden
+Allow: /privacy-policy
+Allow: /algemene-voorwaarden
+Allow: /news
+Allow: /customer-care
+Allow: /montage-instructies
+Allow: /velgen-bescherming-laten-plaatsen
+Allow: /wholesale
+Allow: /trade-partner-benefits
+Allow: /checkout/cart
+Allow: /checkout 

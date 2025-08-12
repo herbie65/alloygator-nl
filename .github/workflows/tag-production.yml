@@ -1,0 +1,44 @@
+name: Create production tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: Optional release note shown in the tag message
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create next production tag
+        id: make_tag
+        run: |
+          DAY=$(date +%Y%m%d)
+          LAST=$(git tag --list "prod-${DAY}-*" | sed 's/.*-//' | sort -n | tail -n1)
+          if [ -z "$LAST" ]; then NEXT=1; else NEXT=$((LAST+1)); fi
+          TAG="prod-${DAY}-${NEXT}"
+          MSG="Production tag ${TAG}"
+          if [ -n "${{ github.event.inputs.note }}" ]; then MSG+=$'\n'"${{ github.event.inputs.note }}"; fi
+          git tag -a "$TAG" -m "$MSG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Output
+        run: echo "Created tag ${{ steps.make_tag.outputs.tag }}"
+
+

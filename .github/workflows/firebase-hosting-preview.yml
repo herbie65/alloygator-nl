@@ -1,0 +1,48 @@
+name: Preview Deploy to Firebase Hosting
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build_and_preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          ADMIN_PAYMENT_TOKEN: ${{ secrets.ADMIN_PAYMENT_TOKEN }}
+          ADMIN_INVOICE_TOKEN: ${{ secrets.ADMIN_INVOICE_TOKEN }}
+        run: npm run build
+
+      - name: Ensure public directory exists (static placeholder)
+        run: |
+          mkdir -p public
+          [ -f public/index.html ] || echo "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head><body><div id=\"app\">Preview deploy</div></body></html>" > public/index.html
+          [ -f public/404.html ] || echo "<!doctype html><html><head><meta charset=\"utf-8\"></head><body>404</body></html>" > public/404.html
+
+      - name: Deploy Preview to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: alloygator-nl
+          channelId: pr-${{ github.event.pull_request.number }}
+          expires: 7d
+
+
