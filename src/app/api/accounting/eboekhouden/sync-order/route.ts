@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eBoekhoudenClientInstance } from '@/services/eBoekhouden/client'
 import { FirebaseService } from '@/lib/firebase'
 
+// Type definitions
+interface Order {
+  id: string
+  order_number?: string
+  payment_status: 'open' | 'paid' | 'failed'
+  customer_id: string
+  items: Array<{
+    name?: string
+    product_name?: string
+    price: number
+    price_excl_vat?: number
+    vat_rate?: number
+    quantity: number
+    cost_price?: number
+    sku?: string
+    product_id?: string
+  }>
+}
+
+interface Customer {
+  id: string
+  company_name?: string
+  name?: string
+  address?: string
+  postal_code?: string
+  city?: string
+  country?: string
+  phone?: string
+  email: string
+  vat_number?: string
+  kvk_number?: string
+}
+
 // BTW codes mapping volgens officiële handleiding
 const BTW_CODES = {
   '21%': 'HOOG_VERK_21',
@@ -10,12 +43,13 @@ const BTW_CODES = {
   'none': 'GEEN'
 }
 
-// Grootboekrekeningen voor perpetual inventory
+// Grootboekrekeningen mapping
 const GROOTBOEK_REKENINGEN = {
-  OMZET: '8000',           // Omzet
-  VOORRAAD: '3000',        // Voorraad (balans)
-  COGS: '7000',            // Inkoopwaarde van de omzet (COGS)
-  DEBITEUREN: '1300'       // Debiteuren
+  OMZET: '8000',      // Omzet
+  DEBITEUREN: '1300', // Debiteuren
+  VOORRAAD: '3000',   // Voorraad
+  COGS: '7000',       // Kostprijs verkopen
+  KRUISPOST: '1100'   // Kruispost
 }
 
 export async function POST(request: NextRequest) {
@@ -31,24 +65,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Haal order en klant op uit Firestore
-    const order = await FirebaseService.getOrder(orderId)
-    if (!order) {
+    const orderData = await FirebaseService.getOrderById(orderId)
+    if (!orderData) {
       return NextResponse.json(
         { ok: false, message: 'Order niet gevonden' },
         { status: 404 }
       )
     }
+    const order = orderData as Order
 
-    const customer = await FirebaseService.getCustomer(order.customer_id)
-    if (!customer) {
+    const customerData = await FirebaseService.getCustomerById(order.customer_id)
+    if (!customerData) {
       return NextResponse.json(
         { ok: false, message: 'Klant niet gevonden' },
         { status: 404 }
       )
     }
+    const customer = customerData as Customer
 
     // Controleer of order al betaald is
-    if (order.status !== 'paid') {
+    console.log('Order data:', JSON.stringify(order, null, 2))
+    if (order.payment_status !== 'paid') {
       return NextResponse.json(
         { ok: false, message: 'Order moet betaald zijn om te synchroniseren' },
         { status: 400 }
@@ -63,9 +100,9 @@ export async function POST(request: NextRequest) {
       const relatieCode = `CUST-${customer.id}`
       const relatie = {
         Code: relatieCode,
-        Bedrijf: customer.company_name || customer.name,
-        BP: customer.company_name ? 'B' : 'P', // B = Bedrijf, P = Particulier
-        Naam: customer.name,
+        Bedrijf: customer.company_name || customer.name || '',
+        BP: (customer.company_name ? 'B' : 'P') as 'B' | 'P', // B = Bedrijf, P = Particulier
+        Naam: customer.name || '',
         Adres: customer.address || '',
         Postcode: customer.postal_code || '',
         Plaats: customer.city || '',
@@ -85,7 +122,7 @@ export async function POST(request: NextRequest) {
         RelatieCode: relatieCode,
         Factuurnummer: order.order_number || orderId,
         Omschrijving: `Verkoop ${order.order_number || orderId}`,
-        InExBTW: 'EX', // Exclusief BTW
+        InExBTW: 'EX' as 'EX', // Exclusief BTW
         MutatieRegels: {
           cMutatieRegel: order.items.map((item: any) => {
             const btwPercentage = item.vat_rate || 21
@@ -120,7 +157,7 @@ export async function POST(request: NextRequest) {
         Datum: new Date().toISOString().split('T')[0],
         RelatieCode: '', // Geen relatie voor voorraadmutatie
         Omschrijving: `COGS ${order.order_number || orderId}`,
-        InExBTW: 'EX',
+        InExBTW: 'EX' as 'EX',
         MutatieRegels: {
           cMutatieRegel: [
             // COGS (debet) - kosten stijgen
