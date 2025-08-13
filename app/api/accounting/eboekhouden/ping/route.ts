@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eBoekhoudenClientInstance } from '@/services/eBoekhouden/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +17,9 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Dynamic import to avoid build issues
+    const { eBoekhoudenClientInstance } = await import('@/services/eBoekhouden/client');
+    
     // Test connection
     const isConnected = await eBoekhoudenClientInstance.testConnection();
     

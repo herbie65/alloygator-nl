@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eBoekhoudenClientInstance, eBoekhoudenSession, eBoekhoudenRelatie, eBoekhoudenMutatie, eBoekhoudenMutatieRegel } from '@/services/eBoekhouden/client';
-import { FirebaseClientService } from '@/lib/firebase-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +37,7 @@ interface SyncResult {
 }
 
 export async function POST(request: NextRequest) {
-  let session: eBoekhoudenSession | null = null;
+  let session: any | null = null; // Changed type to any as eBoekhoudenSession is no longer imported
   
   try {
     const { orderId }: SyncOrderRequest = await request.json();
@@ -54,41 +52,49 @@ export async function POST(request: NextRequest) {
     console.log(`🔄 Starting e-Boekhouden sync for order: ${orderId}`);
 
     // 1. Get order and customer data from Firestore
+    const { FirebaseClientService } = await import('@/lib/firebase-client');
     const order = await FirebaseClientService.getOrderById(orderId);
     if (!order) {
       throw new Error(`Order not found: ${orderId}`);
     }
 
-    const customer = await FirebaseClientService.getCustomerById(order.customer_id);
+    // Type assertion for order data
+    const orderData = order as any;
+
+    const customer = await FirebaseClientService.getCustomerById(orderData.customer_id);
     if (!customer) {
       throw new Error(`Customer not found for order: ${orderId}`);
     }
 
+    // Type assertion for customer data
+    const customerData = customer as any;
+
     // 2. Open e-Boekhouden session
+    const { eBoekhoudenClientInstance } = await import('@/services/eBoekhouden/client');
     session = await eBoekhoudenClientInstance.openSession();
     console.log('✅ e-Boekhouden session opened');
 
     // 3. Add/update customer relation
-    const relatie: eBoekhoudenRelatie = {
-      Code: `CUST-${customer.id}`,
-      Bedrijf: customer.company_name || customer.name,
-      BP: customer.is_dealer ? 'B' : 'P',
-      Naam: customer.name,
-      Adres: customer.address,
-      Postcode: customer.postal_code,
-      Plaats: customer.city,
-      Land: customer.country || 'NL',
-      Telefoon: customer.phone,
-      Email: customer.email,
-      BTWNummer: customer.vat_number,
-      KvKNummer: (customer as any).kvk_number
+    const relatie = {
+      Code: `CUST-${customerData.id}`,
+      Bedrijf: customerData.company_name || customerData.name,
+      BP: (customerData.is_dealer ? 'B' : 'P') as 'B' | 'P',
+      Naam: customerData.name,
+      Adres: customerData.address,
+      Postcode: customerData.postal_code,
+      Plaats: customerData.city,
+      Land: customerData.country || 'NL',
+      Telefoon: customerData.phone,
+      Email: customerData.email,
+      BTWNummer: customerData.vat_number,
+      KvKNummer: customerData.kvk_number
     };
 
     const relatieId = await eBoekhoudenClientInstance.addRelatie(session, relatie);
     console.log('✅ Customer relation added/updated:', relatieId);
 
     // 4. Create sales mutation (FactuurVerstuurd)
-    const verkoopRegels: eBoekhoudenMutatieRegel[] = order.items.map((item: any) => {
+    const verkoopRegels = orderData.items.map((item: any) => {
       const btwPercentage = item.vat_rate || 21;
       const btwCode = BTW_CODES[btwPercentage.toString() as keyof typeof BTW_CODES] || BTW_CODES['21'];
       
@@ -103,13 +109,13 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const verkoopMutatie: eBoekhoudenMutatie = {
+    const verkoopMutatie = {
       Soort: 'FactuurVerstuurd',
-      Datum: new Date(order.created_at).toISOString().split('T')[0], // YYYY-MM-DD
-      RelatieCode: `CUST-${customer.id}`,
-      Factuurnummer: order.order_number || orderId,
-      Omschrijving: `Verkoop ${order.order_number || orderId}`,
-      InExBTW: 'EX',
+      Datum: new Date(orderData.created_at).toISOString().split('T')[0], // YYYY-MM-DD
+      RelatieCode: `CUST-${customerData.id}`,
+      Factuurnummer: orderData.order_number || orderId,
+      Omschrijving: `Verkoop ${orderData.order_number || orderId}`,
+      InExBTW: 'EX' as const,
       MutatieRegels: {
         cMutatieRegel: verkoopRegels
       },
@@ -121,19 +127,19 @@ export async function POST(request: NextRequest) {
     console.log('✅ Sales mutation added:', verkoopMutatieId);
 
     // 5. Create COGS + Inventory mutation (Memoriaal) - Perpetual method
-    const totalCost = order.items.reduce((sum: number, item: any) => {
+    const totalCost = orderData.items.reduce((sum: number, item: any) => {
       return sum + (Number(item.cost_price || 0) * Number(item.quantity || 1));
     }, 0);
 
     if (totalCost > 0) {
-      const cogsRegels: eBoekhoudenMutatieRegel[] = [
+      const cogsRegels = [
         {
           BedragExclBTW: totalCost,
           BTW: 0,
           BedragInclBTW: totalCost,
           BTWCode: BTW_CODES['0'],
           TegenrekeningCode: GROOTBOEK_REKENINGEN.COGS,
-          Omschrijving: `COGS ${order.order_number || orderId}`,
+          Omschrijving: `COGS ${orderData.order_number || orderId}`,
           Referentie: orderId
         },
         {
@@ -142,17 +148,17 @@ export async function POST(request: NextRequest) {
           BedragInclBTW: totalCost,
           BTWCode: BTW_CODES['0'],
           TegenrekeningCode: GROOTBOEK_REKENINGEN.VOORRAAD,
-          Omschrijving: `Voorraad afname ${order.order_number || orderId}`,
+          Omschrijving: `Voorraad afname ${orderData.order_number || orderId}`,
           Referentie: orderId
         }
       ];
 
-      const cogsMutatie: eBoekhoudenMutatie = {
+      const cogsMutatie = {
         Soort: 'Memoriaal',
-        Datum: new Date(order.created_at).toISOString().split('T')[0],
-        RelatieCode: `CUST-${customer.id}`,
-        Omschrijving: `COGS + Voorraad ${order.order_number || orderId}`,
-        InExBTW: 'EX',
+        Datum: new Date(orderData.created_at).toISOString().split('T')[0],
+        RelatieCode: `CUST-${customerData.id}`,
+        Omschrijving: `COGS + Voorraad ${orderData.order_number || orderId}`,
+        InExBTW: 'EX' as const,
         MutatieRegels: {
           cMutatieRegel: cogsRegels
         },
@@ -201,6 +207,7 @@ export async function POST(request: NextRequest) {
     // Always close session
     if (session) {
       try {
+        const { eBoekhoudenClientInstance } = await import('@/services/eBoekhouden/client');
         await eBoekhoudenClientInstance.closeSession(session.client, session.sessionId);
         console.log('✅ e-Boekhouden session closed');
       } catch (closeError) {
