@@ -131,49 +131,22 @@ export default function eBoekhoudenSettingsPage() {
           )}
         </div>
 
-        {/* Configuration */}
+        {/* Configuration Info */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuratie</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Gebruikersnaam
-              </label>
-              <input
-                type="text"
-                value={settings.username}
-                disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Configureer via environment variables</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Test Mode
-              </label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 rounded text-sm font-medium ${
-                  settings.testMode ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                }`}>
-                  {settings.testMode ? 'AAN' : 'UIT'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {settings.testMode ? 'Test mode actief - geen echte boekingen' : 'Productie mode - echte boekingen'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <h3 className="text-sm font-medium text-yellow-800 mb-2">⚠️ Belangrijke opmerkingen</h3>
-            <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• Credentials worden ingesteld via environment variables (.env.local)</li>
-              <li>• Test mode is standaard AAN - schakel uit voor productie</li>
-              <li>• Elke API call opent en sluit een SOAP sessie</li>
-              <li>• Orders worden geboekt met perpetual inventory methode</li>
-            </ul>
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">ℹ️ Configuratie verplaatst</h3>
+            <p className="text-sm text-blue-700 mb-3">
+              API keys en credentials worden nu beheerd via de <strong>Koppelingen</strong> pagina. 
+              Ga daarheen om e-Boekhouden credentials in te stellen en te testen.
+            </p>
+            <a 
+              href="/admin/settings/koppelingen" 
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+            >
+              🔗 Ga naar Koppelingen
+            </a>
           </div>
         </div>
 
