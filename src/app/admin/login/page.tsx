@@ -35,15 +35,30 @@ export default function AdminLoginPage() {
     setIsLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/admin/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
+      const res = await fetch('/api/admin/auth/login', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email, password }) 
+      })
+      
+      // Check if response is JSON
+      const contentType = res.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server error: Niet-JSON response ontvangen')
+      }
+      
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Geen toegang')
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Login mislukt`)
+      }
+      
       const payload = { email: data.email, role: data.role, loginTime: new Date().toISOString() }
       localStorage.setItem('adminSessionV2', JSON.stringify(payload))
       // Write cookie for middleware (server-side guards)
       document.cookie = `adminSessionV2=${encodeURIComponent(JSON.stringify(payload))}; path=/; max-age=${60*60*8}`
       router.push('/admin')
     } catch (e:any) {
+      console.error('Login error:', e)
       setError(e.message || 'Login mislukt')
     } finally {
       setIsLoading(false)

@@ -21,6 +21,7 @@ interface Document {
   tags: string[]
   customer_id?: string
   dealer_id?: string
+  customer_email?: string 
 }
 
 interface DocumentCategory {
@@ -330,9 +331,12 @@ export default function DocumentsPage() {
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                           {getPermissionName(document.permission)}
                         </span>
-                        {String(document.permission || '').toLowerCase().includes('private') && (document.customer_email || document.customer_id) && (
-                          <div className="text-xs text-gray-500 mt-1">Dealer: {document.customer_email || document.customer_id}</div>
-                        )}
+                        {String(document.permission ?? '').toLowerCase().includes('private') &&
+  ((document.customer_email ?? document.customer_id)) && (
+    <div className="text-xs text-gray-500 mt-1">
+      Dealer: {document.customer_email ?? document.customer_id}
+    </div>
+)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatFileSize(document.file_size)}

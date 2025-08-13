@@ -111,9 +111,8 @@ export class FirebaseClientService {
       console.error('Error fetching CMS pages:', error);
       if (this.isDevelopment()) {
         console.warn('⚠️ Firebase CMS pages fetch failed, returning empty array')
-        console.warn('⚠️ This might be due to Firebase configuration or network issues')
       }
-      // Return empty array instead of throwing to prevent crashes
+      // Return empty array instead of throwing to prevent React crashes
       return [];
     }
   }
