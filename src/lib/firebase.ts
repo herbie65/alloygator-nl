@@ -18,8 +18,10 @@ let app;
 let db: any = null;
 
 const initializeFirebase = () => {
+  console.log('initializeFirebase called');
   try {
     const apps = getApps();
+    console.log('Existing apps:', apps.length);
     if (apps.length === 0) {
       app = initializeApp(firebaseConfig);
       console.log('Firebase initialized successfully');
@@ -29,25 +31,32 @@ const initializeFirebase = () => {
     }
     
     if (!db) {
+      console.log('Creating new Firestore instance...');
       db = getFirestore(app);
-      console.log('Firestore database initialized');
+      console.log('Firestore database initialized, db value:', db);
+    } else {
+      console.log('db already exists:', db);
     }
     
     return db;
   } catch (error) {
     console.error('Firebase initialization error:', error);
     // Fallback initialization
+    console.log('Attempting fallback initialization...');
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    console.log('Firestore database initialized (fallback)');
+    console.log('Firestore database initialized (fallback), db value:', db);
     return db;
   }
 }
 
 const getDb = () => {
+  console.log('getDb called, db value:', db);
   if (!db) {
+    console.log('db is null/undefined, initializing Firebase...');
     return initializeFirebase();
   }
+  console.log('db exists, returning:', db);
   return db;
 }
 
@@ -56,7 +65,12 @@ export class FirebaseService {
   // Generic CRUD operations
   static async getDocument(collectionName: string, docId: string) {
     try {
+      console.log('getDocument called for:', collectionName, docId);
       const database = getDb();
+      console.log('database from getDb:', database);
+      if (!database) {
+        throw new Error('Database is undefined after getDb() call');
+      }
       const docRef = doc(database, collectionName, docId);
       const docSnap = await getDoc(docRef);
       
