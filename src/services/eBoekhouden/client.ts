@@ -5,6 +5,48 @@
 const WSDL_URL = 'https://soap.e-boekhouden.nl/soap.asmx?wsdl';
 const ENDPOINT = 'https://soap.e-boekhouden.nl/soap.asmx';
 
+// BTW (VAT) nummers voor e-Boekhouden
+export const BTW_NUMMERS = {
+  HOOG_VERK_21: 'HOOG_VERK_21',    // 21% BTW verkoop
+  LAAG_VERK_9: 'LAAG_VERK_9',      // 9% BTW verkoop
+  BI_EU_VERK: 'BI_EU_VERK',        // BTW-vrije verkoop binnen EU
+  GEEN: 'GEEN'                      // Geen BTW
+}
+
+// BTW percentages mapping
+export const BTW_PERCENTAGES = {
+  [BTW_NUMMERS.HOOG_VERK_21]: 21,
+  [BTW_NUMMERS.LAAG_VERK_9]: 9,
+  [BTW_NUMMERS.BI_EU_VERK]: 0,
+  [BTW_NUMMERS.GEEN]: 0
+}
+
+// Helper functie om BTW code te bepalen op basis van percentage
+export function getBTWCode(percentage: number): string {
+  switch (percentage) {
+    case 21:
+      return BTW_NUMMERS.HOOG_VERK_21;
+    case 9:
+      return BTW_NUMMERS.LAAG_VERK_9;
+    case 0:
+      return BTW_NUMMERS.BI_EU_VERK;
+    default:
+      return BTW_NUMMERS.GEEN;
+  }
+}
+
+// Helper functie om BTW percentage te berekenen
+export function calculateBTWAmount(amountInclBTW: number, btwPercentage: number): { amountExclBTW: number; btwAmount: number } {
+  const btwDecimal = btwPercentage / 100;
+  const amountExclBTW = amountInclBTW / (1 + btwDecimal);
+  const btwAmount = amountInclBTW - amountExclBTW;
+  
+  return {
+    amountExclBTW: Math.round(amountExclBTW * 100) / 100,
+    btwAmount: Math.round(btwAmount * 100) / 100
+  };
+}
+
 // Types for e-Boekhouden SOAP operations
 export interface eBoekhoudenSession {
   client: any;

@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, setDoc, DocumentReference } from 'firebase/firestore';
 
 // Firebase configuratie
 const firebaseConfig = {
@@ -60,6 +60,14 @@ const getDb = () => {
   return db;
 }
 
+// BTW (VAT) nummers voor e-Boekhouden
+export const BTW_NUMMERS = {
+  HOOG_VERK_21: 'HOOG_VERK_21',    // 21% BTW verkoop
+  LAAG_VERK_9: 'LAAG_VERK_9',      // 9% BTW verkoop
+  BI_EU_VERK: 'BI_EU_VERK',        // BTW-vrije verkoop binnen EU
+  GEEN: 'GEEN'                      // Geen BTW
+}
+
 // Database service functies
 export class FirebaseService {
   // Generic CRUD operations
@@ -71,8 +79,13 @@ export class FirebaseService {
       if (!database) {
         throw new Error('Database is undefined after getDb() call');
       }
-      const docRef = doc(database, collectionName, docId);
+      
+      // Gebruik de geïmporteerde doc functie expliciet
+      const docRef: DocumentReference = doc(database, collectionName, docId);
+      console.log('docRef created:', docRef);
+      
       const docSnap = await getDoc(docRef);
+      console.log('docSnap retrieved:', docSnap.exists());
       
       if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() };

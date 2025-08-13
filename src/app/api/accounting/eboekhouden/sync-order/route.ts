@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eBoekhoudenClientInstance } from '@/services/eBoekhouden/client'
 import { FirebaseService } from '@/lib/firebase'
+import { BTW_NUMMERS, getBTWCode, calculateBTWAmount } from '@/services/eBoekhouden/client'
 
 // Type definitions
 interface Order {
@@ -126,12 +127,12 @@ export async function POST(request: NextRequest) {
         MutatieRegels: {
           cMutatieRegel: order.items.map((item: any) => {
             const btwPercentage = item.vat_rate || 21
-            const btwCode = btwPercentage === 21 ? 'HOOG_VERK_21' : 
-                           btwPercentage === 9 ? 'LAAG_VERK_9' : 'BI_EU_VERK'
+            const btwCode = getBTWCode(btwPercentage)
+            const { amountExclBTW, btwAmount } = calculateBTWAmount(item.price, btwPercentage)
             
             return {
-              BedragExclBTW: parseFloat((item.price_excl_vat || item.price / (1 + btwPercentage / 100)).toFixed(2)),
-              BTW: parseFloat((item.price - (item.price_excl_vat || item.price / (1 + btwPercentage / 100))).toFixed(2)),
+              BedragExclBTW: amountExclBTW,
+              BTW: btwAmount,
               BedragInclBTW: parseFloat(item.price.toFixed(2)),
               BTWCode: btwCode,
               TegenrekeningCode: GROOTBOEK_REKENINGEN.OMZET,
@@ -165,7 +166,7 @@ export async function POST(request: NextRequest) {
               BedragExclBTW: parseFloat(totalCostExclVat.toFixed(2)),
               BTW: 0,
               BedragInclBTW: parseFloat(totalCostExclVat.toFixed(2)),
-              BTWCode: 'GEEN',
+              BTWCode: BTW_NUMMERS.GEEN,
               TegenrekeningCode: GROOTBOEK_REKENINGEN.COGS,
               Omschrijving: `COGS ${order.order_number || orderId}`,
               Referentie: orderId
@@ -175,7 +176,7 @@ export async function POST(request: NextRequest) {
               BedragExclBTW: parseFloat(totalCostExclVat.toFixed(2)),
               BTW: 0,
               BedragInclBTW: parseFloat(totalCostExclVat.toFixed(2)),
-              BTWCode: 'GEEN',
+              BTWCode: BTW_NUMMERS.GEEN,
               TegenrekeningCode: GROOTBOEK_REKENINGEN.VOORRAAD,
               Omschrijving: `Voorraad ${order.order_number || orderId}`,
               Referentie: orderId
