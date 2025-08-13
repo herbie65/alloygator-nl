@@ -4,12 +4,6 @@ const nextConfig: NextConfig = {
   // output: 'export', // disabled to allow dynamic routes in build
   images: { unoptimized: true },
   eslint: { ignoreDuringBuilds: true },
-  // Specify the source directory for the app router
-  experimental: {
-    appDir: true,
-  },
-  // Set the source directory
-  dir: 'src',
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Client-side webpack config - exclude server-only packages

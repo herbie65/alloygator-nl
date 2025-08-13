@@ -61,8 +61,20 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="relative bg-black text-white">
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-black/60"></div>
-        <div className="relative container mx-auto px-4 py-20">
+        {/* Video Background */}
+        <video 
+          autoPlay 
+          muted 
+          loop 
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-85"
+        >
+          <source src="/heroag.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-black/30"></div>
+        <div className="relative container mx-auto px-4 h-[500px] flex items-center">
           <div className="max-w-4xl">
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               Bescherm en upgrade je velgen met AlloyGator
@@ -150,16 +162,6 @@ export default function Home() {
     )
   }
 
-  // Show CMS content if available, otherwise fallback
-  if (cmsHtml) {
-    return (
-      <div 
-        className="min-h-screen bg-white"
-        dangerouslySetInnerHTML={{ __html: cmsHtml }}
-      />
-    )
-  }
-
-  // Show fallback homepage
+  // Force fallback content for testing
   return fallbackContent
 }

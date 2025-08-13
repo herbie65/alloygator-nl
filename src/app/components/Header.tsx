@@ -114,9 +114,11 @@ export default function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="text-2xl font-bold text-green-600">
-                AlloyGator
-              </div>
+              <img 
+                src="/wysiwyg/media/AlloyGator_Logo.png" 
+                alt="AlloyGator Logo" 
+                className="h-10 w-auto"
+              />
             </Link>
           </div>
 
