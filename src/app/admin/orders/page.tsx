@@ -36,6 +36,13 @@ interface Order {
   dealer_group?: string
   due_at?: string
   payment_terms_days?: number
+  eboekhouden_sync?: {
+    status: 'pending' | 'success' | 'error'
+    verkoop_mutatie_id?: string
+    cogs_mutatie_id?: string
+    error_message?: string
+    sync_timestamp?: string
+  }
 }
 
 export default function OrdersPage() {
@@ -128,7 +135,10 @@ export default function OrdersPage() {
             })(),
             payment_status: order.payment_status === 'pending' ? 'open' : (order.payment_status || 'open'),
             created_at: order.createdAt || order.created_at || new Date().toISOString(),
-            dealer_group: order.dealer_group || null
+            dealer_group: order.dealer_group || null,
+            due_at: order.due_at || null,
+            payment_terms_days: order.payment_terms_days || null,
+            eboekhouden_sync: order.eboekhouden_sync || null
           }))
           
           setOrders(transformedOrders)
@@ -301,15 +311,40 @@ export default function OrdersPage() {
       
       if (result.ok || response.ok) {
         console.log('✅ e-Boekhouden sync successful:', result)
+        setOrders(prev => prev.map(o => o.id === orderId ? {
+          ...o,
+          eboekhouden_sync: {
+            status: 'success',
+            verkoop_mutatie_id: result.verkoop_mutatie_id,
+            cogs_mutatie_id: result.cogs_mutatie_id,
+            sync_timestamp: new Date().toISOString()
+          }
+        } : o))
         setError(`✅ Order succesvol gesynchroniseerd met e-Boekhouden`)
         setTimeout(() => setError(''), 5000)
       } else {
         console.error('❌ e-Boekhouden sync failed:', result)
+        setOrders(prev => prev.map(o => o.id === orderId ? {
+          ...o,
+          eboekhouden_sync: {
+            status: 'error',
+            error_message: result.message || 'Onbekende fout',
+            sync_timestamp: new Date().toISOString()
+          }
+        } : o))
         setError(`❌ e-Boekhouden sync mislukt: ${result.message || 'Onbekende fout'}`)
         setTimeout(() => setError(''), 5000)
       }
     } catch (error: any) {
       console.error('❌ e-Boekhouden sync error:', error)
+      setOrders(prev => prev.map(o => o.id === orderId ? {
+        ...o,
+        eboekhouden_sync: {
+          status: 'error',
+          error_message: error.message,
+          sync_timestamp: new Date().toISOString()
+        }
+      } : o))
       setError(`❌ e-Boekhouden sync fout: ${error.message}`)
       setTimeout(() => setError(''), 5000)
     }
@@ -779,9 +814,21 @@ export default function OrdersPage() {
                           📊 e-Boekhouden
                         </button>
                         {/* Sync status indicator */}
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                          ⏳ Niet gesynchroniseerd
-                        </span>
+                        {order.eboekhouden_sync?.status === 'pending' && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                            ⏳ Synchroniseren...
+                          </span>
+                        )}
+                        {order.eboekhouden_sync?.status === 'success' && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                            ✅ Gesynchroniseerd
+                          </span>
+                        )}
+                        {order.eboekhouden_sync?.status === 'error' && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                            ❌ Fout: {order.eboekhouden_sync.error_message}
+                          </span>
+                        )}
                       </div>
                     )}
                   </td>

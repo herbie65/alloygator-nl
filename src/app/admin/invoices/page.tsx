@@ -15,6 +15,13 @@ interface OrderRow {
   createdAt: string
   invoice_number?: string
   invoice_url?: string
+  eboekhouden_sync?: {
+    status: 'pending' | 'success' | 'error'
+    verkoop_mutatie_id?: string
+    cogs_mutatie_id?: string
+    error_message?: string
+    sync_timestamp?: string
+  }
 }
 
 export default function InvoicesPage() {
@@ -23,6 +30,7 @@ export default function InvoicesPage() {
   const [q, setQ] = useState('')
   const [onlyWithoutInvoice, setOnlyWithoutInvoice] = useState(false)
   const [err, setErr] = useState('')
+  const [syncingOrders, setSyncingOrders] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const load = async () => {
@@ -41,6 +49,7 @@ export default function InvoicesPage() {
           createdAt: o.createdAt || o.created_at || new Date().toISOString(),
           invoice_number: o.invoice_number,
           invoice_url: o.invoice_url,
+          eboekhouden_sync: o.eboekhouden_sync || undefined
         }))
         // Most recent first
         rows.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -97,6 +106,7 @@ export default function InvoicesPage() {
           createdAt: o.createdAt || o.created_at || new Date().toISOString(),
           invoice_number: o.invoice_number,
           invoice_url: o.invoice_url,
+          eboekhouden_sync: o.eboekhouden_sync || undefined
         }))
         rows.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         setOrders(rows)
@@ -104,6 +114,123 @@ export default function InvoicesPage() {
     } catch (e:any) {
       setErr(e.message || 'Fout bij genereren factuur')
     }
+  }
+
+  const syncToEboekhouden = async (orderId: string) => {
+    try {
+      setSyncingOrders(prev => new Set(prev).add(orderId))
+      setErr('')
+
+      const response = await fetch('/api/accounting/eboekhouden/sync-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId })
+      })
+
+      const data = await response.json()
+
+      if (data.ok) {
+        // Update the order with sync status
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                eboekhouden_sync: {
+                  status: 'success' as const,
+                  verkoop_mutatie_id: data.data.verkoop_mutatie_id,
+                  cogs_mutatie_id: data.data.cogs_mutatie_id,
+                  sync_timestamp: new Date().toISOString()
+                }
+              }
+            : order
+        ))
+      } else {
+        // Update the order with error status
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                eboekhouden_sync: {
+                  status: 'error' as const,
+                  error_message: data.message,
+                  sync_timestamp: new Date().toISOString()
+                }
+              }
+            : order
+        ))
+        setErr(`Sync mislukt: ${data.message}`)
+      }
+    } catch (error: any) {
+      // Update the order with error status
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? {
+              ...order,
+              eboekhouden_sync: {
+                status: 'error' as const,
+                error_message: error.message,
+                sync_timestamp: new Date().toISOString()
+              }
+            }
+          : order
+      ))
+      setErr(`Sync fout: ${error.message}`)
+    } finally {
+      setSyncingOrders(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(orderId)
+        return newSet
+      })
+    }
+  }
+
+  const getEboekhoudenStatus = (order: OrderRow) => {
+    if (!order.eboekhouden_sync) {
+      return (
+        <button
+          onClick={() => syncToEboekhouden(order.id)}
+          disabled={syncingOrders.has(order.id)}
+          className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 text-sm"
+        >
+          {syncingOrders.has(order.id) ? '⏳ Sync...' : '📊 Sync'}
+        </button>
+      )
+    }
+
+    if (order.eboekhouden_sync.status === 'success') {
+      return (
+        <div className="text-xs text-green-700">
+          <div className="font-medium">✅ Gesynchroniseerd</div>
+          <div>Verkoop: {order.eboekhouden_sync.verkoop_mutatie_id}</div>
+          <div>COGS: {order.eboekhouden_sync.cogs_mutatie_id}</div>
+          <div className="text-gray-500">
+            {new Date(order.eboekhouden_sync.sync_timestamp!).toLocaleDateString('nl-NL')}
+          </div>
+        </div>
+      )
+    }
+
+    if (order.eboekhouden_sync.status === 'error') {
+      return (
+        <div className="text-xs text-red-700">
+          <div className="font-medium">❌ Sync mislukt</div>
+          <div className="text-gray-500">
+            {new Date(order.eboekhouden_sync.sync_timestamp!).toLocaleDateString('nl-NL')}
+          </div>
+          <button
+            onClick={() => syncToEboekhouden(order.id)}
+            disabled={syncingOrders.has(order.id)}
+            className="mt-1 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 text-xs"
+          >
+            {syncingOrders.has(order.id) ? '⏳ Retry...' : '🔄 Retry'}
+          </button>
+        </div>
+      )
+    }
+
+    return null
   }
 
   return (
@@ -143,6 +270,7 @@ export default function InvoicesPage() {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">BTW</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Totaal</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Factuur</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">E-Boekhouden</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
@@ -166,6 +294,9 @@ export default function InvoicesPage() {
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {getEboekhoudenStatus(o)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                     <div className="flex items-center justify-end space-x-3">
