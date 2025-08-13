@@ -282,6 +282,39 @@ export default function OrdersPage() {
     }
   }
 
+  const handleeBoekhoudenSync = async (orderId: string) => {
+    try {
+      const order = orders.find(o => o.id === orderId)
+      if (!order) return
+
+      console.log(`🔄 Starting e-Boekhouden sync for order: ${orderId}`)
+
+      const response = await fetch('/api/accounting/eboekhouden/sync-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log('✅ e-Boekhouden sync successful:', result)
+        setError(`✅ Order succesvol gesynchroniseerd met e-Boekhouden`)
+        setTimeout(() => setError(''), 5000)
+      } else {
+        console.error('❌ e-Boekhouden sync failed:', result)
+        setError(`❌ e-Boekhouden sync mislukt: ${result.errors?.join(', ') || 'Onbekende fout'}`)
+        setTimeout(() => setError(''), 5000)
+      }
+    } catch (error: any) {
+      console.error('❌ e-Boekhouden sync error:', error)
+      setError(`❌ e-Boekhouden sync fout: ${error.message}`)
+      setTimeout(() => setError(''), 5000)
+    }
+  }
+
   const handleMarkAsPaid = async (orderId: string) => {
     try {
       const order = orders.find(o => o.id === orderId)
@@ -733,6 +766,16 @@ export default function OrdersPage() {
                         className="text-red-600 hover:text-red-900 transition-colors duration-200"
                       >
                         Annuleren
+                      </button>
+                    )}
+                    {/* e-Boekhouden sync knop - alleen voor betaalde orders */}
+                    {order.payment_status === 'paid' && order.status !== 'annuleren' && (
+                      <button
+                        onClick={() => handleeBoekhoudenSync(order.id)}
+                        className="text-purple-600 hover:text-purple-900 ml-4 transition-colors duration-200"
+                        title="Synchroniseer order met e-Boekhouden"
+                      >
+                        📊 e-Boekhouden
                       </button>
                     )}
                   </td>
