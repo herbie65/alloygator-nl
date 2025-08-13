@@ -299,13 +299,13 @@ export default function OrdersPage() {
 
       const result = await response.json()
       
-      if (result.success) {
+      if (result.ok || response.ok) {
         console.log('✅ e-Boekhouden sync successful:', result)
         setError(`✅ Order succesvol gesynchroniseerd met e-Boekhouden`)
         setTimeout(() => setError(''), 5000)
       } else {
         console.error('❌ e-Boekhouden sync failed:', result)
-        setError(`❌ e-Boekhouden sync mislukt: ${result.errors?.join(', ') || 'Onbekende fout'}`)
+        setError(`❌ e-Boekhouden sync mislukt: ${result.message || 'Onbekende fout'}`)
         setTimeout(() => setError(''), 5000)
       }
     } catch (error: any) {
@@ -770,13 +770,19 @@ export default function OrdersPage() {
                     )}
                     {/* e-Boekhouden sync knop - alleen voor betaalde orders */}
                     {order.payment_status === 'paid' && order.status !== 'annuleren' && (
-                      <button
-                        onClick={() => handleeBoekhoudenSync(order.id)}
-                        className="text-purple-600 hover:text-purple-900 ml-4 transition-colors duration-200"
-                        title="Synchroniseer order met e-Boekhouden"
-                      >
-                        📊 e-Boekhouden
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleeBoekhoudenSync(order.id)}
+                          className="text-purple-600 hover:text-purple-900 transition-colors duration-200"
+                          title="Synchroniseer order met e-Boekhouden"
+                        >
+                          📊 e-Boekhouden
+                        </button>
+                        {/* Sync status indicator */}
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                          ⏳ Niet gesynchroniseerd
+                        </span>
+                      </div>
                     )}
                   </td>
                 </tr>
