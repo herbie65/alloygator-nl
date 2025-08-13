@@ -15,30 +15,49 @@ console.log('Firebase config loaded successfully');
 
 // Initialize Firebase only if not already initialized
 let app;
-try {
-  const apps = getApps();
-  if (apps.length === 0) {
+let db: any = null;
+
+const initializeFirebase = () => {
+  try {
+    const apps = getApps();
+    if (apps.length === 0) {
+      app = initializeApp(firebaseConfig);
+      console.log('Firebase initialized successfully');
+    } else {
+      app = apps[0];
+      console.log('Firebase already initialized');
+    }
+    
+    if (!db) {
+      db = getFirestore(app);
+      console.log('Firestore database initialized');
+    }
+    
+    return db;
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    // Fallback initialization
     app = initializeApp(firebaseConfig);
-    console.log('Firebase initialized successfully');
-  } else {
-    app = apps[0];
-    console.log('Firebase already initialized');
+    db = getFirestore(app);
+    console.log('Firestore database initialized (fallback)');
+    return db;
   }
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  // Fallback initialization
-  app = initializeApp(firebaseConfig);
 }
 
-const db = getFirestore(app);
-console.log('Firestore database initialized');
+const getDb = () => {
+  if (!db) {
+    return initializeFirebase();
+  }
+  return db;
+}
 
 // Database service functies
 export class FirebaseService {
   // Generic CRUD operations
   static async getDocument(collectionName: string, docId: string) {
     try {
-      const docRef = doc(db, collectionName, docId);
+      const database = getDb();
+      const docRef = doc(database, collectionName, docId);
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -54,7 +73,8 @@ export class FirebaseService {
 
   static async getDocuments(collectionName: string, conditions: any[] = []) {
     try {
-      let q: any = collection(db, collectionName);
+      const database = getDb();
+      let q: any = collection(database, collectionName);
       
       // Apply conditions
       conditions.forEach(condition => {
@@ -77,7 +97,8 @@ export class FirebaseService {
 
   static async addDocument(collectionName: string, data: any) {
     try {
-      const docRef = await addDoc(collection(db, collectionName), {
+      const database = getDb();
+      const docRef = await addDoc(collection(database, collectionName), {
         ...data,
         created_at: new Date(),
         updated_at: new Date()
@@ -94,7 +115,8 @@ export class FirebaseService {
       if (!docId || typeof docId !== 'string') {
         throw new Error(`Invalid document id for collection ${collectionName}`)
       }
-      const docRef = doc(db, collectionName, docId);
+      const database = getDb();
+      const docRef = doc(database, collectionName, docId);
       const { id, ...updateData } = data; // Remove id from data to avoid conflicts
       await setDoc(docRef, {
         ...updateData,
@@ -109,7 +131,8 @@ export class FirebaseService {
 
   static async deleteDocument(collectionName: string, docId: string) {
     try {
-      const docRef = doc(db, collectionName, docId);
+      const database = getDb();
+      const docRef = doc(database, collectionName, docId);
       await deleteDoc(docRef);
       return true;
     } catch (error) {
