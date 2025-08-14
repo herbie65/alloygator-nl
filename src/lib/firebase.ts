@@ -178,7 +178,96 @@ export class FirebaseService {
   }
 
   static async addCustomer(customerData: any) {
-    return this.addDocument('customers', customerData);
+    try {
+      // Get the next available customer number
+      const customers = await this.getDocuments('customers');
+      let nextNumber = 2000; // Start from 2000
+      
+      if (customers && customers.length > 0) {
+        // Find the highest existing customer number
+        const existingNumbers = customers
+          .map(c => {
+            const match = String(c.id).match(/^#?(\d+)$/);
+            return match ? parseInt(match[1]) : 0;
+          })
+          .filter(num => num >= 2000);
+        
+        if (existingNumbers.length > 0) {
+          nextNumber = Math.max(...existingNumbers) + 1;
+        }
+      }
+      
+      // Create customer with custom ID
+      const customerId = `#${nextNumber}`;
+      const database = getDb();
+      const docRef = doc(database, 'customers', customerId);
+      
+      await setDoc(docRef, {
+        ...customerData,
+        id: customerId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: customerId, ...customerData };
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      throw error;
+    }
+  }
+
+  // Migrate existing customers to numeric IDs
+  static async migrateCustomersToNumericIds() {
+    try {
+      const customers = await this.getDocuments('customers');
+      if (!customers || customers.length === 0) return;
+      
+      let nextNumber = 2000;
+      const migratedCustomers = [];
+      
+      for (const customer of customers) {
+        // Check if customer already has numeric ID
+        if (String(customer.id).match(/^#?(\d+)$/)) {
+          const num = parseInt(String(customer.id).replace('#', ''));
+          if (num >= 2000) {
+            nextNumber = Math.max(nextNumber, num + 1);
+          }
+        }
+      }
+      
+      for (const customer of customers) {
+        // Skip if already has numeric ID
+        if (String(customer.id).match(/^#?(\d+)$/)) {
+          const num = parseInt(String(customer.id).replace('#', ''));
+          if (num >= 2000) continue;
+        }
+        
+        // Create new numeric ID
+        const newId = `#${nextNumber}`;
+        const database = getDb();
+        
+        // Create new document with numeric ID
+        const newDocRef = doc(database, 'customers', newId);
+        await setDoc(newDocRef, {
+          ...customer,
+          id: newId,
+          updated_at: new Date().toISOString()
+        });
+        
+        // Delete old document
+        const oldDocRef = doc(database, 'customers', customer.id);
+        await deleteDoc(oldDocRef);
+        
+        migratedCustomers.push({ oldId: customer.id, newId });
+        nextNumber++;
+      }
+      
+      console.log(`✅ Migrated ${migratedCustomers.length} customers to numeric IDs:`, migratedCustomers);
+      return migratedCustomers;
+    } catch (error) {
+      console.error('Error migrating customers:', error);
+      throw error;
+    }
   }
 
   static async updateCustomer(id: string, customerData: any) {

@@ -66,7 +66,7 @@ interface CustomerGroup {
 }
 
 export default function CustomersPage() {
-  const [customers, customersLoading, customersError] = useFirebaseRealtime<Customer>('customers')
+  const [customers, customersLoading, customersError] = useFirebaseRealtime<Customer[]>('customers')
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([])
   const [customerGroupsLoading, setCustomerGroupsLoading] = useState(true)
   const [customerGroupsError, setCustomerGroupsError] = useState('')
@@ -172,10 +172,19 @@ export default function CustomersPage() {
   }
 
   const getCustomerStats = () => {
+    if (!customers || !Array.isArray(customers)) {
+      return {
+        total: 0,
+        active: 0,
+        dealers: 0,
+        revenue: 0
+      }
+    }
+    
     const totalCustomers = customers.length
     const activeCustomers = customers.filter(c => c.status === 'active').length
     const dealerCustomers = customers.filter(c => c.is_dealer).length
-    const totalRevenue = customers.reduce((sum, c) => sum + c.total_spent, 0)
+    const totalRevenue = customers.reduce((sum, c) => sum + (c.total_spent || 0), 0)
 
     return {
       total: totalCustomers,
@@ -200,22 +209,46 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Klanten Beheren</h1>
-          <p className="text-gray-600">Beheer uw klantdatabase</p>
+              <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Klanten Beheren</h1>
+            <p className="text-gray-600">Beheer uw klantdatabase</p>
+          </div>
+          <div className="flex space-x-3">
+            <button 
+              onClick={async () => {
+                if (confirm('Weet je zeker dat je alle klanten wilt migreren naar numerieke IDs? Dit kan niet ongedaan worden gemaakt.')) {
+                  try {
+                    const response = await fetch('/api/admin/migrate-customers', { method: 'POST' });
+                    const result = await response.json();
+                    if (result.success) {
+                      alert(result.message);
+                      // Refresh the page to show updated customer IDs
+                      window.location.reload();
+                    } else {
+                      alert('Fout bij migreren: ' + result.message);
+                    }
+                  } catch (error) {
+                    alert('Fout bij migreren: ' + error);
+                  }
+                }
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              🔄 Migreer naar Numerieke IDs
+            </button>
+            <button 
+              onClick={() => {
+                setSelectedCustomer(null)
+                setEditingCustomer(null)
+                setShowCustomerModal(true)
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+            >
+              + Nieuwe Klant
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={() => {
-            setSelectedCustomer(null)
-            setEditingCustomer(null)
-            setShowCustomerModal(true)
-          }}
-          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-        >
-          + Nieuwe Klant
-        </button>
-      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

@@ -9,36 +9,33 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [isClient, setIsClient] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // Mark that we're on the client to prevent hydration mismatch
-    setIsClient(true)
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
     
-    // Check if already logged in (v2) - delay to prevent hydration issues
-    const checkSession = () => {
-      const s = localStorage.getItem('adminSessionV2')
-      if (s) {
-        try {
-          const session = JSON.parse(s)
-          if (session?.email && session?.role) {
-            console.log('✅ Admin session found, redirecting to admin panel')
-            router.push('/admin')
-          } else {
-            console.log('🔒 Invalid session data, clearing localStorage')
-            localStorage.removeItem('adminSessionV2')
-          }
-        } catch (error) {
-          console.error('🔒 Error parsing session:', error)
+    // Check if already logged in (v2)
+    const s = localStorage.getItem('adminSessionV2')
+    if (s) {
+      try {
+        const session = JSON.parse(s)
+        if (session?.email && session?.role) {
+          console.log('✅ Admin session found, redirecting to admin panel')
+          router.push('/admin')
+        } else {
+          console.log('🔒 Invalid session data, clearing localStorage')
           localStorage.removeItem('adminSessionV2')
         }
+      } catch (error) {
+        console.error('🔒 Error parsing session:', error)
+        localStorage.removeItem('adminSessionV2')
       }
     }
-
-    // Delay the check to prevent hydration issues
-    const timer = setTimeout(checkSession, 100)
-    return () => clearTimeout(timer)
-  }, [router])
+  }, [mounted, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,8 +72,8 @@ export default function AdminLoginPage() {
     }
   }
 
-  // Don't render the form until we're on the client to prevent hydration mismatch
-  if (!isClient) {
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
@@ -108,7 +105,7 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="herbert@alloygator.nl"
+              placeholder="Voer je e-mailadres in"
               required
             />
           </div>
@@ -122,7 +119,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="••••••••"
+              placeholder="Voer je wachtwoord in"
               required
             />
           </div>

@@ -296,7 +296,7 @@ export default function OrdersPage() {
     try {
       setOrders(prev => prev.map(order => 
         order.id === orderId 
-          ? { ...order, eboekhouden_sync: { status: 'pending', timestamp: new Date().toISOString() } }
+          ? { ...order, eboekhouden_sync: { status: 'pending', sync_timestamp: new Date().toISOString() } }
           : order
       ));
 
@@ -315,13 +315,13 @@ export default function OrdersPage() {
           order.id === orderId 
             ? {
                 ...order,
-                eboekhouden_sync: {
-                  status: 'success',
-                  verkoop_mutatie_id: result.verkoop_mutatie_id,
-                  cogs_mutatie_id: result.cogs_mutatie_id,
-                  timestamp: new Date().toISOString(),
-                  error: null
-                }
+                                  eboekhouden_sync: {
+                    status: 'success',
+                    verkoop_mutatie_id: result.verkoop_mutatie_id,
+                    cogs_mutatie_id: result.cogs_mutatie_id,
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: null
+                  }
               }
             : order
         ));
@@ -330,13 +330,13 @@ export default function OrdersPage() {
           order.id === orderId 
             ? {
                 ...order,
-                eboekhouden_sync: {
-                  status: 'error',
-                  verkoop_mutatie_id: null,
-                  cogs_mutatie_id: null,
-                  timestamp: new Date().toISOString(),
-                  error: result.message
-                }
+                                  eboekhouden_sync: {
+                    status: 'error',
+                    verkoop_mutatie_id: null,
+                    cogs_mutatie_id: null,
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: result.message
+                  }
               }
             : order
         ));
@@ -351,8 +351,8 @@ export default function OrdersPage() {
                 status: 'error',
                 verkoop_mutatie_id: null,
                 cogs_mutatie_id: null,
-                timestamp: new Date().toISOString(),
-                error: error instanceof Error ? error.message : 'Unknown error'
+                sync_timestamp: new Date().toISOString(),
+                error_message: error instanceof Error ? error.message : 'Unknown error'
               }
             }
           : order

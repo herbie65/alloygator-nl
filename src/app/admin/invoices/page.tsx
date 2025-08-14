@@ -30,7 +30,7 @@ export default function InvoicesPage() {
   const [q, setQ] = useState('')
   const [onlyWithoutInvoice, setOnlyWithoutInvoice] = useState(false)
   const [err, setErr] = useState('')
-  const [syncingOrders, setSyncingOrders] = useState<Set<string>>(new Set())
+  const [syncingOrders, setSyncingOrders] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const load = async () => {
@@ -141,8 +141,8 @@ export default function InvoicesPage() {
                     status: 'success',
                     verkoop_mutatie_id: result.verkoop_mutatie_id,
                     cogs_mutatie_id: result.cogs_mutatie_id,
-                    timestamp: new Date().toISOString(),
-                    error: null
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: null
                   }
                 }
               : order
@@ -159,8 +159,8 @@ export default function InvoicesPage() {
                     status: 'error',
                     verkoop_mutatie_id: null,
                     cogs_mutatie_id: null,
-                    timestamp: new Date().toISOString(),
-                    error: result.message
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: result.message
                   }
                 }
               : order
@@ -179,8 +179,8 @@ export default function InvoicesPage() {
                   status: 'error',
                   verkoop_mutatie_id: null,
                   cogs_mutatie_id: null,
-                  timestamp: new Date().toISOString(),
-                  error: error instanceof Error ? error.message : 'Unknown error'
+                  sync_timestamp: new Date().toISOString(),
+                  error_message: error instanceof Error ? error.message : 'Unknown error'
                 }
               }
             : order
@@ -196,10 +196,10 @@ export default function InvoicesPage() {
       return (
         <button
           onClick={() => syncToEboekhouden(order.id)}
-          disabled={syncingOrders.has(order.id)}
+          disabled={syncingOrders[order.id]}
           className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 text-sm"
         >
-          {syncingOrders.has(order.id) ? '⏳ Sync...' : '📊 Sync'}
+          {syncingOrders[order.id] ? '⏳ Sync...' : '📊 Sync'}
         </button>
       )
     }
@@ -221,15 +221,20 @@ export default function InvoicesPage() {
       return (
         <div className="text-xs text-red-700">
           <div className="font-medium">❌ Sync mislukt</div>
+          {order.eboekhouden_sync.error_message && (
+            <div className="text-red-600 text-xs mb-1">
+              {order.eboekhouden_sync.error_message}
+            </div>
+          )}
           <div className="text-gray-500">
             {new Date(order.eboekhouden_sync.sync_timestamp!).toLocaleDateString('nl-NL')}
           </div>
           <button
             onClick={() => syncToEboekhouden(order.id)}
-            disabled={syncingOrders.has(order.id)}
+            disabled={syncingOrders[order.id]}
             className="mt-1 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 text-xs"
           >
-            {syncingOrders.has(order.id) ? '⏳ Retry...' : '🔄 Retry'}
+            {syncingOrders[order.id] ? '⏳ Retry...' : '🔄 Retry'}
           </button>
         </div>
       )

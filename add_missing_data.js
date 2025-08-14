@@ -1,5 +1,5 @@
 const { initializeApp } = require('firebase/app');
-const { getFirestore, collection, addDoc, getDocs } = require('firebase/firestore');
+const { getFirestore, collection, getDocs, setDoc, doc } = require('firebase/firestore');
 
 // Firebase configuratie
 const firebaseConfig = {
@@ -297,8 +297,16 @@ async function addMissingData() {
       }
     ];
 
+    let nextCustomerNumber = 2000;
     for (const customer of customers) {
-      await addDoc(collection(db, 'customers'), customer);
+      const customerId = `#${nextCustomerNumber}`;
+      const customerWithId = { ...customer, id: customerId };
+      
+      // Use setDoc with custom ID instead of addDoc
+      const customerRef = doc(db, 'customers', customerId);
+      await setDoc(customerRef, customerWithId);
+      
+      nextCustomerNumber++;
     }
     console.log('✅ Sample Customers toegevoegd');
 

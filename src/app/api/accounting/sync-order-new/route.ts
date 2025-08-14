@@ -9,8 +9,11 @@ import {
 import { mapOrderToBookings, validateBookingBalance } from '@/services/accounting/orderToBookings';
 
 export async function POST(request: NextRequest) {
+  let orderId: string;
+  
   try {
-    const { orderId } = await request.json();
+    const body = await request.json();
+    orderId = body.orderId;
     
     if (!orderId) {
       return NextResponse.json(
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Haal order en klant op uit Firestore
-    const orderData = await FirebaseService.getOrderById(orderId);
+    const orderData = await FirebaseService.getDocument('orders', orderId);
     if (!orderData) {
       return NextResponse.json(
         { ok: false, message: 'Order niet gevonden' },
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Haal klant op
-    const customerData = await FirebaseService.getCustomerById(order.customer_id);
+    const customerData = await FirebaseService.getDocument('customers', order.customer_id);
     if (!customerData) {
       return NextResponse.json(
         { ok: false, message: 'Klant niet gevonden' },
@@ -91,8 +94,8 @@ export async function POST(request: NextRequest) {
         verkoop_xml: verkoopResult.raw,
         cogs_xml: cogsVoorraadResult.raw,
         status: 'success',
-        timestamp: new Date().toISOString(),
-        error: null
+        sync_timestamp: new Date().toISOString(),
+        error_message: null
       };
 
       await FirebaseService.addDocument('accounting_sync', syncResult);
@@ -117,8 +120,8 @@ export async function POST(request: NextRequest) {
       const errorResult = {
         order_id: orderId,
         status: 'error',
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error',
+        sync_timestamp: new Date().toISOString(),
+        error_message: error instanceof Error ? error.message : 'Unknown error',
         session_id: null,
         verkoop_mutatie_id: null,
         cogs_mutatie_id: null,
