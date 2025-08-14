@@ -294,61 +294,71 @@ export default function OrdersPage() {
 
   const handleeBoekhoudenSync = async (orderId: string) => {
     try {
-      const order = orders.find(o => o.id === orderId)
-      if (!order) return
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? { ...order, eboekhouden_sync: { status: 'pending', timestamp: new Date().toISOString() } }
+          : order
+      ));
 
-      console.log(`🔄 Starting e-Boekhouden sync for order: ${orderId}`)
-
-      const response = await fetch('/api/accounting/eboekhouden/sync-order', {
+      const response = await fetch('/api/accounting/sync-order-new', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ orderId })
-      })
+        body: JSON.stringify({ orderId }),
+      });
 
-      const result = await response.json()
-      
-      if (result.ok || response.ok) {
-        console.log('✅ e-Boekhouden sync successful:', result)
-        setOrders(prev => prev.map(o => o.id === orderId ? {
-          ...o,
-          eboekhouden_sync: {
-            status: 'success',
-            verkoop_mutatie_id: result.verkoop_mutatie_id,
-            cogs_mutatie_id: result.cogs_mutatie_id,
-            sync_timestamp: new Date().toISOString()
-          }
-        } : o))
-        setError(`✅ Order succesvol gesynchroniseerd met e-Boekhouden`)
-        setTimeout(() => setError(''), 5000)
+      const result = await response.json();
+
+      if (result.ok) {
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                eboekhouden_sync: {
+                  status: 'success',
+                  verkoop_mutatie_id: result.verkoop_mutatie_id,
+                  cogs_mutatie_id: result.cogs_mutatie_id,
+                  timestamp: new Date().toISOString(),
+                  error: null
+                }
+              }
+            : order
+        ));
       } else {
-        console.error('❌ e-Boekhouden sync failed:', result)
-        setOrders(prev => prev.map(o => o.id === orderId ? {
-          ...o,
-          eboekhouden_sync: {
-            status: 'error',
-            error_message: result.message || 'Onbekende fout',
-            sync_timestamp: new Date().toISOString()
-          }
-        } : o))
-        setError(`❌ e-Boekhouden sync mislukt: ${result.message || 'Onbekende fout'}`)
-        setTimeout(() => setError(''), 5000)
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                eboekhouden_sync: {
+                  status: 'error',
+                  verkoop_mutatie_id: null,
+                  cogs_mutatie_id: null,
+                  timestamp: new Date().toISOString(),
+                  error: result.message
+                }
+              }
+            : order
+        ));
       }
-    } catch (error: any) {
-      console.error('❌ e-Boekhouden sync error:', error)
-      setOrders(prev => prev.map(o => o.id === orderId ? {
-        ...o,
-        eboekhouden_sync: {
-          status: 'error',
-          error_message: error.message,
-          sync_timestamp: new Date().toISOString()
-        }
-      } : o))
-      setError(`❌ e-Boekhouden sync fout: ${error.message}`)
-      setTimeout(() => setError(''), 5000)
+    } catch (error) {
+      console.error('e-Boekhouden sync error:', error);
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? {
+              ...order,
+              eboekhouden_sync: {
+                status: 'error',
+                verkoop_mutatie_id: null,
+                cogs_mutatie_id: null,
+                timestamp: new Date().toISOString(),
+                error: error instanceof Error ? error.message : 'Unknown error'
+              }
+            }
+          : order
+      ));
     }
-  }
+  };
 
   const handleMarkAsPaid = async (orderId: string) => {
     try {

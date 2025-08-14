@@ -117,74 +117,79 @@ export default function InvoicesPage() {
   }
 
   const syncToEboekhouden = async (orderId: string) => {
+    setSyncingOrders(prev => ({ ...prev, [orderId]: true }));
+    
     try {
-      setSyncingOrders(prev => new Set(prev).add(orderId))
-      setErr('')
-
-      const response = await fetch('/api/accounting/eboekhouden/sync-order', {
+      const response = await fetch('/api/accounting/sync-order-new', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ orderId })
-      })
+        body: JSON.stringify({ orderId }),
+      });
 
-      const data = await response.json()
+      const result = await response.json();
 
-      if (data.ok) {
-        // Update the order with sync status
-        setOrders(prev => prev.map(order => 
-          order.id === orderId 
-            ? {
-                ...order,
-                eboekhouden_sync: {
-                  status: 'success' as const,
-                  verkoop_mutatie_id: data.data.verkoop_mutatie_id,
-                  cogs_mutatie_id: data.data.cogs_mutatie_id,
-                  sync_timestamp: new Date().toISOString()
+      if (result.ok) {
+        // Update local state with sync results
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? {
+                  ...order,
+                  eboekhouden_sync: {
+                    status: 'success',
+                    verkoop_mutatie_id: result.verkoop_mutatie_id,
+                    cogs_mutatie_id: result.cogs_mutatie_id,
+                    timestamp: new Date().toISOString(),
+                    error: null
+                  }
                 }
-              }
-            : order
-        ))
+              : order
+          )
+        );
       } else {
-        // Update the order with error status
-        setOrders(prev => prev.map(order => 
+        // Update local state with error
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? {
+                  ...order,
+                  eboekhouden_sync: {
+                    status: 'error',
+                    verkoop_mutatie_id: null,
+                    cogs_mutatie_id: null,
+                    timestamp: new Date().toISOString(),
+                    error: result.message
+                  }
+                }
+              : order
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      // Update local state with error
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
           order.id === orderId 
             ? {
                 ...order,
                 eboekhouden_sync: {
-                  status: 'error' as const,
-                  error_message: data.message,
-                  sync_timestamp: new Date().toISOString()
+                  status: 'error',
+                  verkoop_mutatie_id: null,
+                  cogs_mutatie_id: null,
+                  timestamp: new Date().toISOString(),
+                  error: error instanceof Error ? error.message : 'Unknown error'
                 }
               }
             : order
-        ))
-        setErr(`Sync mislukt: ${data.message}`)
-      }
-    } catch (error: any) {
-      // Update the order with error status
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? {
-              ...order,
-              eboekhouden_sync: {
-                status: 'error' as const,
-                error_message: error.message,
-                sync_timestamp: new Date().toISOString()
-              }
-            }
-          : order
-      ))
-      setErr(`Sync fout: ${error.message}`)
+        )
+      );
     } finally {
-      setSyncingOrders(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(orderId)
-        return newSet
-      })
+      setSyncingOrders(prev => ({ ...prev, [orderId]: false }));
     }
-  }
+  };
 
   const getEboekhoudenStatus = (order: OrderRow) => {
     if (!order.eboekhouden_sync) {
