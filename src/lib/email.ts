@@ -106,6 +106,62 @@ export class EmailService {
     }
   }
 
+  // Klant wachtwoord reset e-mail
+  async sendCustomerPasswordResetEmail(toEmail: string, resetUrl: string): Promise<boolean> {
+    try {
+      const mailOptions = {
+        from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        to: toEmail,
+        subject: 'Wachtwoord resetten - AlloyGator',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #f9fafb; }
+              .header { background: #10b981; color: white; padding: 16px; text-align: center; }
+              .content { background: white; padding: 20px; border-radius: 8px; margin-top: 16px; }
+              .btn { display: inline-block; padding: 10px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; }
+              .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">AlloyGator</div>
+              <div class="content">
+                <h2>Wachtwoord resetten</h2>
+                <p>Je hebt een verzoek gedaan om je wachtwoord te resetten.</p>
+                <p>Klik op de knop hieronder om een nieuw wachtwoord in te stellen:</p>
+                <p style="text-align: center;">
+                  <a class="btn" href="${resetUrl}">Nieuw wachtwoord instellen</a>
+                </p>
+                <p>Werkt de knop niet? Kopieer en plak deze link in je browser:</p>
+                <p style="word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px;">
+                  <a href="${resetUrl}">${resetUrl}</a>
+                </p>
+                <p><strong>Let op:</strong> Deze link is 24 uur geldig.</p>
+                <p>Als je dit verzoek niet hebt gedaan, kun je deze e-mail negeren.</p>
+              </div>
+              <div class="footer">
+                <p>AlloyGator Nederland - Professionele velgbescherming</p>
+                <p>Voor vragen: <a href="mailto:info@alloygator.nl">info@alloygator.nl</a></p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      }
+
+      await this.transporter.sendMail(mailOptions)
+      return true
+    } catch (error) {
+      console.error('Fout bij verzenden klant reset e-mail:', error)
+      return false
+    }
+  }
+
   // Test e-mail configuratie
   async testConnection(): Promise<boolean> {
     try {

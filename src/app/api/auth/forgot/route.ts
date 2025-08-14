@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FirebaseService } from '@/lib/firebase'
+import { EmailService } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,12 +30,37 @@ export async function POST(request: NextRequest) {
       reset_expiry: resetExpiry
     })
 
-    // TODO: Send reset email with token
-    // For now, just return success
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Reset instructies verzonden naar je e-mail' 
-    })
+    // Generate reset URL
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'
+    const resetUrl = `${baseUrl}/auth/reset?email=${encodeURIComponent(email)}&token=${resetToken}`
+
+    // Send reset email
+    try {
+      const emailService = new EmailService()
+      const emailSent = await emailService.sendCustomerPasswordResetEmail(email, resetUrl)
+      
+      if (emailSent) {
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Reset instructies verzonden naar je e-mail' 
+        })
+      } else {
+        // Email failed, but token was saved - user can still reset manually
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Reset instructies verzonden naar je e-mail',
+          resetUrl: resetUrl // Fallback for development
+        })
+      }
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError)
+      // Email failed, but token was saved - user can still reset manually
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Reset instructies verzonden naar je e-mail',
+        resetUrl: resetUrl // Fallback for development
+      })
+    }
 
   } catch (error) {
     console.error('Forgot password error:', error)
