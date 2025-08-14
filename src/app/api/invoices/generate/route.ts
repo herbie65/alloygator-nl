@@ -1,46 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
-import { ensureInvoice } from '@/lib/invoice'
-import path from 'path'
-import { promises as fs } from 'fs'
+import { FirebaseService } from '@/lib/firebase'
 
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
-
-async function fetchOrder(orderId: string): Promise<any> {
-  const ref = doc(db as any, 'orders', orderId)
-  const snap = await getDoc(ref)
-  if (!snap.exists()) return null
-  return { id: snap.id, ...(snap.data() as any) }
-}
-
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-    if (!id) return NextResponse.json({ error: 'Missing order id' }, { status: 400 })
+    const { orderId } = await request.json()
+    
+    if (!orderId) {
+      return NextResponse.json({ error: 'Order ID is verplicht' }, { status: 400 })
+    }
 
-    const order = await fetchOrder(id)
-    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    // Get order from Firebase
+    const order = await FirebaseService.getDocument('orders', orderId)
+    if (!order) {
+      return NextResponse.json({ error: 'Order niet gevonden' }, { status: 404 })
+    }
 
-    // Generate & save (also updates order with invoice_number + invoice_url)
-    const { url, number } = await ensureInvoice(id)
+    // Get customer from Firebase
+    const customer = await FirebaseService.getDocument('customers', order.customer_id)
+    if (!customer) {
+      return NextResponse.json({ error: 'Klant niet gevonden' }, { status: 404 })
+    }
 
-    // Read saved file and return it
-    const filePath = path.join(process.cwd(), 'public', url.replace(/^\//, ''))
-    const pdf = await fs.readFile(filePath)
+    // Generate invoice data
+    const invoiceData = {
+      order_id: orderId,
+      customer_id: order.customer_id,
+      invoice_number: `INV-${Date.now()}`,
+      amount: order.total_amount || order.total,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days from now
+    }
 
-    return new NextResponse(new Uint8Array(pdf), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="factuur-${number}.pdf"`
-      }
+    // Save invoice to Firebase
+    const newInvoice = await FirebaseService.addDocument('invoices', invoiceData)
+
+    return NextResponse.json({
+      success: true,
+      invoice: newInvoice
     })
-  } catch (e:any) {
-    console.error('invoice generate error', e)
-    return NextResponse.json({ error: 'Failed to generate invoice', details: e?.message || String(e) }, { status: 500 })
+
+  } catch (error) {
+    console.error('Invoice generation error:', error)
+    return NextResponse.json({ error: 'Fout bij genereren factuur' }, { status: 500 })
   }
 }
 

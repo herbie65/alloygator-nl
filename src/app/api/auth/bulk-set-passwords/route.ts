@@ -1,33 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { FirebaseService } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
 // Simple protected endpoint using an admin token env var
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('x-admin-token') || (await request.json().catch(()=>({}))).token
-    const expected = process.env.ADMIN_PASSWORD_TOKEN || process.env.NEXT_PUBLIC_ADMIN_PASSWORD_TOKEN
-    if (!expected || token !== expected) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { users } = await request.json()
+    
+    if (!users || !Array.isArray(users)) {
+      return NextResponse.json({ error: 'Gebruikers array is verplicht' }, { status: 400 })
     }
 
-    const snap = await getDocs(collection(db, 'customers'))
-    let updated = 0
-    for (const d of snap.docs) {
-      const data = d.data() as any
-      if (!data.password) {
-        // Set a temporary password (last 4 of timestamp for demo)
-        const temp = 'ag-' + (Date.now().toString().slice(-4))
-        await updateDoc(doc(db, 'customers', d.id), { password: temp })
-        updated++
+    const results = []
+
+    for (const user of users) {
+      try {
+        if (!user.id || !user.password) {
+          results.push({ id: user.id, success: false, error: 'ID en wachtwoord zijn verplicht' })
+          continue
+        }
+
+        // Update user password
+        await FirebaseService.updateDocument('users', user.id, {
+          password: user.password,
+          updated_at: new Date().toISOString()
+        })
+
+        results.push({ id: user.id, success: true })
+      } catch (error) {
+        results.push({ 
+          id: user.id, 
+          success: false, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        })
       }
     }
-    return NextResponse.json({ updated })
-  } catch (e) {
-    console.error('bulk-set-passwords error:', e)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+
+    return NextResponse.json({ 
+      success: true, 
+      results 
+    })
+
+  } catch (error) {
+    console.error('Bulk set passwords error:', error)
+    return NextResponse.json({ error: 'Fout bij bulk wachtwoord update' }, { status: 500 })
   }
 }
 

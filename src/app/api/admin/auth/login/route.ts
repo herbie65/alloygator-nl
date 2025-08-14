@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { FirebaseService } from '@/lib/firebase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,12 +9,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'E-mail en wachtwoord verplicht' }, { status: 400 })
     }
 
-    const usersRef = collection(db, 'admin_users')
-    const q = query(usersRef, where('email', '==', key))
-    const snap = await getDocs(q)
-    if (snap.empty) return NextResponse.json({ error: 'Geen admin-toegang' }, { status: 403 })
+    // Get admin users from Firebase
+    const adminUsers = await FirebaseService.getDocuments('admin_users')
+    const user = adminUsers.find((u: any) => u.email?.toLowerCase().trim() === key)
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Geen admin-toegang' }, { status: 403 })
+    }
 
-    const user = snap.docs[0].data() as any
     const storedPassword = String(user.password || '').trim()
 
     // Simple password comparison (temporary fix)

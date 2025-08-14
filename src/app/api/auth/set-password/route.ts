@@ -1,53 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, getDocs, query, where, doc, updateDoc, getDoc } from 'firebase/firestore'
+import { FirebaseService } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(()=>({}))
-    const { id, email, name, password, token } = body
-    const expected = process.env.ADMIN_PASSWORD_TOKEN || process.env.NEXT_PUBLIC_ADMIN_PASSWORD_TOKEN
-    if (!expected || token !== expected) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (!password) return NextResponse.json({ error: 'Password required' }, { status: 400 })
-
-    let targetId: string | null = null
-
-    if (id) {
-      const snap = await getDoc(doc(db, 'customers', String(id)))
-      if (snap.exists()) targetId = snap.id
-    }
-    if (!targetId && email) {
-      const q = query(collection(db, 'customers'), where('email', '==', email))
-      const res = await getDocs(q)
-      if (!res.empty) targetId = res.docs[0].id
-    }
-    if (!targetId && name) {
-      // Try exact match first
-      try {
-        const qExact = query(collection(db, 'customers'), where('name', '==', name))
-        const resExact = await getDocs(qExact)
-        if (!resExact.empty) targetId = resExact.docs[0].id
-      } catch {}
-      // Fallback: scan all customers and match case-insensitief
-      if (!targetId) {
-        const all = await getDocs(collection(db, 'customers'))
-        const n = String(name).trim().toLowerCase()
-        const found = all.docs.find(d => String((d.data() as any).name || '').trim().toLowerCase() === n)
-        if (found) targetId = found.id
-      }
+    const { userId, password } = await request.json()
+    
+    if (!userId || !password) {
+      return NextResponse.json({ error: 'Gebruiker ID en wachtwoord zijn verplicht' }, { status: 400 })
     }
 
-    if (!targetId) return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    // Check if user exists
+    const user = await FirebaseService.getDocument('users', userId)
+    if (!user) {
+      return NextResponse.json({ error: 'Gebruiker niet gevonden' }, { status: 404 })
+    }
 
-    await updateDoc(doc(db, 'customers', targetId), { password })
-    return NextResponse.json({ success: true, id: targetId })
-  } catch (e) {
-    console.error('set-password error:', e)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    // Update user password
+    await FirebaseService.updateDocument('users', userId, {
+      password: password,
+      updated_at: new Date().toISOString()
+    })
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Wachtwoord succesvol bijgewerkt' 
+    })
+
+  } catch (error) {
+    console.error('Set password error:', error)
+    return NextResponse.json({ error: 'Fout bij bijwerken wachtwoord' }, { status: 500 })
   }
 }
 

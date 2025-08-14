@@ -9,25 +9,35 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    // Check if already logged in (v2)
-    const s = localStorage.getItem('adminSessionV2')
-    if (s) {
-      try {
-        const session = JSON.parse(s)
-        if (session?.email && session?.role) {
-          console.log('✅ Admin session found, redirecting to admin panel')
-          router.push('/admin')
-        } else {
-          console.log('🔒 Invalid session data, clearing localStorage')
+    // Mark that we're on the client to prevent hydration mismatch
+    setIsClient(true)
+    
+    // Check if already logged in (v2) - delay to prevent hydration issues
+    const checkSession = () => {
+      const s = localStorage.getItem('adminSessionV2')
+      if (s) {
+        try {
+          const session = JSON.parse(s)
+          if (session?.email && session?.role) {
+            console.log('✅ Admin session found, redirecting to admin panel')
+            router.push('/admin')
+          } else {
+            console.log('🔒 Invalid session data, clearing localStorage')
+            localStorage.removeItem('adminSessionV2')
+          }
+        } catch (error) {
+          console.error('🔒 Error parsing session:', error)
           localStorage.removeItem('adminSessionV2')
         }
-      } catch (error) {
-        console.error('🔒 Error parsing session:', error)
-        localStorage.removeItem('adminSessionV2')
       }
     }
+
+    // Delay the check to prevent hydration issues
+    const timer = setTimeout(checkSession, 100)
+    return () => clearTimeout(timer)
   }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -63,6 +73,20 @@ export default function AdminLoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Don't render the form until we're on the client to prevent hydration mismatch
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Laden...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -1,59 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore'
+import { FirebaseService } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name, phone, address } = await request.json()
-
-    if (!email || !password || !name) {
-      return NextResponse.json(
-        { error: 'Email, wachtwoord en naam zijn verplicht' },
-        { status: 400 }
-      )
+    const userData = await request.json()
+    
+    if (!userData.email || !userData.password) {
+      return NextResponse.json({ error: 'E-mail en wachtwoord zijn verplicht' }, { status: 400 })
     }
 
     // Check if user already exists
-    const usersRef = collection(db, 'customers')
-    const q = query(usersRef, where('email', '==', email))
-    const querySnapshot = await getDocs(q)
-
-    if (!querySnapshot.empty) {
-      return NextResponse.json(
-        { error: 'Email is al in gebruik' },
-        { status: 409 }
-      )
+    const existingUsers = await FirebaseService.getDocuments('users')
+    const existingUser = existingUsers.find((u: any) => u.email?.toLowerCase().trim() === userData.email.toLowerCase().trim())
+    
+    if (existingUser) {
+      return NextResponse.json({ error: 'Gebruiker met dit e-mailadres bestaat al' }, { status: 409 })
     }
 
     // Create new user
-    const userData = {
-      email,
-      password,
-      name,
-      phone: phone || '',
-      address: address || '',
-      group: 'customer',
-      createdAt: new Date().toISOString()
+    const newUser = {
+      email: userData.email.toLowerCase().trim(),
+      password: userData.password,
+      created_at: new Date().toISOString(),
+      ...userData
     }
 
-    const docRef = await addDoc(collection(db, 'customers'), userData)
+    // Remove password from response
+    const { password: _, ...userResponse } = newUser
+
+    const savedUser = await FirebaseService.addDocument('users', newUser)
 
     return NextResponse.json({
       success: true,
-      user: {
-        id: docRef.id,
-        email,
-        name,
-        group: 'customer'
-      }
-    })
+      user: { ...userResponse, id: savedUser.id }
+    }, { status: 201 })
+
   } catch (error) {
     console.error('Registration error:', error)
-    return NextResponse.json(
-      { error: 'Er is een fout opgetreden' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Fout bij registreren' }, { status: 500 })
   }
 }
