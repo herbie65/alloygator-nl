@@ -127,15 +127,15 @@ export default function HomePage() {
       const section = vid.closest('section') as HTMLElement | null
       if (section) {
         section.style.position = section.style.position || 'relative'
-        section.style.paddingBottom = section.style.paddingBottom || '8vh'
-        // Positioneer overlay/tekst naar beneden
+        section.style.paddingBottom = '0'
+        // Positioneer overlay/tekst naar beneden met lagere totale hoogte
         const overlay = section.querySelector('.container') as HTMLElement | null
         if (overlay) {
           overlay.style.display = 'flex'
           overlay.style.flexDirection = 'column'
           overlay.style.justifyContent = 'flex-end'
-          overlay.style.minHeight = overlay.style.minHeight || '70vh'
-          overlay.style.paddingBottom = overlay.style.paddingBottom || '2rem'
+          overlay.style.minHeight = '50vh'
+          overlay.style.paddingBottom = overlay.style.paddingBottom || '1rem'
         }
       }
     })
