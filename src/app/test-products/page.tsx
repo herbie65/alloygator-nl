@@ -27,7 +27,7 @@ export default function TestProductsPage() {
           <div className="space-y-2 text-sm">
             <p><strong>Loading:</strong> {loading ? 'true' : 'false'}</p>
             <p><strong>Error:</strong> {error ? error.message : 'null'}</p>
-            <p><strong>Products Count:</strong> {products.length}</p>
+            <p><strong>Products Count:</strong> {Array.isArray(products) ? products.length : 0}</p>
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export default function TestProductsPage() {
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && Array.isArray(products) && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Products ({products.length})</h2>
             
