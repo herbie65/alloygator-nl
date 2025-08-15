@@ -14,7 +14,8 @@ interface Color {
 }
 
 export default function ColorsPage() {
-  const [colors, loading, error] = useFirebaseRealtime<Color>('product_colors')
+  const [refreshKey, setRefreshKey] = useState<number>(0)
+  const [colors, loading, error] = useFirebaseRealtime<Color>('product_colors', undefined, refreshKey)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingColor, setEditingColor] = useState<Color | null>(null)
   const [formData, setFormData] = useState({ name: '', hex_code: '#000000' })
@@ -44,6 +45,7 @@ export default function ColorsPage() {
       setShowAddModal(false)
       setEditingColor(null)
       setFormData({ name: '', hex_code: '#000000' })
+      setRefreshKey(k => k + 1)
     } catch (error) {
       console.error('Error saving color:', error)
       alert('Fout bij opslaan van kleur')
@@ -60,6 +62,7 @@ export default function ColorsPage() {
     if (confirm('Weet je zeker dat je deze kleur wilt verwijderen?')) {
       try {
         await FirebaseService.deleteProductColor(colorId)
+        setRefreshKey(k => k + 1)
       } catch (error) {
         console.error('Error deleting color:', error)
         alert('Fout bij verwijderen van kleur')
@@ -71,6 +74,7 @@ export default function ColorsPage() {
     setShowAddModal(false)
     setEditingColor(null)
     setFormData({ name: '', hex_code: '#000000' })
+    setRefreshKey(k => k + 1)
   }
 
   return (
