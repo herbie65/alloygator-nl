@@ -9,7 +9,8 @@ import type { Product } from '@/types/product'
 
 
 export default function ProductsPage() {
-  const [products, loading, error] = useFirebaseRealtime<Product>('products')
+  const [refreshKey, setRefreshKey] = useState<number>(0)
+  const [products, loading, error] = useFirebaseRealtime<Product>('products', undefined, refreshKey)
   const [selectedProduct, setSelectedProduct] = useState<Partial<Product> | null>(null)
   const [showProductModal, setShowProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -45,6 +46,32 @@ console.log(
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product)
     setShowProductModal(true)
+  }
+
+  const handleDuplicateProduct = async (product: any) => {
+    try {
+      // Maak een nieuwe id en kopieer velden; reset gevoelige unieke velden
+      const nowIso = new Date().toISOString()
+      const newProduct: any = {
+        ...product,
+        id: `product_${Date.now()}`,
+        name: `${product.name || product.title || 'Product'} (kopie)`,
+        sku: '',
+        ean_code: '',
+        created_at: nowIso,
+        updated_at: nowIso,
+      }
+      await FirebaseService.addProduct(newProduct)
+      // Open direct in bewerken-modus voor snelle aanpassing
+      setEditingProduct(newProduct as Product)
+      setSelectedProduct(null)
+      setShowProductModal(true)
+      // ververse lijst
+      setRefreshKey(k => k + 1)
+    } catch (e) {
+      console.error('Duplicate product error:', e)
+      alert('Fout bij dupliceren van product')
+    }
   }
 
   const handleDeleteProduct = async (productId: string) => {
@@ -220,6 +247,12 @@ console.log(
                       >
                         Bewerken
                       </button>
+                      <button
+                        onClick={() => handleDuplicateProduct(product)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        Dupliceren
+                      </button>
                       <button 
                         onClick={() => handleDeleteProduct(product.id)}
                         className="text-red-600 hover:text-red-900"
@@ -243,6 +276,8 @@ console.log(
           setShowProductModal(false)
           setSelectedProduct(null)
           setEditingProduct(null)
+          // force reload list after closing (e.g., after save)
+          setRefreshKey(k => k + 1)
         }}
         onSave={async (productData) => {
           try {
@@ -251,6 +286,7 @@ console.log(
             } else {
               await FirebaseService.addProduct(productData)
             }
+            setRefreshKey(k => k + 1)
           } catch (error) {
             console.error('Error saving product:', error)
             alert('Fout bij opslaan van product')

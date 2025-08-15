@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
+import dynamic from 'next/dynamic'
+// TipTapEditor als stabiele module-scope component, zodat hij NIET remount bij elke toetsaanslag
+const TipTapEditor = dynamic(() => import('../cms/TipTapEditor'), { ssr: false })
 import MediaPickerModal from '../components/MediaPickerModal'
 import type { Product } from '@/types/product'
 
@@ -20,36 +23,72 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   const [productColors, setProductColors] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [showMedia, setShowMedia] = useState(false)
+  // Lokale conceptvelden voor WYSIWYG zodat er niets buiten deze modal wordt geüpdatet tijdens typen
+  const [shortDraft, setShortDraft] = useState<string>('')
+  const [longDraft, setLongDraft] = useState<string>('')
+
+  const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
+  const categoryLabelFromSlug = (slug: string) => {
+    switch (slug) {
+      case 'alloygator-set': return 'AlloyGator Set'
+      case 'montagehulpmiddelen': return 'Montagehulpmiddelen'
+      case 'accessoires': return 'Accessoires'
+      default: return slug || 'Algemeen'
+    }
+  }
 
   useEffect(() => {
-    if (product && isOpen) {
-      setFormData(product)
-    } else if (isOpen && !product) {
-              // New product
-              setFormData({
-          name: '',
-          description: '',
-          price: 0,
-          cost_price: 0,
-          vat_category: 'standard',
-          category: 'alloygator-set',
-          sku: '',
-          ean_code: '',
-          stock_quantity: 0,
-          min_stock: 0,
-          weight: 0,
-          dimensions: '',
-          material: '',
-          color: '',
-          warranty: '',
-          instructions: '',
-          features: [],
-          specifications: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+    if (!isOpen) return
+    const load = async () => {
+      // Als we een product-ID hebben: vers, direct uit de database ophalen
+      if (product?.id) {
+        try {
+          const latest: any = await FirebaseService.getDocument('products', String(product.id))
+          if (latest) {
+            const normalizedCat = normalizeCategory(latest.category)
+            setFormData({ ...latest, category: normalizedCat })
+            setShortDraft(String(latest.short_description || latest.description || ''))
+            setLongDraft(String(latest.long_description || ''))
+            return
+          }
+        } catch (_) {
+          // fallback op meegegeven product-object
+        }
+        const normalizedCat = normalizeCategory((product as any).category)
+        setFormData({ ...(product as any), category: normalizedCat })
+        setShortDraft(String((product as any).short_description || (product as any).description || ''))
+        setLongDraft(String((product as any).long_description || ''))
+        return
+      }
+
+      // Nieuw product
+      setFormData({
+        name: '',
+        description: '',
+        price: 0,
+        cost_price: 0,
+        vat_category: 'standard',
+        category: 'alloygator-set',
+        sku: '',
+        ean_code: '',
+        stock_quantity: 0,
+        min_stock: 0,
+        weight: 0,
+        dimensions: '',
+        material: '',
+        color: '',
+        warranty: '',
+        instructions: '',
+        features: [],
+        specifications: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      setShortDraft('')
+      setLongDraft('')
     }
-  }, [product, isOpen])
+    load()
+  }, [product?.id, isOpen])
 
   // Load product attributes and colors
   useEffect(() => {
@@ -88,7 +127,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.name && formData.description) {
+    if (formData.name && (shortDraft || formData.short_description || formData.description)) {
+      const categorySlug = normalizeCategory(formData.category)
       const productData = {
   ...formData,
   ...dynamicValues,
@@ -102,6 +142,9 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   specifications: formData.specifications || {},
   created_at: formData.created_at ?? new Date().toISOString(),
   updated_at: new Date().toISOString(),
+  category: categorySlug,
+  short_description: shortDraft || formData.short_description || formData.description || '',
+  long_description: longDraft || formData.long_description || '',
 } as Product
       
       onSave(productData)
@@ -392,17 +435,13 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Beschrijving *
-              </label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                disabled={!isEditing && !!product}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                required
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Korte omschrijving *</label>
+              <TipTapEditor value={shortDraft} onChange={setShortDraft} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lange omschrijving</label>
+              <TipTapEditor value={longDraft} onChange={setLongDraft} />
             </div>
 
             <div>

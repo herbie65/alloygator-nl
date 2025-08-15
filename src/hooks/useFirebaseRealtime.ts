@@ -3,7 +3,8 @@ import { FirebaseService } from '@/lib/firebase'
 
 export function useFirebaseRealtime<T>(
   collectionName: string,
-  documentId?: string
+  documentId?: string,
+  reloadKey?: any
 ): [T | null, boolean, Error | null] {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
@@ -46,7 +47,7 @@ export function useFirebaseRealtime<T>(
     return () => {
       mounted = false
     }
-  }, [collectionName, documentId])
+  }, [collectionName, documentId, reloadKey])
 
   return [data, loading, error]
 }

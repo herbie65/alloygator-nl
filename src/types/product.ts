@@ -4,6 +4,8 @@ export interface Product {
   name: string            // ← kies: verplicht (of maak 'm overal optional)
   title?: string
   description?: string
+  short_description?: string
+  long_description?: string
   price: number
   cost_price?: number
   stock_quantity?: number
