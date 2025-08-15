@@ -10,13 +10,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Get order from Firebase
-    const order = await FirebaseService.getDocument('orders', orderId)
+    const order: any = await FirebaseService.getDocument('orders', orderId)
     if (!order) {
       return NextResponse.json({ error: 'Order niet gevonden' }, { status: 404 })
     }
 
+    // Resolve customer id robustly
+    const customerId: string | undefined =
+      order.customer_id || order.customerId || order.customer?.id || order.customer || undefined
+
+    if (!customerId) {
+      return NextResponse.json({ error: 'Klant ID ontbreekt in order' }, { status: 400 })
+    }
+
     // Get customer from Firebase
-    const customer = await FirebaseService.getDocument('customers', order.customer_id)
+    const customer = await FirebaseService.getDocument('customers', customerId)
     if (!customer) {
       return NextResponse.json({ error: 'Klant niet gevonden' }, { status: 404 })
     }
@@ -24,9 +32,9 @@ export async function POST(request: NextRequest) {
     // Generate invoice data
     const invoiceData = {
       order_id: orderId,
-      customer_id: order.customer_id,
+      customer_id: customerId,
       invoice_number: `INV-${Date.now()}`,
-      amount: order.total_amount || order.total,
+      amount: order.total_amount || order.total || order.amount || 0,
       status: 'pending',
       created_at: new Date().toISOString(),
       due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days from now
