@@ -17,11 +17,13 @@ interface Product {
 
 
 export default function MontageHulpmiddelenPage() {
-  const [allProducts, loading, error] = useFirebaseRealtime<Product>('products', 'created_at')
+  const [allProducts, loading, error] = useFirebaseRealtime<Product>('products')
   const dealer = useDealerPricing()
 
   // Filter products for this category
-  const products = allProducts.filter(p => p.category === 'montagehulpmiddelen')
+  const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
+  const list: any[] = Array.isArray(allProducts) ? (allProducts as unknown as any[]) : []
+  const products = list.filter(p => normalizeCategory(p.category) === 'montagehulpmiddelen')
 
   useEffect(() => {}, [])
 
