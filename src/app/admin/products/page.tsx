@@ -16,13 +16,14 @@ export default function ProductsPage() {
   const [showCSVImport, setShowCSVImport] = useState(false)
 
 // Debug logging (type‑safe)
-console.log('ProductsPage - Products:', products)
+const productsArray: any[] = Array.isArray(products) ? (products as unknown as any[]) : []
+console.log('ProductsPage - Products:', productsArray)
 console.log('ProductsPage - Loading:', loading)
 console.log('ProductsPage - Error:', error)
-console.log('ProductsPage - Products length:', products.length)
+console.log('ProductsPage - Products length:', productsArray.length)
 console.log(
   'ProductsPage - Products details:',
-  products.map((p: Product) => ({
+  productsArray.map((p: Product) => ({
     id: p.id,
     name: p.name,
     price: p.price,
@@ -114,7 +115,7 @@ console.log(
       ) : (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Producten ({products.length})</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Producten ({productsArray.length})</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -147,7 +148,7 @@ console.log(
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.length === 0 ? (
+                {productsArray.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
@@ -163,7 +164,7 @@ console.log(
                       </div>
                     </td>
                   </tr>
-                ) : products.map((product: any, index: number) => (
+                ) : productsArray.map((product: any, index: number) => (
                   <tr key={`${product.id}-${index}`} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -171,9 +172,9 @@ console.log(
                           📦
                         </div>
                         <div className="ml-4">
-                                                  <div className="text-sm font-medium text-gray-900">
-                          {product.name || product.title || product.id || 'Onbekend product'}
-                        </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.name || product.title || product.id || 'Onbekend product'}
+                          </div>
                           <div className="text-sm text-gray-500">
                             ID: {product.id}
                           </div>

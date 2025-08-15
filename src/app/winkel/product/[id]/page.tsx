@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils'
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
+import { FirebaseService } from '@/lib/firebase'
 
 interface Product {
   id: string
@@ -163,14 +164,75 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState('description')
 
   useEffect(() => {
-    // Find product by ID
-    const foundProduct = staticProducts.find(p => p.id === productId)
-    if (foundProduct) {
-      setProduct(foundProduct)
-    } else {
-      router.push('/winkel')
+    let isMounted = true
+    const load = async () => {
+      try {
+        // 1) Probeer vanuit Firebase direct document te halen
+        let doc: any = null
+        try {
+          doc = await FirebaseService.getDocument('products', productId)
+        } catch (_) {}
+
+        // 2) Als direct document niet bestaat, probeer te zoeken binnen alle producten op veld `id`
+        if (!doc) {
+          try {
+            const list = await FirebaseService.getDocuments('products')
+            if (Array.isArray(list) && list.length) {
+              doc = list.find((p: any) => String(p.id) === String(productId)) || null
+            }
+          } catch (_) {}
+        }
+
+        if (doc && isMounted) {
+          const mapped: Product = {
+            id: String(doc.id),
+            name: doc.name || doc.title || 'Product',
+            description: doc.description || '',
+            price: Number(doc.price || doc.cost_price || 0),
+            vat_category: doc.vat_category || 'standard',
+            category: doc.category || 'accessoires',
+            image_url: doc.image_url || doc.image || undefined,
+            sku: doc.sku || '',
+            stock_quantity: Number(doc.stock_quantity || doc.stock || 0),
+            weight: Number(doc.weight || 0),
+            dimensions: doc.dimensions || '',
+            material: doc.material || '',
+            color: doc.color || '',
+            warranty: doc.warranty || '',
+            instructions: doc.instructions || '',
+            features: Array.isArray(doc.features) ? doc.features : [],
+            specifications: doc.specifications || {},
+            created_at: doc.created_at || new Date().toISOString(),
+            updated_at: doc.updated_at || new Date().toISOString(),
+            reviews: Array.isArray(doc.reviews) ? doc.reviews : [],
+          }
+          setProduct(mapped)
+          setLoading(false)
+          return
+        }
+
+        // 3) Fallback naar statische producten
+        const foundProduct = staticProducts.find(p => p.id === productId)
+        if (foundProduct && isMounted) {
+          setProduct(foundProduct)
+          setLoading(false)
+          return
+        }
+
+        // 4) Als niets gevonden, terug naar winkel
+        if (isMounted) {
+          setLoading(false)
+          router.push('/winkel')
+        }
+      } catch {
+        if (isMounted) {
+          setLoading(false)
+          router.push('/winkel')
+        }
+      }
     }
-    setLoading(false)
+    load()
+    return () => { isMounted = false }
   }, [productId, router])
 
   const addToCart = () => {

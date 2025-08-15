@@ -6,7 +6,7 @@ import {
   addRelatie, 
   addMemoriaal 
 } from '@/services/accounting/eboekhouden';
-import { mapOrderToBookings, validateBookingBalance } from '@/services/accounting/orderToBookings';
+import { mapOrderToBookings, mapOrderToBookingsFlexible, validateBookingBalance, normalizeOrderForAccounting } from '@/services/accounting/orderToBookings';
 
 export async function POST(request: NextRequest) {
   let orderId: string;
@@ -42,7 +42,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Haal klant op
-    const customerData = await FirebaseService.getDocument('customers', order.customer_id);
+    let customerData = order.customer_id 
+      ? await FirebaseService.getDocument('customers', order.customer_id) 
+      : null;
+    // Fallback: probeer klant te vinden op e-mail als customer_id ontbreekt
+    if (!customerData && order.customer?.email) {
+      const byEmail = await FirebaseService.getDocuments('customers', [{ field: 'email', operator: '==', value: order.customer.email }]);
+      if (Array.isArray(byEmail) && byEmail.length) customerData = byEmail[0];
+    }
     if (!customerData) {
       return NextResponse.json(
         { ok: false, message: 'Klant niet gevonden' },
@@ -68,7 +75,9 @@ export async function POST(request: NextRequest) {
       });
 
       // Map order naar boekingsregels
-      const bookings = mapOrderToBookings(order, customer);
+      // Gebruik flexibele mapper die wisselende schemas en quantities ondersteunt
+      const normalized = normalizeOrderForAccounting(order);
+      const bookings = mapOrderToBookingsFlexible(normalized, customer);
       
       // Valideer dat debet = credit
       if (!validateBookingBalance(bookings.verkoop.regels)) {
@@ -104,7 +113,15 @@ export async function POST(request: NextRequest) {
         ok: true,
         message: 'Order succesvol gesynchroniseerd',
         verkoop_mutatie_id: verkoopResult.mutatienummer,
-        cogs_mutatie_id: cogsVoorraadResult.mutatienummer
+        cogs_mutatie_id: cogsVoorraadResult.mutatienummer,
+        debug: {
+          order_id: orderId,
+          customer_id: customer.id,
+          order_payment_status: order.payment_status,
+          normalized_order: normalized,
+          verkoop_xml_preview: typeof verkoopResult.raw === 'string' ? verkoopResult.raw.slice(0, 2000) : null,
+          cogs_xml_preview: typeof cogsVoorraadResult.raw === 'string' ? cogsVoorraadResult.raw.slice(0, 2000) : null
+        }
       });
 
     } finally {
@@ -134,10 +151,25 @@ export async function POST(request: NextRequest) {
       console.error('Failed to save error to Firebase:', firebaseError);
     }
 
-    return NextResponse.json({
-      ok: false,
-      message: error instanceof Error ? error.message : 'Unknown error occurred'
-    }, { status: 500 });
+    try {
+      // Provide a bit more debug context in the error response (best effort)
+      const order: any = orderId ? await FirebaseService.getDocument('orders', orderId) : null;
+      return NextResponse.json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        debug: {
+          order_id: orderId,
+          order_payment_status: order?.payment_status,
+          has_customer_id: !!order?.customer_id,
+          customer_email: order?.customer?.email || null,
+        }
+      }, { status: 500 });
+    } catch (_) {
+      return NextResponse.json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      }, { status: 500 });
+    }
   }
 }
 

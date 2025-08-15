@@ -12,14 +12,26 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     setMessage('')
     try {
-      const res = await fetch('/api/auth/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+      // Force gebruik van localhost:3000 om cache problemen te omzeilen
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : ''
+      const apiUrl = `${baseUrl}/api/auth/forgot`
+      
+      console.log('🔍 API call naar:', apiUrl)
+      
+      const res = await fetch(apiUrl, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email }) 
+      })
+      
       const data = await res.json()
       let msg = data.message || (res.ok ? 'Als het e‑mailadres bekend is, is er een resetlink verzonden.' : 'Kon geen resetlink verzenden.')
       if (data.resetUrl) {
         msg += `\n\nResetlink (dev): ${data.resetUrl}`
       }
       setMessage(msg)
-    } catch {
+    } catch (error) {
+      console.error('❌ API call error:', error)
       setMessage('Kon geen resetlink verzenden.')
     } finally {
       setLoading(false)

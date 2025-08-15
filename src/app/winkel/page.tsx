@@ -79,12 +79,13 @@ export default function WinkelPage() {
   const [availabilityFilter, setAvailabilityFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState(0)
 
-  // Debug logging
-  console.log('WinkelPage - Products:', products)
+  // Debug logging met veilige fallback
+  const productList: Product[] = Array.isArray(products) ? (products as unknown as Product[]) : []
+  console.log('WinkelPage - Products:', productList)
   console.log('WinkelPage - Loading:', loading)
   console.log('WinkelPage - Error:', error)
-  console.log('WinkelPage - Products length:', products.length)
-  console.log('WinkelPage - Products details:', products.map(p => ({ id: p.id, name: p.name, price: p.price })))
+  console.log('WinkelPage - Products length:', productList.length)
+  console.log('WinkelPage - Products details:', productList.map(p => ({ id: p.id, name: p.name, price: p.price })))
 
   useEffect(() => {
     // Load VAT settings and local storage data
@@ -108,7 +109,7 @@ export default function WinkelPage() {
   }, [])
 
   // Filter and sort products (new logic)
-  const filteredProducts = products
+  const filteredProducts = productList
     .filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           product.description.toLowerCase().includes(searchTerm.toLowerCase())

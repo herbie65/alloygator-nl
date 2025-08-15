@@ -18,9 +18,10 @@ export async function POST(request: NextRequest) {
     }
 
     const storedPassword = String(user.password || '').trim()
+    const providedPassword = String(password).trim()
 
     // Simple password comparison (temporary fix)
-    if (password !== storedPassword) {
+    if (providedPassword !== storedPassword) {
       return NextResponse.json({ error: 'Onjuist wachtwoord' }, { status: 401 })
     }
 
@@ -32,17 +33,24 @@ export async function POST(request: NextRequest) {
 
     // Cookie-naam moet overeenkomen met wat je middleware leest.
     // Pas 'ag_admin' aan als je middleware iets anders verwacht.
-    res.headers.append(
-      'Set-Cookie',
-      [
-        `ag_admin=1`,
-        `Path=/`,
-        `Max-Age=${maxAge}`,
-        `HttpOnly`,
-        `Secure`,
-        `SameSite=Lax`
-      ].join('; ')
-    )
+    const serverSession = encodeURIComponent(JSON.stringify({ email: key, role, loginTime: new Date().toISOString() }))
+    res.headers.append('Set-Cookie', [
+      `ag_admin=1`,
+      `Path=/`,
+      `Max-Age=${maxAge}`,
+      `HttpOnly`,
+      `Secure`,
+      `SameSite=Lax`
+    ].join('; '))
+    // Zorg dat middleware cookie bestaat (server-side)
+    res.headers.append('Set-Cookie', [
+      `adminSessionV2=${serverSession}`,
+      `Path=/`,
+      `Max-Age=${maxAge}`,
+      `HttpOnly`,
+      `Secure`,
+      `SameSite=Lax`
+    ].join('; '))
 
     return res
   } catch (error) {

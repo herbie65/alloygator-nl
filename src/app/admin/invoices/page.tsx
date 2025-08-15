@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
+import Modal from '@/app/admin/components/Modal'
 
 interface OrderRow {
   id: string
@@ -31,6 +32,9 @@ export default function InvoicesPage() {
   const [onlyWithoutInvoice, setOnlyWithoutInvoice] = useState(false)
   const [err, setErr] = useState('')
   const [syncingOrders, setSyncingOrders] = useState<Record<string, boolean>>({})
+  const [debugOpenId, setDebugOpenId] = useState<string | null>(null)
+  const [debugData, setDebugData] = useState<any>(null)
+  const [debugModalOpen, setDebugModalOpen] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -130,6 +134,16 @@ export default function InvoicesPage() {
 
       const result = await response.json();
 
+      // Altijd debug-informatie beschikbaar maken
+      setDebugOpenId(orderId)
+      setDebugData({
+        request: { url: '/api/accounting/sync-order-new', method: 'POST', body: { orderId } },
+        status: response.status,
+        ok: response.ok,
+        response: result,
+      })
+      setDebugModalOpen(true)
+
       if (result.ok) {
         // Update local state with sync results
         setOrders(prevOrders => 
@@ -169,6 +183,14 @@ export default function InvoicesPage() {
       }
     } catch (error) {
       console.error('Sync error:', error);
+      setDebugOpenId(orderId)
+      setDebugData({
+        request: { url: '/api/accounting/sync-order-new', method: 'POST', body: { orderId } },
+        status: 0,
+        ok: false,
+        response: { message: error instanceof Error ? error.message : 'Unknown error' }
+      })
+      setDebugModalOpen(true)
       // Update local state with error
       setOrders(prevOrders => 
         prevOrders.map(order => 
@@ -271,6 +293,21 @@ export default function InvoicesPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <Modal isOpen={debugModalOpen} onClose={()=>setDebugModalOpen(false)} title="e‑Boekhouden Sync Debug">
+            <div className="text-xs">
+              <div className="mb-2 text-gray-700">Onderstaande gegevens tonen de laatst uitgevoerde sync‑call.</div>
+              <pre className="whitespace-pre-wrap break-all bg-gray-50 p-3 rounded border">{JSON.stringify(debugData, null, 2)}</pre>
+            </div>
+          </Modal>
+          {debugOpenId && (
+            <div className="p-4 border-b bg-gray-50 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="font-medium text-gray-700">Debug laatste sync</div>
+                <button className="text-blue-600" onClick={()=>{setDebugOpenId(null); setDebugData(null)}}>Sluiten</button>
+              </div>
+              <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(debugData, null, 2)}</pre>
+            </div>
+          )}
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

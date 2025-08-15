@@ -4,6 +4,14 @@ import { EmailService } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
+// Test GET method to verify route is accessible
+export async function GET() {
+  return NextResponse.json({ 
+    message: 'Forgot password API route is working',
+    timestamp: new Date().toISOString()
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
@@ -31,7 +39,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate reset URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     const resetUrl = `${baseUrl}/auth/reset?email=${encodeURIComponent(email)}&token=${resetToken}`
 
     // Send reset email
