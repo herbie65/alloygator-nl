@@ -1,6 +1,6 @@
 import path from 'path'
 import { promises as fs, existsSync } from 'fs'
-import { FirebaseService } from '@/lib/firebase'
+import { FirebaseService, db } from '@/lib/firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { EmailService } from './email'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
