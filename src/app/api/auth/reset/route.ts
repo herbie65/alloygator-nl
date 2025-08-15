@@ -1,36 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { FirebaseService } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, token, password } = await request.json()
-    if (!email || !token || !password) return NextResponse.json({ message: 'Ontbrekende velden' }, { status: 400 })
-
-    const usersRef = collection(db, 'customers')
-    const q = query(usersRef, where('email', '==', email))
-    const snap = await getDocs(q)
-    if (snap.empty) return NextResponse.json({ message: 'Ongeldige link' }, { status: 400 })
-
-    const userDoc = snap.docs[0]
-    const data: any = userDoc.data()
-    const expires = data.password_reset_expires ? new Date(data.password_reset_expires).getTime() : 0
-    if (!data.password_reset_token || data.password_reset_token !== token || Date.now() > expires) {
-      return NextResponse.json({ message: 'Token ongeldig of verlopen' }, { status: 400 })
+    const { email, token, newPassword } = await request.json()
+    
+    if (!email || !token || !newPassword) {
+      return NextResponse.json({ error: 'E-mail, token en nieuw wachtwoord zijn verplicht' }, { status: 400 })
     }
 
-    await updateDoc(doc(db, 'customers', userDoc.id), {
-      password,
-      password_reset_token: null,
-      password_reset_expires: null
+    // Get user from Firebase
+    const users = await FirebaseService.getDocuments('users')
+    const user = users.find((u: any) => u.email?.toLowerCase().trim() === email.toLowerCase().trim())
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Gebruiker niet gevonden' }, { status: 404 })
+    }
+
+    // Check if reset token is valid and not expired
+    if (user.reset_token !== token) {
+      return NextResponse.json({ error: 'Ongeldige reset token' }, { status: 400 })
+    }
+
+    if (user.reset_expiry && new Date(user.reset_expiry) < new Date()) {
+      return NextResponse.json({ error: 'Reset token is verlopen' }, { status: 400 })
+    }
+
+    // Update password and clear reset token
+    await FirebaseService.updateDocument('users', user.id, {
+      password: newPassword,
+      reset_token: null,
+      reset_expiry: null,
+      updated_at: new Date().toISOString()
     })
 
-    return NextResponse.json({ message: 'Wachtwoord bijgewerkt' })
-  } catch (e) {
-    console.error('Reset error:', e)
-    return NextResponse.json({ message: 'Er ging iets mis' }, { status: 500 })
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Wachtwoord succesvol bijgewerkt' 
+    })
+
+  } catch (error) {
+    console.error('Reset password error:', error)
+    return NextResponse.json({ error: 'Fout bij resetten wachtwoord' }, { status: 500 })
   }
 }
 

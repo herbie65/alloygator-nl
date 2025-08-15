@@ -79,15 +79,17 @@ export default function CRMPage() {
     id: { visible: true, width: 100, order: 0 },
     company_name: { visible: true, width: 200, order: 1 },
     contact_person: { visible: true, width: 150, order: 2 },
-    address: { visible: true, width: 200, order: 3 },
-    email: { visible: true, width: 180, order: 4 },
-    total_spent: { visible: true, width: 120, order: 5 },
-    total_orders: { visible: true, width: 100, order: 6 },
-    last_contact: { visible: true, width: 120, order: 7 },
-    last_visit: { visible: true, width: 120, order: 8 },
-    target: { visible: true, width: 100, order: 9 },
-    status: { visible: true, width: 100, order: 10 },
-    actions: { visible: true, width: 150, order: 11 }
+    postal_code: { visible: true, width: 100, order: 3 },
+    city: { visible: true, width: 150, order: 4 },
+    address: { visible: true, width: 200, order: 5 },
+    email: { visible: true, width: 180, order: 6 },
+    total_spent: { visible: true, width: 120, order: 7 },
+    total_orders: { visible: true, width: 100, order: 8 },
+    last_contact: { visible: true, width: 120, order: 9 },
+    last_visit: { visible: true, width: 120, order: 10 },
+    target: { visible: true, width: 100, order: 11 },
+    status: { visible: true, width: 100, order: 12 },
+    actions: { visible: true, width: 150, order: 13 }
   })
 
   const [showColumnSettings, setShowColumnSettings] = useState(false)
@@ -444,6 +446,9 @@ export default function CRMPage() {
       let comparison = 0
       
       switch (sortBy) {
+        case 'id':
+          comparison = (a.id || '').localeCompare(b.id || '')
+          break
         case 'company_name':
           comparison = (a.company_name || '').localeCompare(b.company_name || '')
           break
@@ -451,6 +456,12 @@ export default function CRMPage() {
           const contactA = `${a.contact_first_name || ''} ${a.contact_last_name || ''}`.trim()
           const contactB = `${b.contact_first_name || ''} ${b.contact_last_name || ''}`.trim()
           comparison = contactA.localeCompare(contactB)
+          break
+        case 'postal_code':
+          comparison = (a.postal_code || '').localeCompare(b.postal_code || '')
+          break
+        case 'city':
+          comparison = (a.city || '').localeCompare(b.city || '')
           break
         case 'address':
           comparison = (a.address || '').localeCompare(b.address || '')
@@ -836,7 +847,9 @@ export default function CRMPage() {
                             {columnKey === 'id' && 'Klant-ID'}
                             {columnKey === 'company_name' && 'Bedrijf'}
                             {columnKey === 'contact_person' && 'Contact'}
-                            {columnKey === 'address' && 'Adres'}
+                            {columnKey === 'postal_code' && 'Postcode'}
+                            {columnKey === 'city' && 'Woonplaats'}
+                            {columnKey === 'address' && 'Straatnaam'}
                             {columnKey === 'email' && 'Email'}
                             {columnKey === 'total_spent' && 'Omzet'}
                             {columnKey === 'total_orders' && 'Bestellingen'}
@@ -881,10 +894,14 @@ export default function CRMPage() {
                       {columnKey === 'contact_person' && (
                         <div className="text-sm text-gray-900">{customer.contact_person || customer.name || '-'}</div>
                       )}
+                      {columnKey === 'postal_code' && (
+                        <div className="text-sm text-gray-900 font-mono">{customer.postal_code || '-'}</div>
+                      )}
+                      {columnKey === 'city' && (
+                        <div className="text-sm text-gray-900">{customer.city || '-'}</div>
+                      )}
                       {columnKey === 'address' && (
-                        <div className="text-sm text-gray-900">
-                          {customer.address}, {customer.postal_code} {customer.city}
-                        </div>
+                        <div className="text-sm text-gray-900">{customer.address || '-'}</div>
                       )}
                       {columnKey === 'email' && (
                         <div className="text-sm text-gray-900">{customer.email}</div>

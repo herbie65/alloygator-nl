@@ -114,9 +114,11 @@ export default function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="text-2xl font-bold text-green-600">
-                AlloyGator
-              </div>
+              <img 
+                src="/wysiwyg/media/AlloyGator_Logo.png" 
+                alt="AlloyGator Logo" 
+                className="h-10 w-auto"
+              />
             </Link>
           </div>
 
@@ -125,7 +127,7 @@ export default function Header() {
             <Link href="/" className="text-gray-700 hover:text-green-600 transition-colors">
               Home
             </Link>
-            <Link href="/winkel" className="text-gray-700 hover:text-green-600 transition-colors">
+            <Link href="/winkel/alloygator-set" className="text-gray-700 hover:text-green-600 transition-colors">
               Winkel
             </Link>
             <Link href="/vind-een-dealer" className="text-gray-700 hover:text-green-600 transition-colors">

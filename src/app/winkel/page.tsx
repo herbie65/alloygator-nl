@@ -79,12 +79,14 @@ export default function WinkelPage() {
   const [availabilityFilter, setAvailabilityFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState(0)
 
-  // Debug logging
-  console.log('WinkelPage - Products:', products)
+  // Debug logging met veilige fallback
+  const productList: Product[] = Array.isArray(products) ? (products as unknown as Product[]) : []
+  const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-');
+  console.log('WinkelPage - Products:', productList)
   console.log('WinkelPage - Loading:', loading)
   console.log('WinkelPage - Error:', error)
-  console.log('WinkelPage - Products length:', products.length)
-  console.log('WinkelPage - Products details:', products.map(p => ({ id: p.id, name: p.name, price: p.price })))
+  console.log('WinkelPage - Products length:', productList.length)
+  console.log('WinkelPage - Products details:', productList.map(p => ({ id: p.id, name: p.name, price: p.price })))
 
   useEffect(() => {
     // Load VAT settings and local storage data
@@ -108,15 +110,18 @@ export default function WinkelPage() {
   }, [])
 
   // Filter and sort products (new logic)
-  const filteredProducts = products
+  const filteredProducts = productList
     .filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          product.description.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
-      const matchesPrice = product.price >= priceRange.min && product.price <= priceRange.max
+      const nameText = String(product.name || '').toLowerCase()
+      const descText = String((product as any).short_description || product.description || '').toLowerCase()
+      const matchesSearch = nameText.includes(searchTerm.toLowerCase()) || descText.includes(searchTerm.toLowerCase())
+      const matchesCategory = selectedCategory === 'all' || normalizeCategory(product.category) === selectedCategory
+      const priceNum = Number((product as any).price || 0)
+      const matchesPrice = priceNum >= priceRange.min && priceNum <= priceRange.max
+      const stockNum = Number((product as any).stock_quantity || 0)
       const matchesAvailability = availabilityFilter === 'all' || 
-        (availabilityFilter === 'in-stock' && product.stock_quantity > 0) ||
-        (availabilityFilter === 'out-of-stock' && product.stock_quantity === 0)
+        (availabilityFilter === 'in-stock' && stockNum > 0) ||
+        (availabilityFilter === 'out-of-stock' && stockNum === 0)
       const matchesRating = ratingFilter === 0 || 
         (product.reviews && product.reviews.length > 0 && 
          product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length >= ratingFilter)
@@ -127,14 +132,18 @@ export default function WinkelPage() {
       switch (sortBy) {
         case 'price-low': return a.price - b.price
         case 'price-high': return b.price - a.price
-        case 'name': return a.name.localeCompare(b.name)
+        case 'name': return String(a.name || '').localeCompare(String(b.name || ''))
         case 'rating': 
           const ratingA = a.reviews && a.reviews.length > 0 ? 
             a.reviews.reduce((sum, review) => sum + review.rating, 0) / a.reviews.length : 0
           const ratingB = b.reviews && b.reviews.length > 0 ? 
             b.reviews.reduce((sum, review) => sum + review.rating, 0) / b.reviews.length : 0
           return ratingB - ratingA
-        case 'newest': return new Date(b.created_at || '2024-01-01').getTime() - new Date(a.created_at || '2024-01-01').getTime()
+        case 'newest': {
+          const ta = new Date(String((a as any).created_at || '1970-01-01')).getTime()
+          const tb = new Date(String((b as any).created_at || '1970-01-01')).getTime()
+          return tb - ta
+        }
         default: return 0
       }
     })
@@ -486,15 +495,16 @@ export default function WinkelPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => {
-            const base = dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : product.price
+            {filteredProducts.map((product, index) => {
+            const rawBase = Number((product as any).price || 0)
+            const base = dealer.isDealer ? applyDealerDiscount(rawBase, dealer.discountPercent) : rawBase
             const displayPrice = dealer.isDealer ? base : calculatePriceWithVat(base, 21)
             const vatText = dealer.isDealer ? 'excl. BTW' : getVatDisplayText(21, 'NL')
             
             return (
-              <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div key={`${(product as any).id || (product as any).sku || 'p'}-${index}`} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Product Image */}
-                <Link href={`/winkel/product/${product.id}`}>
+                <Link href={`/winkel/product/${(product as any).slug || (product as any).id}`}>
                   <div className="h-48 bg-gray-200 flex items-center justify-center cursor-pointer">
                     {product.image_url ? (
                       <img
@@ -510,14 +520,15 @@ export default function WinkelPage() {
 
                 {/* Product Info */}
                 <div className="p-6">
-                  <Link href={`/winkel/product/${product.id}`}>
+                  <Link href={`/winkel/product/${(product as any).slug || (product as any).id}`}>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-green-600 transition-colors cursor-pointer">
                       {product.name}
                     </h3>
                   </Link>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {product.description}
-                  </p>
+                  <div
+                    className="text-gray-600 text-sm mb-4 line-clamp-2 prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: String((product as any).short_description || product.description || '') }}
+                  />
                   
                   {/* Features */}
                   <div className="mb-4">

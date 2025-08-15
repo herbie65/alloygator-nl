@@ -1,6 +1,6 @@
 import path from 'path'
 import { promises as fs, existsSync } from 'fs'
-import { db, FirebaseService } from '@/lib/firebase'
+import { FirebaseService } from '@/lib/firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { EmailService } from './email'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -210,37 +210,54 @@ export async function saveInvoicePdf(order: OrderRecord, pdfBuffer: Buffer): Pro
   return `/invoices/${fileName}`
 }
 
-export async function ensureInvoice(orderId: string): Promise<{ url: string; number: string }> {
-  const orderSnap = await getDoc(doc(db as any, 'orders', orderId))
-  if (!orderSnap.exists()) throw new Error('Order not found')
-  const order = { id: orderSnap.id, ...(orderSnap.data() as any) }
-
-  if (order.invoice_number && order.invoice_url) {
-    return { url: order.invoice_url, number: order.invoice_number }
-  }
-
-  const invoiceNumber = await nextInvoiceNumber()
-  order.invoice_number = invoiceNumber
-
-  const pdf = await generateInvoicePdfBuffer(order)
-  const url = await saveInvoicePdf(order, pdf)
-
-  await setDoc(doc(db as any, 'orders', orderId), { invoice_number: invoiceNumber, invoice_url: url, updatedAt: new Date().toISOString() }, { merge: true })
-
+// Invoice generation functions
+export async function ensureInvoice(orderId: string) {
   try {
-    const settingsArray = await FirebaseService.getSettings()
-    const settings = settingsArray && settingsArray.length > 0 ? settingsArray[0] : undefined
-    const emailService = new EmailService(settings as any)
-    await emailService.sendInvoiceEmail({
-      orderNumber: order.orderNumber,
-      customerName: `${order.customer?.voornaam || ''} ${order.customer?.achternaam || ''}`.trim(),
-      customerEmail: order.customer?.email || ''
-    }, pdf, invoiceNumber)
-  } catch (e) {
-    console.error('Failed to email invoice', e)
-  }
+    // Get order from Firebase
+    const order = await FirebaseService.getDocument('orders', orderId)
+    if (!order) {
+      throw new Error('Order not found')
+    }
 
-  return { url, number: invoiceNumber }
+    // Get customer from Firebase
+    const customer = await FirebaseService.getDocument('customers', order.customer_id)
+    if (!customer) {
+      throw new Error('Customer not found')
+    }
+
+    // Generate invoice number
+    const invoiceNumber = `INV-${Date.now()}`
+
+    // Create invoice data
+    const invoiceData = {
+      order_id: orderId,
+      customer_id: order.customer_id,
+      invoice_number: invoiceNumber,
+      amount: order.total_amount || order.total,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days from now
+    }
+
+    // Save invoice to Firebase
+    const newInvoice = await FirebaseService.addDocument('invoices', invoiceData)
+
+    // Update order with invoice reference
+    await FirebaseService.updateDocument('orders', orderId, {
+      invoice_id: newInvoice.id,
+      invoice_number: invoiceNumber,
+      updated_at: new Date().toISOString()
+    })
+
+    return {
+      url: `/invoices/${newInvoice.id}`,
+      number: invoiceNumber
+    }
+
+  } catch (error) {
+    console.error('Invoice generation error:', error)
+    throw error
+  }
 }
 
 

@@ -66,7 +66,7 @@ interface CustomerGroup {
 }
 
 export default function CustomersPage() {
-  const [customers, customersLoading, customersError] = useFirebaseRealtime<Customer>('customers')
+  const [customers, customersLoading, customersError] = useFirebaseRealtime<Customer[]>('customers')
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([])
   const [customerGroupsLoading, setCustomerGroupsLoading] = useState(true)
   const [customerGroupsError, setCustomerGroupsError] = useState('')
@@ -113,6 +113,9 @@ export default function CustomersPage() {
     switch (sortBy) {
       case 'name': return a.name.localeCompare(b.name)
       case 'email': return a.email.localeCompare(b.email)
+      case 'postal_code': return (a.postal_code || '').localeCompare(b.postal_code || '')
+      case 'city': return (a.city || '').localeCompare(b.city || '')
+      case 'address': return (a.address || '').localeCompare(b.address || '')
       case 'total_orders': return b.total_orders - a.total_orders
       case 'total_spent': return b.total_spent - a.total_spent
       case 'created_at': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -169,10 +172,19 @@ export default function CustomersPage() {
   }
 
   const getCustomerStats = () => {
+    if (!customers || !Array.isArray(customers)) {
+      return {
+        total: 0,
+        active: 0,
+        dealers: 0,
+        revenue: 0
+      }
+    }
+    
     const totalCustomers = customers.length
     const activeCustomers = customers.filter(c => c.status === 'active').length
     const dealerCustomers = customers.filter(c => c.is_dealer).length
-    const totalRevenue = customers.reduce((sum, c) => sum + c.total_spent, 0)
+    const totalRevenue = customers.reduce((sum, c) => sum + (c.total_spent || 0), 0)
 
     return {
       total: totalCustomers,
@@ -197,22 +209,46 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Klanten Beheren</h1>
-          <p className="text-gray-600">Beheer uw klantdatabase</p>
+              <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Klanten Beheren</h1>
+            <p className="text-gray-600">Beheer uw klantdatabase</p>
+          </div>
+          <div className="flex space-x-3">
+            <button 
+              onClick={async () => {
+                if (confirm('Weet je zeker dat je alle klanten wilt migreren naar numerieke IDs? Dit kan niet ongedaan worden gemaakt.')) {
+                  try {
+                    const response = await fetch('/api/admin/migrate-customers', { method: 'POST' });
+                    const result = await response.json();
+                    if (result.success) {
+                      alert(result.message);
+                      // Refresh the page to show updated customer IDs
+                      window.location.reload();
+                    } else {
+                      alert('Fout bij migreren: ' + result.message);
+                    }
+                  } catch (error) {
+                    alert('Fout bij migreren: ' + error);
+                  }
+                }
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              🔄 Migreer naar Numerieke IDs
+            </button>
+            <button 
+              onClick={() => {
+                setSelectedCustomer(null)
+                setEditingCustomer(null)
+                setShowCustomerModal(true)
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+            >
+              + Nieuwe Klant
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={() => {
-            setSelectedCustomer(null)
-            setEditingCustomer(null)
-            setShowCustomerModal(true)
-          }}
-          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-        >
-          + Nieuwe Klant
-        </button>
-      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -314,6 +350,9 @@ export default function CustomersPage() {
               >
                 <option value="name">Sorteer op Naam</option>
                 <option value="email">Sorteer op Email</option>
+                <option value="postal_code">Sorteer op Postcode</option>
+                <option value="city">Sorteer op Woonplaats</option>
+                <option value="address">Sorteer op Straatnaam</option>
                 <option value="total_orders">Sorteer op Bestellingen</option>
                 <option value="total_spent">Sorteer op Omzet</option>
                 <option value="created_at">Sorteer op Datum</option>
@@ -398,7 +437,13 @@ export default function CustomersPage() {
                   Contact
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Locatie
+                  Postcode
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Woonplaats
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Straatnaam
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -417,7 +462,7 @@ export default function CustomersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -454,23 +499,17 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {customer.address && customer.city ? (
-                          <div>
-                            <div className="text-sm text-gray-900">{customer.address}</div>
-                            <div className="text-sm text-gray-500">{customer.postal_code} {customer.city}</div>
-                            {customer.latitude && customer.longitude && (
-                              <div className="flex items-center mt-1">
-                                <svg className="w-4 h-4 text-green-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <span className="text-xs text-green-600">Locatie bekend</span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">Geen adres</span>
-                        )}
+                        {customer.postal_code}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {customer.city}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {customer.address}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

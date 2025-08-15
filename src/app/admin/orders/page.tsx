@@ -36,6 +36,13 @@ interface Order {
   dealer_group?: string
   due_at?: string
   payment_terms_days?: number
+  eboekhouden_sync?: {
+    status: 'pending' | 'success' | 'error'
+    verkoop_mutatie_id?: string
+    cogs_mutatie_id?: string
+    error_message?: string
+    sync_timestamp?: string
+  }
 }
 
 export default function OrdersPage() {
@@ -128,7 +135,10 @@ export default function OrdersPage() {
             })(),
             payment_status: order.payment_status === 'pending' ? 'open' : (order.payment_status || 'open'),
             created_at: order.createdAt || order.created_at || new Date().toISOString(),
-            dealer_group: order.dealer_group || null
+            dealer_group: order.dealer_group || null,
+            due_at: order.due_at || null,
+            payment_terms_days: order.payment_terms_days || null,
+            eboekhouden_sync: order.eboekhouden_sync || null
           }))
           
           setOrders(transformedOrders)
@@ -284,36 +294,71 @@ export default function OrdersPage() {
 
   const handleeBoekhoudenSync = async (orderId: string) => {
     try {
-      const order = orders.find(o => o.id === orderId)
-      if (!order) return
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? { ...order, eboekhouden_sync: { status: 'pending', sync_timestamp: new Date().toISOString() } }
+          : order
+      ));
 
-      console.log(`🔄 Starting e-Boekhouden sync for order: ${orderId}`)
-
-      const response = await fetch('/api/accounting/eboekhouden/sync-order', {
+      const response = await fetch('/api/accounting/sync-order-new', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ orderId })
-      })
+        body: JSON.stringify({ orderId }),
+      });
 
-      const result = await response.json()
-      
-      if (result.success) {
-        console.log('✅ e-Boekhouden sync successful:', result)
-        setError(`✅ Order succesvol gesynchroniseerd met e-Boekhouden`)
-        setTimeout(() => setError(''), 5000)
+      const result = await response.json();
+
+      if (result.ok) {
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                                  eboekhouden_sync: {
+                    status: 'success',
+                    verkoop_mutatie_id: result.verkoop_mutatie_id,
+                    cogs_mutatie_id: result.cogs_mutatie_id,
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: null
+                  }
+              }
+            : order
+        ));
       } else {
-        console.error('❌ e-Boekhouden sync failed:', result)
-        setError(`❌ e-Boekhouden sync mislukt: ${result.errors?.join(', ') || 'Onbekende fout'}`)
-        setTimeout(() => setError(''), 5000)
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                                  eboekhouden_sync: {
+                    status: 'error',
+                    verkoop_mutatie_id: null,
+                    cogs_mutatie_id: null,
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: result.message
+                  }
+              }
+            : order
+        ));
       }
-    } catch (error: any) {
-      console.error('❌ e-Boekhouden sync error:', error)
-      setError(`❌ e-Boekhouden sync fout: ${error.message}`)
-      setTimeout(() => setError(''), 5000)
+    } catch (error) {
+      console.error('e-Boekhouden sync error:', error);
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? {
+              ...order,
+              eboekhouden_sync: {
+                status: 'error',
+                verkoop_mutatie_id: null,
+                cogs_mutatie_id: null,
+                sync_timestamp: new Date().toISOString(),
+                error_message: error instanceof Error ? error.message : 'Unknown error'
+              }
+            }
+          : order
+      ));
     }
-  }
+  };
 
   const handleMarkAsPaid = async (orderId: string) => {
     try {
@@ -770,13 +815,31 @@ export default function OrdersPage() {
                     )}
                     {/* e-Boekhouden sync knop - alleen voor betaalde orders */}
                     {order.payment_status === 'paid' && order.status !== 'annuleren' && (
-                      <button
-                        onClick={() => handleeBoekhoudenSync(order.id)}
-                        className="text-purple-600 hover:text-purple-900 ml-4 transition-colors duration-200"
-                        title="Synchroniseer order met e-Boekhouden"
-                      >
-                        📊 e-Boekhouden
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleeBoekhoudenSync(order.id)}
+                          className="text-purple-600 hover:text-purple-900 transition-colors duration-200"
+                          title="Synchroniseer order met e-Boekhouden"
+                        >
+                          📊 e-Boekhouden
+                        </button>
+                        {/* Sync status indicator */}
+                        {order.eboekhouden_sync?.status === 'pending' && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                            ⏳ Synchroniseren...
+                          </span>
+                        )}
+                        {order.eboekhouden_sync?.status === 'success' && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                            ✅ Gesynchroniseerd
+                          </span>
+                        )}
+                        {order.eboekhouden_sync?.status === 'error' && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                            ❌ Fout: {order.eboekhouden_sync.error_message}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>

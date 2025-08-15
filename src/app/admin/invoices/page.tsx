@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
+import Modal from '@/app/admin/components/Modal'
 
 interface OrderRow {
   id: string
@@ -15,6 +16,13 @@ interface OrderRow {
   createdAt: string
   invoice_number?: string
   invoice_url?: string
+  eboekhouden_sync?: {
+    status: 'pending' | 'success' | 'error'
+    verkoop_mutatie_id?: string
+    cogs_mutatie_id?: string
+    error_message?: string
+    sync_timestamp?: string
+  }
 }
 
 export default function InvoicesPage() {
@@ -23,6 +31,10 @@ export default function InvoicesPage() {
   const [q, setQ] = useState('')
   const [onlyWithoutInvoice, setOnlyWithoutInvoice] = useState(false)
   const [err, setErr] = useState('')
+  const [syncingOrders, setSyncingOrders] = useState<Record<string, boolean>>({})
+  const [debugOpenId, setDebugOpenId] = useState<string | null>(null)
+  const [debugData, setDebugData] = useState<any>(null)
+  const [debugModalOpen, setDebugModalOpen] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -41,6 +53,7 @@ export default function InvoicesPage() {
           createdAt: o.createdAt || o.created_at || new Date().toISOString(),
           invoice_number: o.invoice_number,
           invoice_url: o.invoice_url,
+          eboekhouden_sync: o.eboekhouden_sync || undefined
         }))
         // Most recent first
         rows.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -97,6 +110,7 @@ export default function InvoicesPage() {
           createdAt: o.createdAt || o.created_at || new Date().toISOString(),
           invoice_number: o.invoice_number,
           invoice_url: o.invoice_url,
+          eboekhouden_sync: o.eboekhouden_sync || undefined
         }))
         rows.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         setOrders(rows)
@@ -104,6 +118,151 @@ export default function InvoicesPage() {
     } catch (e:any) {
       setErr(e.message || 'Fout bij genereren factuur')
     }
+  }
+
+  const syncToEboekhouden = async (orderId: string) => {
+    setSyncingOrders(prev => ({ ...prev, [orderId]: true }));
+    
+    try {
+      const response = await fetch('/api/accounting/sync-order-new', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const result = await response.json();
+
+      // Altijd debug-informatie beschikbaar maken
+      setDebugOpenId(orderId)
+      setDebugData({
+        request: { url: '/api/accounting/sync-order-new', method: 'POST', body: { orderId } },
+        status: response.status,
+        ok: response.ok,
+        response: result,
+      })
+      setDebugModalOpen(true)
+
+      if (result.ok) {
+        // Update local state with sync results
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? {
+                  ...order,
+                  eboekhouden_sync: {
+                    status: 'success',
+                    verkoop_mutatie_id: result.verkoop_mutatie_id,
+                    cogs_mutatie_id: result.cogs_mutatie_id,
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: null
+                  }
+                }
+              : order
+          )
+        );
+      } else {
+        // Update local state with error
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? {
+                  ...order,
+                  eboekhouden_sync: {
+                    status: 'error',
+                    verkoop_mutatie_id: null,
+                    cogs_mutatie_id: null,
+                    sync_timestamp: new Date().toISOString(),
+                    error_message: result.message
+                  }
+                }
+              : order
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      setDebugOpenId(orderId)
+      setDebugData({
+        request: { url: '/api/accounting/sync-order-new', method: 'POST', body: { orderId } },
+        status: 0,
+        ok: false,
+        response: { message: error instanceof Error ? error.message : 'Unknown error' }
+      })
+      setDebugModalOpen(true)
+      // Update local state with error
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                eboekhouden_sync: {
+                  status: 'error',
+                  verkoop_mutatie_id: null,
+                  cogs_mutatie_id: null,
+                  sync_timestamp: new Date().toISOString(),
+                  error_message: error instanceof Error ? error.message : 'Unknown error'
+                }
+              }
+            : order
+        )
+      );
+    } finally {
+      setSyncingOrders(prev => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const getEboekhoudenStatus = (order: OrderRow) => {
+    if (!order.eboekhouden_sync) {
+      return (
+        <button
+          onClick={() => syncToEboekhouden(order.id)}
+          disabled={syncingOrders[order.id]}
+          className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 text-sm"
+        >
+          {syncingOrders[order.id] ? '⏳ Sync...' : '📊 Sync'}
+        </button>
+      )
+    }
+
+    if (order.eboekhouden_sync.status === 'success') {
+      return (
+        <div className="text-xs text-green-700">
+          <div className="font-medium">✅ Gesynchroniseerd</div>
+          <div>Verkoop: {order.eboekhouden_sync.verkoop_mutatie_id}</div>
+          <div>COGS: {order.eboekhouden_sync.cogs_mutatie_id}</div>
+          <div className="text-gray-500">
+            {new Date(order.eboekhouden_sync.sync_timestamp!).toLocaleDateString('nl-NL')}
+          </div>
+        </div>
+      )
+    }
+
+    if (order.eboekhouden_sync.status === 'error') {
+      return (
+        <div className="text-xs text-red-700">
+          <div className="font-medium">❌ Sync mislukt</div>
+          {order.eboekhouden_sync.error_message && (
+            <div className="text-red-600 text-xs mb-1">
+              {order.eboekhouden_sync.error_message}
+            </div>
+          )}
+          <div className="text-gray-500">
+            {new Date(order.eboekhouden_sync.sync_timestamp!).toLocaleDateString('nl-NL')}
+          </div>
+          <button
+            onClick={() => syncToEboekhouden(order.id)}
+            disabled={syncingOrders[order.id]}
+            className="mt-1 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 text-xs"
+          >
+            {syncingOrders[order.id] ? '⏳ Retry...' : '🔄 Retry'}
+          </button>
+        </div>
+      )
+    }
+
+    return null
   }
 
   return (
@@ -134,6 +293,21 @@ export default function InvoicesPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <Modal isOpen={debugModalOpen} onClose={()=>setDebugModalOpen(false)} title="e‑Boekhouden Sync Debug">
+            <div className="text-xs">
+              <div className="mb-2 text-gray-700">Onderstaande gegevens tonen de laatst uitgevoerde sync‑call.</div>
+              <pre className="whitespace-pre-wrap break-all bg-gray-50 p-3 rounded border">{JSON.stringify(debugData, null, 2)}</pre>
+            </div>
+          </Modal>
+          {debugOpenId && (
+            <div className="p-4 border-b bg-gray-50 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="font-medium text-gray-700">Debug laatste sync</div>
+                <button className="text-blue-600" onClick={()=>{setDebugOpenId(null); setDebugData(null)}}>Sluiten</button>
+              </div>
+              <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(debugData, null, 2)}</pre>
+            </div>
+          )}
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -143,6 +317,7 @@ export default function InvoicesPage() {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">BTW</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Totaal</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Factuur</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">E-Boekhouden</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
@@ -166,6 +341,9 @@ export default function InvoicesPage() {
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {getEboekhoudenStatus(o)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                     <div className="flex items-center justify-end space-x-3">

@@ -1,0 +1,80 @@
+Unused files (44)
+add_missing_data.js                                  
+add_products_via_admin.js                            
+add_test_products.js                                 
+check_customer_groups.js                             
+check_google_maps_key.js                             
+check_homepage_pages.js                              
+create_document_indexes.js                           
+create_indexes_admin.js                              
+create_indexes_auto.js                               
+debug_products.js                                    
+fix_customer_groups_complete.js                      
+fix_customer_groups.js                               
+fix_dealer_assignments.js                            
+fix_google_maps_key.js                               
+fix_payment_settings_complete.js                     
+fix_product_image.js                                 
+fix_shipping_settings_complete.js                    
+fix_vat_settings_complete.js                         
+force_index_creation.js                              
+functions/.eslintrc.js                               
+functions/index.js                                   
+import_brons_via_api.js                              
+restore_firebase_data.js                             
+scripts/export.mts                                   
+src/app/admin/components/AdminSidebar.tsx            
+src/app/admin/components/CustomerCRM.tsx             
+src/app/admin/components/CustomerImport.tsx          
+src/app/admin/components/DatabaseViewer.tsx          
+src/app/admin/components/DhlParcelSettings.tsx       
+src/app/admin/components/HeaderManager.tsx           
+src/app/admin/components/PaymentSettings.tsx         
+src/app/admin/components/ShippingAddressManager.tsx  
+src/app/admin/components/ShippingSettings.tsx        
+src/app/admin/components/UploadManager.tsx           
+src/app/admin/components/VatSettings.tsx             
+src/app/components/CartIcon.tsx                      
+src/app/components/ServicePointSelector.tsx          
+src/app/layout-test.tsx                              
+src/lib/database.ts                                  
+src/lib/firebase-admin.ts                            
+src/lib/google-maps.ts                               
+test_checkout.js                                     
+test_documents_system.js                             
+test_products.js                                     
+Unused dependencies (6)
+@types/bcryptjs  package.json:22:6
+@types/leaflet   package.json:23:6
+bcryptjs         package.json:25:6
+firebase-admin   package.json:28:6
+leaflet          package.json:29:6
+pdfkit           package.json:33:6
+Unused devDependencies (3)
+eslint              package.json:45:6
+eslint-config-next  package.json:46:6
+firebase-tools      package.json:47:6
+Unlisted dependencies (2)
+@eslint/eslintrc  eslint.config.mjs                     
+server-only       src/services/accounting/eboekhouden.ts
+Unused exports (9)
+db                                      src/lib/firebase-client.ts:17:14             
+BTW_NUMMERS                             src/lib/firebase.ts:64:14                    
+db                                      src/lib/firebase.ts:594:9                    
+generateInvoicePdfBuffer      function  src/lib/invoice.ts:30:23                     
+nextInvoiceNumber             function  src/lib/invoice.ts:193:23                    
+saveInvoicePdf                function  src/lib/invoice.ts:204:23                    
+calculatePriceWithVatComplex            src/lib/vat-utils.ts:38:14                   
+getVatDisplayTextComplex                src/lib/vat-utils.ts:76:14                   
+addFactuur                    function  src/services/accounting/eboekhouden.ts:158:23
+Unused exported types (9)
+DealerPricingInfo  interface  src/hooks/useDealerPricing.ts:6:18              
+OrderRecord        type       src/lib/invoice.ts:8:13                         
+VatSettings        interface  src/lib/vat-utils.ts:1:18                       
+Product            interface  src/lib/vat-utils.ts:15:18                      
+OrderItem          interface  src/services/accounting/orderToBookings.ts:3:18 
+Customer           interface  src/services/accounting/orderToBookings.ts:11:18
+Order              interface  src/services/accounting/orderToBookings.ts:20:18
+BookingRule        interface  src/services/accounting/orderToBookings.ts:30:18
+OrderBookings      interface  src/services/accounting/orderToBookings.ts:38:18
+Configuration hints (1)

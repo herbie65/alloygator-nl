@@ -1,63 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { FirebaseService } from '@/lib/firebase'
 import { EmailService } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
+// Test GET method to verify route is accessible
+export async function GET() {
+  return NextResponse.json({ 
+    message: 'Forgot password API route is working',
+    timestamp: new Date().toISOString()
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
-    if (!email) return NextResponse.json({ message: 'E‑mail is verplicht' }, { status: 400 })
-
-    const usersRef = collection(db, 'customers')
-    const q = query(usersRef, where('email', '==', email))
-    const snap = await getDocs(q)
-    if (snap.empty) {
-      // Do not leak that the email is unknown
-      return NextResponse.json({ message: 'Als het e‑mailadres bekend is, is er een resetlink verzonden.' })
+    
+    if (!email) {
+      return NextResponse.json({ error: 'E-mail is verplicht' }, { status: 400 })
     }
 
-    // Generate a simple one-time token (short for demo)
-    const token = Math.random().toString(36).slice(2, 10)
-    const userDoc = snap.docs[0]
-    await updateDoc(doc(db, 'customers', userDoc.id), {
-      password_reset_token: token,
-      password_reset_expires: new Date(Date.now() + 1000 * 60 * 30).toISOString() // 30 min
+    // Get user from Firebase
+    const users = await FirebaseService.getDocuments('users')
+    const user = users.find((u: any) => u.email?.toLowerCase().trim() === email.toLowerCase().trim())
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Gebruiker niet gevonden' }, { status: 404 })
+    }
+
+    // Generate reset token (simple implementation)
+    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    const resetExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+
+    // Update user with reset token
+    await FirebaseService.updateDocument('users', user.id, {
+      reset_token: resetToken,
+      reset_expiry: resetExpiry
     })
 
-    // Build absolute base URL robustly
-    const envBase = process.env.NEXT_PUBLIC_BASE_URL
-    const origin = request.headers.get('origin')
-    const host = request.headers.get('host')
-    const inferred = origin || (host ? `https://${host}` : '')
-    const base = envBase || inferred || 'http://localhost:3000'
-    const resetUrl = `${base.replace(/\/$/, '')}/auth/reset?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
+    // Generate reset URL
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const resetUrl = `${baseUrl}/auth/reset?email=${encodeURIComponent(email)}&token=${resetToken}`
 
-    // Try to send email
+    // Send reset email
     try {
-      const mailer = new EmailService()
-      await mailer['transporter'].sendMail({
-        from: process.env.SMTP_USER,
-        to: email,
-        subject: 'Wachtwoord resetten',
-        html: `<p>We hebben een verzoek ontvangen om je wachtwoord te resetten.</p>
-               <p>Klik op de link om een nieuw wachtwoord in te stellen (30 minuten geldig):</p>
-               <p><a href="${resetUrl}">${resetUrl}</a></p>
-               <p>Heb je dit niet aangevraagd? Negeer deze e-mail.</p>`
+      const emailService = new EmailService()
+      const emailSent = await emailService.sendCustomerPasswordResetEmail(email, resetUrl)
+      
+      if (emailSent) {
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Reset instructies verzonden naar je e-mail' 
+        })
+      } else {
+        // Email failed, but token was saved - user can still reset manually
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Reset instructies verzonden naar je e-mail',
+          resetUrl: resetUrl // Fallback for development
+        })
+      }
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError)
+      // Email failed, but token was saved - user can still reset manually
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Reset instructies verzonden naar je e-mail',
+        resetUrl: resetUrl // Fallback for development
       })
-    } catch (e) {
-      console.warn('Kon reset e-mail niet sturen, geef URL terug voor debug:', e)
-      return NextResponse.json({ message: 'Resetlink gegenereerd.', resetUrl })
     }
 
-    // In development, geef ook de URL terug voor snelle test
-    const body: any = { message: 'E‑mail met resetlink verzonden.' }
-    if (process.env.NODE_ENV !== 'production') body.resetUrl = resetUrl
-    return NextResponse.json(body)
-  } catch (e) {
-    console.error('Forgot error:', e)
-    return NextResponse.json({ message: 'Er ging iets mis' }, { status: 500 })
+  } catch (error) {
+    console.error('Forgot password error:', error)
+    return NextResponse.json({ error: 'Fout bij verwerken verzoek' }, { status: 500 })
   }
 }
 

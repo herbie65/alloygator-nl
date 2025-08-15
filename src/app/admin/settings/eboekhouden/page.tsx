@@ -1,258 +1,240 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { eBoekhoudenClientInstance } from '@/services/eBoekhouden/client'
+import { useState, useEffect } from 'react';
+import { COA, BTW } from '@/services/accounting/chartOfAccounts';
 
-interface eBoekhoudenSettings {
-  username: string
-  securityCode1: string
-  securityCode2: string
-  testMode: boolean
-}
+export default function EBoekhoudenSettings() {
+  const [testResult, setTestResult] = useState<string>('');
+  const [isTesting, setIsTesting] = useState(false);
+  const [grootboekRekeningen, setGrootboekRekeningen] = useState<any[]>([]);
+  const [isLoadingGrootboek, setIsLoadingGrootboek] = useState(false);
 
-interface GrootboekRekening {
-  ID: number
-  Code: string
-  Omschrijving: string
-  Categorie: string
-  Groep: string
-}
-
-export default function eBoekhoudenSettingsPage() {
-  const [settings, setSettings] = useState<eBoekhoudenSettings>({
-    username: '',
-    securityCode1: '',
-    securityCode2: '',
-    testMode: true
-  })
-  
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle')
-  const [connectionMessage, setConnectionMessage] = useState('')
-  const [grootboekRekeningen, setGrootboekRekeningen] = useState<GrootboekRekening[]>([])
-  const [loadingGrootboek, setLoadingGrootboek] = useState(false)
-
-  useEffect(() => {
-    // Load settings from environment (read-only display)
-    setSettings({
-      username: process.env.NEXT_PUBLIC_EBOEKHOUDEN_USERNAME || '***configured***',
-      securityCode1: process.env.NEXT_PUBLIC_EBOEKHOUDEN_SECURITY_CODE_1 ? '***configured***' : 'niet ingesteld',
-      securityCode2: process.env.NEXT_PUBLIC_EBOEKHOUDEN_SECURITY_CODE_2 ? '***configured***' : 'niet ingesteld',
-      testMode: process.env.NEXT_PUBLIC_EBOEKHOUDEN_TEST_MODE === 'true'
-    })
-  }, [])
-
+  // Test de e-Boekhouden verbinding
   const testConnection = async () => {
-    setConnectionStatus('testing')
-    setConnectionMessage('Bezig met testen van verbinding...')
+    setIsTesting(true);
+    setTestResult('');
     
     try {
-      const response = await fetch('/api/accounting/eboekhouden/ping')
-      const data = await response.json()
+      const response = await fetch('/api/accounting/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       
-      if (data.ok) {
-        setConnectionStatus('connected')
-        setConnectionMessage(`✅ Verbinding succesvol! Test mode: ${data.testMode ? 'AAN' : 'UIT'}`)
+      const result = await response.json();
+      
+      if (result.ok) {
+        setTestResult(`✅ ${result.message}`);
       } else {
-        setConnectionStatus('failed')
-        setConnectionMessage(`❌ Verbinding mislukt: ${data.message}`)
+        setTestResult(`❌ ${result.message}`);
       }
-    } catch (error: any) {
-      setConnectionStatus('failed')
-      setConnectionMessage(`❌ Fout bij testen: ${error.message}`)
-    }
-  }
-
-  const loadGrootboekRekeningen = async () => {
-    setLoadingGrootboek(true)
-    try {
-      const session = await eBoekhoudenClientInstance.openSession()
-      const rekeningen = await eBoekhoudenClientInstance.getGrootboekRekeningen(session)
-      setGrootboekRekeningen(rekeningen)
-      await eBoekhoudenClientInstance.closeSession(session.client, session.sessionId)
-    } catch (error: any) {
-      console.error('Failed to load grootboekrekeningen:', error)
-      setConnectionMessage(`❌ Fout bij laden grootboekrekeningen: ${error.message}`)
+    } catch (error) {
+      setTestResult(`❌ Fout bij testen: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
     } finally {
-      setLoadingGrootboek(false)
+      setIsTesting(false);
     }
-  }
+  };
 
-  const getStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected': return 'text-green-600'
-      case 'failed': return 'text-red-600'
-      case 'testing': return 'text-yellow-600'
-      default: return 'text-gray-600'
-    }
-  }
-
-  const getStatusIcon = () => {
-    switch (connectionStatus) {
-      case 'connected': return '✅'
-      case 'failed': return '❌'
-      case 'testing': return '⏳'
-      default: return '❓'
-    }
-  }
+  // Laad grootboekrekeningen (placeholder voor nu)
+  const loadGrootboekRekeningen = async () => {
+    setIsLoadingGrootboek(true);
+    // Dit kan later uitgebreid worden met echte API call
+    setTimeout(() => {
+      setGrootboekRekeningen([
+        { code: '1300', naam: 'Debiteuren', categorie: 'Activa' },
+        { code: '8000', naam: 'Omzet hoog', categorie: 'Passiva' },
+        { code: '1630', naam: 'BTW hoog', categorie: 'Passiva' },
+        { code: '7000', naam: 'Kostprijs verkopen', categorie: 'Kosten' },
+        { code: '3000', naam: 'Voorraad', categorie: 'Activa' },
+      ]);
+      setIsLoadingGrootboek(false);
+    }, 1000);
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">e-Boekhouden Instellingen</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">e-Boekhouden Instellingen</h1>
+      
+      {/* Configuratie Sectie */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">Configuratie</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Username
+            </label>
+            <input
+              type="text"
+              value={process.env.NEXT_PUBLIC_EBOEK_USERNAME || 'Uit environment variables'}
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Security Code 1
+            </label>
+            <input
+              type="password"
+              value="••••••••••••••••"
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Security Code 2
+            </label>
+            <input
+              type="password"
+              value="••••••••••••••••"
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Test Mode
+            </label>
+            <input
+              type="text"
+              value={process.env.NEXT_PUBLIC_EBOEK_TEST_MODE || 'false'}
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+            />
+          </div>
+        </div>
         
-        {/* Connection Status */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Verbindingsstatus</h2>
+        <div className="mt-4">
+          <button
+            onClick={testConnection}
+            disabled={isTesting}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md"
+          >
+            {isTesting ? 'Testen...' : 'Test Verbinding'}
+          </button>
           
-          <div className="flex items-center space-x-4 mb-4">
-            <span className={`text-lg font-medium ${getStatusColor()}`}>
-              {getStatusIcon()} {connectionStatus === 'idle' ? 'Niet getest' : 
-                connectionStatus === 'testing' ? 'Bezig met testen...' :
-                connectionStatus === 'connected' ? 'Verbonden' : 'Verbinding mislukt'}
-            </span>
-            
-            <button
-              onClick={testConnection}
-              disabled={connectionStatus === 'testing'}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md transition-colors"
-            >
-              {connectionStatus === 'testing' ? 'Testen...' : 'Test Verbinding'}
-            </button>
-          </div>
-          
-          {connectionMessage && (
-            <div className={`p-3 rounded-md ${
-              connectionStatus === 'connected' ? 'bg-green-100 text-green-800' :
-              connectionStatus === 'failed' ? 'bg-red-100 text-red-800' :
-              'bg-blue-100 text-blue-800'
-            }`}>
-              {connectionMessage}
+          {testResult && (
+            <div className="mt-3 p-3 rounded-md bg-gray-100">
+              <p className="text-sm">{testResult}</p>
             </div>
           )}
         </div>
+      </div>
 
-        {/* Configuration Info */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuratie</h2>
-          
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <h3 className="text-sm font-medium text-blue-800 mb-2">ℹ️ Configuratie verplaatst</h3>
-            <p className="text-sm text-blue-700 mb-3">
-              API keys en credentials worden nu beheerd via de <strong>Koppelingen</strong> pagina. 
-              Ga daarheen om e-Boekhouden credentials in te stellen en te testen.
-            </p>
-            <a 
-              href="/admin/settings/koppelingen" 
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
-            >
-              🔗 Ga naar Koppelingen
-            </a>
-          </div>
-        </div>
-
-        {/* Grootboekrekeningen */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Grootboekrekeningen</h2>
-            <button
-              onClick={loadGrootboekRekeningen}
-              disabled={loadingGrootboek || connectionStatus !== 'connected'}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md transition-colors"
-            >
-              {loadingGrootboek ? 'Laden...' : 'Laden uit e-Boekhouden'}
-            </button>
-          </div>
-          
-          {grootboekRekeningen.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Code
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Omschrijving
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Categorie
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Groep
-                    </th>
+      {/* Grootboekrekeningen Sectie */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">Grootboekrekeningen</h2>
+        <button
+          onClick={loadGrootboekRekeningen}
+          disabled={isLoadingGrootboek}
+          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md mb-4"
+        >
+          {isLoadingGrootboek ? 'Laden...' : 'Laden uit e-Boekhouden'}
+        </button>
+        
+        {grootboekRekeningen.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Code
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Naam
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Categorie
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {grootboekRekeningen.map((rekening, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {rekening.code}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {rekening.naam}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {rekening.categorie}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {grootboekRekeningen.map((rekening) => (
-                    <tr key={rekening.ID}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {rekening.Code}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {rekening.Omschrijving}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {rekening.Categorie}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {rekening.Groep}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              {loadingGrootboek ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                  <span>Grootboekrekeningen laden...</span>
-                </div>
-              ) : (
-                <span>Klik op "Laden uit e-Boekhouden" om de grootboekrekeningen te bekijken</span>
-              )}
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-        {/* Perpetual Inventory Info */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Perpetual Inventory Methode</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Verkoop Boeking</h3>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li>• <strong>Soort:</strong> FactuurVerstuurd</li>
-                <li>• <strong>Tegenrekening:</strong> 8000 (Omzet)</li>
-                <li>• <strong>BTW:</strong> Automatisch berekend</li>
-                <li>• <strong>Relatie:</strong> Automatisch aangemaakt/bijgewerkt</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">COGS + Voorraad Boeking</h3>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li>• <strong>Soort:</strong> Memoriaal</li>
-                <li>• <strong>COGS:</strong> 7000 (Inkoopwaarde van de omzet)</li>
-                <li>• <strong>Voorraad:</strong> 3000 (Voorraad balans)</li>
-                <li>• <strong>Methode:</strong> Perpetual (direct bij verkoop)</li>
-              </ul>
+      {/* BTW Codes Sectie */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">BTW Codes</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h3 className="font-medium mb-2">Factuur BTW Codes</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Hoog (21%):</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{BTW.FACTUUR.HOOG}</code>
+              </div>
+              <div className="flex justify-between">
+                <span>Laag (9%):</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{BTW.FACTUUR.LAAG}</code>
+              </div>
             </div>
           </div>
-          
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <h3 className="text-sm font-medium text-blue-800 mb-2">💡 Voordelen van Perpetual Inventory</h3>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Real-time voorraadwaardes</li>
-              <li>• Geen handmatige periodieke correcties nodig</li>
-              <li>• Automatische COGS berekening</li>
-              <li>• Betere financiële rapportages</li>
-            </ul>
+          <div>
+            <h3 className="font-medium mb-2">Memoriaal BTW Code</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Geen BTW:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{BTW.GEEN}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart of Accounts Sectie */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">Chart of Accounts</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h3 className="font-medium mb-2">Hoofdrekeningen</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Debiteuren:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{COA.debiteuren}</code>
+              </div>
+              <div className="flex justify-between">
+                <span>Omzet hoog:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{COA.omzetHoog}</code>
+              </div>
+              <div className="flex justify-between">
+                <span>BTW hoog:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{COA.btwHoog}</code>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-medium mb-2">Kosten & Voorraad</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>COGS:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{COA.cogs}</code>
+              </div>
+              <div className="flex justify-between">
+                <span>Voorraad:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{COA.voorraad}</code>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

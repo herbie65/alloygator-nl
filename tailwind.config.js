@@ -7,6 +7,18 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        bebas: ['"Bebas Neue"', 'sans-serif'],
+      },
+      // Site-brede groentint aanpassen
+      colors: {
+        green: {
+          400: '#b7e047', // iets lichter
+          500: '#a6d62a', // basis lichter
+          600: '#92c516', // HOOFDKLEUR
+          700: '#7cab13', // iets donkerder voor hover
+        },
+      },
       typography: {
         DEFAULT: {
           css: {

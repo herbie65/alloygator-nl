@@ -442,6 +442,7 @@ export default function AccountPage() {
                           )}
                         </div>
                       </div>
+
                         <div className="flex items-center justify-between flex-wrap gap-3">
                         <div>
                           <p className="text-sm font-medium text-gray-600">Dealer Target (laatste 12 maanden)</p>
@@ -479,9 +480,37 @@ export default function AccountPage() {
                           else if (cg2.includes('zilver')||cg2.includes('silver')) target = 20
                           else if (cg2.includes('brons')||cg2.includes('bronze')) target = 10
                         }
+
+                        // Bereken jaarprogressie sinds dealer startdatum
+                        const calculateYearProgress = () => {
+                          if (!firstOrderDate) return 0
+                          
+                          const startDate = firstOrderDate
+                          const now = new Date()
+                          
+                          // Bereken progressie binnen het "dealer jaar" (van startdatum tot startdatum + 1 jaar)
+                          const dealerYearStart = new Date(startDate)
+                          const dealerYearEnd = new Date(startDate)
+                          dealerYearEnd.setFullYear(dealerYearEnd.getFullYear() + 1)
+                          
+                          // Als we voorbij het eerste jaar zijn, bereken dan binnen het huidige dealer jaar
+                          const yearsSinceStart = now.getFullYear() - startDate.getFullYear()
+                          if (yearsSinceStart > 0) {
+                            dealerYearStart.setFullYear(now.getFullYear())
+                            dealerYearEnd.setFullYear(now.getFullYear() + 1)
+                          }
+                          
+                          const totalYearDuration = dealerYearEnd.getTime() - dealerYearStart.getTime()
+                          const elapsedThisYear = now.getTime() - dealerYearStart.getTime()
+                          
+                          return Math.min(100, Math.max(0, (elapsedThisYear / totalYearDuration) * 100))
+                        }
+
+                        const yearProgress = calculateYearProgress()
+                        
                         return (
                           <div className="mt-4 space-y-4">
-                            {/* Pie chart only */}
+                            {/* Pie chart met rode wijzer */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               <div className="bg-white rounded border p-3">
                                 <Pie
@@ -502,6 +531,8 @@ export default function AccountPage() {
                                   <div>Behaald (12 mnd): {setsSold} sets</div>
                                   <div className={`${(target-setsSold) <= 0 ? 'text-green-600' : 'text-red-600'}`}>{(target-setsSold) <= 0 ? 'Target gehaald' : `Nog nodig: ${target - setsSold} sets`}</div>
                                   <div className="text-gray-600">Gem. betaaltermijn: {avgPaymentDays} dagen</div>
+                                  <div className="text-blue-600">Jaar progressie: {Math.round(yearProgress)}%</div>
+                                  <div className="text-xs text-gray-500">Reset elk jaar op {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL', { month: 'long', day: 'numeric' }) : '-'}</div>
                                 </div>
                               </div>
                             </div>

@@ -16,7 +16,8 @@ interface Supplier {
 }
 
 export default function SuppliersPage() {
-  const [suppliers, loading, error] = useFirebaseRealtime<Supplier>('suppliers', 'created_at')
+  const [refreshKey, setRefreshKey] = useState<number>(0)
+  const [suppliers, loading, error] = useFirebaseRealtime<Supplier>('suppliers', undefined, refreshKey)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [formData, setFormData] = useState({
@@ -50,6 +51,7 @@ export default function SuppliersPage() {
       setShowAddModal(false)
       setEditingSupplier(null)
       setFormData({ name: '', contact_person: '', email: '', phone: '', address: '' })
+      setRefreshKey(k => k + 1)
     } catch (error) {
       console.error('Error saving supplier:', error)
       alert('Fout bij opslaan van leverancier')
@@ -72,6 +74,7 @@ export default function SuppliersPage() {
     if (confirm('Weet je zeker dat je deze leverancier wilt verwijderen?')) {
       try {
         await FirebaseService.deleteDocument('suppliers', supplierId)
+        setRefreshKey(k => k + 1)
       } catch (error) {
         console.error('Error deleting supplier:', error)
         alert('Fout bij verwijderen van leverancier')
@@ -83,6 +86,7 @@ export default function SuppliersPage() {
     setShowAddModal(false)
     setEditingSupplier(null)
     setFormData({ name: '', contact_person: '', email: '', phone: '', address: '' })
+    setRefreshKey(k => k + 1)
   }
 
   return (
@@ -110,7 +114,7 @@ export default function SuppliersPage() {
             <h2 className="text-lg font-semibold text-gray-900">Beschikbare Leveranciers</h2>
           </div>
           
-          {suppliers.length === 0 ? (
+          {(!Array.isArray(suppliers) || suppliers.length === 0) ? (
             <div className="p-6 text-center text-gray-500">
               <div className="text-4xl mb-4">🏭</div>
               <p>Nog geen leveranciers toegevoegd</p>
@@ -139,7 +143,7 @@ export default function SuppliersPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {suppliers.map((supplier) => (
+                  {(Array.isArray(suppliers) ? suppliers : []).map((supplier: Supplier) => (
                     <tr key={supplier.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {supplier.name}

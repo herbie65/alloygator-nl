@@ -21,13 +21,18 @@ export default function TipTapEditor({ value, onChange }: { value: string; onCha
   })
   const [showMedia, setShowMedia] = useState(false)
 
+  // Alleen initialiseren bij mount of wanneer editor inhoud echt achterloopt.
+  // Niet telkens bij elke keystroke setContent aanroepen → dat veroorzaakt cursorverlies.
   useEffect(() => {
-    if (editor && typeof value === 'string') {
-      // Update content without triggering update loop
-      const current = editor.getHTML()
-      if (current !== value) editor.commands.setContent(value, { emitUpdate: false })
+    if (!editor) return
+    if (typeof value !== 'string') return
+    const current = editor.getHTML()
+    // Vergelijk op stringbasis; als identiek, doe niets.
+    if (current !== value) {
+      editor.commands.setContent(value, { emitUpdate: false })
     }
-  }, [value, editor])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor])
 
   if (!editor) return null
 

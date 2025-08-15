@@ -20,28 +20,6 @@ export default function KoppelingenPage() {
     // Initialize API keys from environment variables
     const keys: ApiKey[] = [
       {
-        name: 'e-Boekhouden Username',
-        key: process.env.NEXT_PUBLIC_EBOEKHOUDEN_USERNAME || '',
-        description: 'Gebruikersnaam voor e-Boekhouden SOAP API',
-        category: 'accounting',
-        isConfigured: !!process.env.NEXT_PUBLIC_EBOEKHOUDEN_USERNAME,
-        testUrl: '/api/accounting/eboekhouden/ping'
-      },
-      {
-        name: 'e-Boekhouden Security Code 1',
-        key: process.env.NEXT_PUBLIC_EBOEKHOUDEN_SECURITY_CODE_1 || '',
-        description: 'Eerste security code voor e-Boekhouden',
-        category: 'accounting',
-        isConfigured: !!process.env.NEXT_PUBLIC_EBOEKHOUDEN_SECURITY_CODE_1
-      },
-      {
-        name: 'e-Boekhouden Security Code 2',
-        key: process.env.NEXT_PUBLIC_EBOEKHOUDEN_SECURITY_CODE_2 || '',
-        description: 'Tweede security code voor e-Boekhouden',
-        category: 'accounting',
-        isConfigured: !!process.env.NEXT_PUBLIC_EBOEKHOUDEN_SECURITY_CODE_2
-      },
-      {
         name: 'Google Maps API Key',
         key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
         description: 'API key voor Google Maps integratie (dealer locator)',
@@ -121,25 +99,12 @@ export default function KoppelingenPage() {
     }
   }
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'payment': return '💳'
-      case 'maps': return '🗺️'
-      case 'accounting': return '📊'
-      case 'email': return '✉️'
-      case 'shipping': return '🚚'
-      default: return '🔗'
-    }
-  }
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'payment': return 'bg-green-100 text-green-800'
-      case 'maps': return 'bg-blue-100 text-blue-800'
-      case 'accounting': return 'bg-purple-100 text-purple-800'
-      case 'email': return 'bg-orange-100 text-orange-800'
-      case 'shipping': return 'bg-indigo-100 text-indigo-800'
-      default: return 'bg-gray-100 text-gray-800'
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'success': return 'text-green-600'
+      case 'error': return 'text-red-600'
+      case 'testing': return 'text-yellow-600'
+      default: return 'text-gray-600'
     }
   }
 
@@ -152,165 +117,125 @@ export default function KoppelingenPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success': return 'text-green-600'
-      case 'error': return 'text-red-600'
-      case 'testing': return 'text-yellow-600'
-      default: return 'text-gray-600'
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'payment': return '💳'
+      case 'maps': return '🗺️'
+      case 'accounting': return '📊'
+      case 'email': return '📧'
+      case 'shipping': return '🚚'
+      default: return '🔗'
     }
   }
 
-  const groupedKeys = apiKeys.reduce((groups, key) => {
-    if (!groups[key.category]) {
-      groups[key.category] = []
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'payment': return 'bg-purple-100 text-purple-800'
+      case 'maps': return 'bg-blue-100 text-blue-800'
+      case 'accounting': return 'bg-green-100 text-green-800'
+      case 'email': return 'bg-yellow-100 text-yellow-800'
+      case 'shipping': return 'bg-orange-100 text-orange-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
-    groups[key.category].push(key)
-    return groups
-  }, {} as Record<string, ApiKey[]>)
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Externe Koppelingen</h1>
-          <button
-            onClick={() => setShowKeys(!showKeys)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            {showKeys ? 'Verberg API Keys' : 'Toon API Keys'}
-          </button>
-        </div>
-
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">ℹ️ Over deze pagina</h3>
-          <p className="text-sm text-blue-700">
-            Hier beheer je alle externe API koppelingen en integraties. API keys worden ingesteld via environment variables 
-            (.env.local voor lokaal, secrets voor productie). Gebruik de test knoppen om verbindingen te controleren.
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Externe Koppelingen</h1>
+        
+        {/* Information Box */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex items-center mb-4">
+            <span className="text-2xl mr-3">ℹ️</span>
+            <h2 className="text-xl font-semibold text-gray-900">Over deze pagina</h2>
+          </div>
+          <p className="text-gray-700 mb-4">
+            Deze pagina beheert externe API verbindingen en integraties. API keys worden ingesteld via environment variabelen 
+            (<code className="bg-gray-100 px-2 py-1 rounded">.env.local</code> voor lokaal, secrets voor productie).
           </p>
+          <p className="text-gray-700">
+            Gebruik de test knoppen om verbindingen te controleren voordat je ze in productie gebruikt.
+          </p>
+          
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => setShowKeys(!showKeys)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+            >
+              {showKeys ? 'Verberg API Keys' : 'Toon API Keys'}
+            </button>
+          </div>
         </div>
 
-        {/* API Keys per categorie */}
-        {Object.entries(groupedKeys).map(([category, keys]) => (
-          <div key={category} className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div className="flex items-center mb-6">
-              <span className="text-2xl mr-3">{getCategoryIcon(category)}</span>
-              <h2 className="text-xl font-semibold text-gray-900 capitalize">
-                {category === 'payment' ? 'Betalingen' :
-                 category === 'maps' ? 'Kaarten' :
-                 category === 'accounting' ? 'Boekhouding' :
-                 category === 'email' ? 'E-mail' :
-                 category === 'shipping' ? 'Verzending' : category}
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              {keys.map((apiKey) => (
-                <div key={apiKey.name} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-medium text-gray-900">{apiKey.name}</h3>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(category)}`}>
-                          {category}
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          apiKey.isConfigured ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {apiKey.isConfigured ? 'Geconfigureerd' : 'Niet ingesteld'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">{apiKey.description}</p>
-                      
-                      {showKeys && (
-                        <div className="mb-3">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            API Key
-                          </label>
-                          <input
-                            type="text"
-                            value={apiKey.key}
-                            disabled
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 font-mono text-sm"
-                            placeholder="Configureer via environment variables"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="ml-4 flex flex-col items-end space-y-2">
-                      {apiKey.testUrl && (
-                        <button
-                          onClick={() => testConnection(apiKey)}
-                          disabled={!apiKey.isConfigured || testResults[apiKey.name]?.status === 'testing'}
-                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md transition-colors text-sm"
-                        >
-                          {testResults[apiKey.name]?.status === 'testing' ? 'Testen...' : 'Test Verbinding'}
-                        </button>
-                      )}
-                      
-                      {testResults[apiKey.name] && testResults[apiKey.name].status !== 'idle' && (
-                        <div className={`text-sm font-medium ${getStatusColor(testResults[apiKey.name].status)}`}>
-                          {getStatusIcon(testResults[apiKey.name].status)} {testResults[apiKey.name].message}
-                        </div>
-                      )}
-                    </div>
+        {/* API Keys Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {apiKeys.map((apiKey) => (
+            <div key={apiKey.name} className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">{getCategoryIcon(apiKey.category)}</span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{apiKey.name}</h3>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(apiKey.category)}`}>
+                      {apiKey.category}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* Environment Variables Info */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">🔧 Environment Variables</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Lokaal (.env.local)</h3>
-              <div className="bg-gray-900 text-green-400 p-4 rounded-md font-mono text-sm overflow-x-auto">
-                <div># e-Boekhouden</div>
-                <div>EBOEKHOUDEN_USERNAME=jouw_username</div>
-                <div>EBOEKHOUDEN_SECURITY_CODE_1=code1</div>
-                <div>EBOEKHOUDEN_SECURITY_CODE_2=code2</div>
-                <div>EBOEKHOUDEN_TEST_MODE=true</div>
-                <div></div>
-                <div># Google Maps</div>
-                <div>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=jouw_key</div>
-                <div></div>
-                <div># Mollie</div>
-                <div>NEXT_PUBLIC_MOLLIE_API_KEY=jouw_live_key</div>
-                <div>NEXT_PUBLIC_MOLLIE_TEST_API_KEY=jouw_test_key</div>
               </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Productie (Firebase)</h3>
-              <div className="bg-gray-900 text-green-400 p-4 rounded-md font-mono text-sm overflow-x-auto">
-                <div># Via Firebase CLI</div>
-                <div>firebase functions:config:set</div>
-                <div>  eboekhouden.username="..."</div>
-                <div>  eboekhouden.security_code_1="..."</div>
-                <div>  eboekhouden.security_code_2="..."</div>
-                <div></div>
-                <div># Of via Firebase Console</div>
-                <div># Functions → Config → Environment variables</div>
+              
+              <p className="text-gray-600 text-sm mb-4">{apiKey.description}</p>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    apiKey.isConfigured 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {apiKey.isConfigured ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}
+                  </span>
+                </div>
+                
+                {apiKey.testUrl && (
+                  <button
+                    onClick={() => testConnection(apiKey)}
+                    disabled={testResults[apiKey.name]?.status === 'testing'}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                  >
+                    {testResults[apiKey.name]?.status === 'testing' ? 'Testen...' : 'Test'}
+                  </button>
+                )}
               </div>
+              
+              {testResults[apiKey.name] && testResults[apiKey.name].status !== 'idle' && (
+                <div className="mt-3 p-2 rounded-md bg-gray-50">
+                  <div className={`flex items-center text-sm ${getStatusColor(testResults[apiKey.name].status)}`}>
+                    <span className="mr-2">{getStatusIcon(testResults[apiKey.name].status)}</span>
+                    {testResults[apiKey.name].message}
+                  </div>
+                </div>
+              )}
+              
+              {showKeys && (
+                <div className="mt-3 p-2 bg-gray-100 rounded-md">
+                  <p className="text-xs text-gray-600 font-mono break-all">
+                    {apiKey.key || 'Niet ingesteld'}
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-          
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <h3 className="text-sm font-medium text-yellow-800 mb-2">⚠️ Belangrijke opmerkingen</h3>
-            <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• API keys worden nooit in de code opgeslagen</li>
-              <li>• Gebruik .env.local voor lokale ontwikkeling</li>
-              <li>• Gebruik Firebase secrets voor productie</li>
-              <li>• Test altijd eerst in test mode voordat je naar productie gaat</li>
-              <li>• Bewaar API keys veilig en deel ze nooit</li>
-            </ul>
-          </div>
+          ))}
         </div>
+
+        {/* No API Keys Message */}
+        {apiKeys.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-6xl mb-4">🔗</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Geen API Keys Geconfigureerd</h3>
+            <p className="text-gray-600">Voeg environment variabelen toe om API integraties te configureren.</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
+import dynamic from 'next/dynamic'
+// TipTapEditor als stabiele module-scope component, zodat hij NIET remount bij elke toetsaanslag
+const TipTapEditor = dynamic(() => import('../cms/TipTapEditor'), { ssr: false })
 import MediaPickerModal from '../components/MediaPickerModal'
 import type { Product } from '@/types/product'
 
@@ -20,36 +23,106 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   const [productColors, setProductColors] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [showMedia, setShowMedia] = useState(false)
+  // Lokale conceptvelden voor WYSIWYG zodat er niets buiten deze modal wordt geüpdatet tijdens typen
+  const [shortDraft, setShortDraft] = useState<string>('')
+  const [longDraft, setLongDraft] = useState<string>('')
+  const [existingSlugs, setExistingSlugs] = useState<string[]>([])
+  const [slugEdited, setSlugEdited] = useState<boolean>(false)
+
+  const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
+  const categoryLabelFromSlug = (slug: string) => {
+    switch (slug) {
+      case 'alloygator-set': return 'AlloyGator Set'
+      case 'montagehulpmiddelen': return 'Montagehulpmiddelen'
+      case 'accessoires': return 'Accessoires'
+      default: return slug || 'Algemeen'
+    }
+  }
+  const slugify = (text: string) =>
+    String(text || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+  const uniqueSlug = (base: string, currentId?: string) => {
+    let s = slugify(base)
+    if (!s) return ''
+    let candidate = s
+    let i = 2
+    while (existingSlugs.includes(candidate)) {
+      // als je aan het editen bent met dezelfde slug/id, laat het staan
+      if (currentId && candidate === (formData as any).slug && currentId === (formData as any).id) break
+      candidate = `${s}-${i++}`
+    }
+    return candidate
+  }
 
   useEffect(() => {
-    if (product && isOpen) {
-      setFormData(product)
-    } else if (isOpen && !product) {
-              // New product
-              setFormData({
-          name: '',
-          description: '',
-          price: 0,
-          cost_price: 0,
-          vat_category: 'standard',
-          category: 'alloygator-set',
-          sku: '',
-          ean_code: '',
-          stock_quantity: 0,
-          min_stock: 0,
-          weight: 0,
-          dimensions: '',
-          material: '',
-          color: '',
-          warranty: '',
-          instructions: '',
-          features: [],
-          specifications: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+    if (!isOpen) return
+    const load = async () => {
+      // Als we een product-ID hebben: vers, direct uit de database ophalen
+      if (product?.id) {
+        try {
+          const latest: any = await FirebaseService.getDocument('products', String(product.id))
+          if (latest) {
+            const normalizedCat = normalizeCategory(latest.category)
+            const currentSlug = latest.slug || uniqueSlug(latest.name || latest.title || 'product', latest.id)
+            setFormData({ ...latest, category: normalizedCat, slug: currentSlug })
+            setShortDraft(String(latest.short_description || latest.description || ''))
+            setLongDraft(String(latest.long_description || ''))
+            return
+          }
+        } catch (_) {
+          // fallback op meegegeven product-object
+        }
+        const normalizedCat = normalizeCategory((product as any).category)
+        const currentSlug = (product as any).slug || uniqueSlug((product as any).name || (product as any).title || 'product', (product as any).id)
+        setFormData({ ...(product as any), category: normalizedCat, slug: currentSlug })
+        setShortDraft(String((product as any).short_description || (product as any).description || ''))
+        setLongDraft(String((product as any).long_description || ''))
+        return
+      }
+
+      // Nieuw product
+      setFormData({
+        name: '',
+        description: '',
+        price: 0,
+        cost_price: 0,
+        vat_category: 'standard',
+        category: 'alloygator-set',
+        sku: '',
+        ean_code: '',
+        slug: '',
+        stock_quantity: 0,
+        min_stock: 0,
+        weight: 0,
+        dimensions: '',
+        material: '',
+        color: '',
+        warranty: '',
+        instructions: '',
+        features: [],
+        specifications: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      setShortDraft('')
+      setLongDraft('')
     }
-  }, [product, isOpen])
+    load()
+  }, [product?.id, isOpen])
+
+  // Auto-slug uit naam wanneer niet handmatig aangepast
+  useEffect(() => {
+    if (!isOpen) return
+    if (slugEdited) return
+    const base = String(formData.name || '')
+    if (!base) return
+    const s = uniqueSlug(base, (formData as any).id)
+    setFormData(prev => ({ ...prev, slug: s }))
+  }, [formData.name, slugEdited, isOpen])
 
   // Load product attributes and colors
   useEffect(() => {
@@ -76,6 +149,12 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           })
           setDynamicValues(dynamic)
         }
+
+        try {
+          const all = await FirebaseService.getDocuments('products')
+          const slugs = (Array.isArray(all) ? all : []).map((p: any) => String(p.slug || '').toLowerCase()).filter(Boolean)
+          setExistingSlugs(slugs)
+        } catch {}
       } catch (error) {
         console.error('Error loading product data:', error)
       }
@@ -88,21 +167,26 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.name && formData.description) {
+    if (formData.name && (shortDraft || formData.short_description || formData.description)) {
+      const categorySlug = normalizeCategory(formData.category)
       const productData = {
-  ...formData,
-  ...dynamicValues,
-  id: product?.id || `product_${Date.now()}`,
-  price: Number(formData.price) || 0,
-  cost_price: Number(formData.cost_price) || 0,
-  stock_quantity: Number(formData.stock_quantity) || 0,
-  min_stock: Number(formData.min_stock) || 0,
-  weight: Number(formData.weight) || 0,
-  features: Array.isArray(formData.features) ? formData.features : [],
-  specifications: formData.specifications || {},
-  created_at: formData.created_at ?? new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-} as Product
+        ...formData,
+        ...dynamicValues,
+        // Laat id leeg bij nieuw product zodat backend een numerieke id toewijst
+        id: product?.id, 
+        price: Number(formData.price) || 0,
+        cost_price: Number(formData.cost_price) || 0,
+        stock_quantity: Number(formData.stock_quantity) || 0,
+        min_stock: Number(formData.min_stock) || 0,
+        weight: Number(formData.weight) || 0,
+        features: Array.isArray(formData.features) ? formData.features : [],
+        specifications: formData.specifications || {},
+        created_at: formData.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        category: categorySlug,
+        short_description: shortDraft || formData.short_description || formData.description || '',
+        long_description: longDraft || formData.long_description || '',
+      } as Product
       
       onSave(productData)
       onClose()
@@ -392,17 +476,13 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Beschrijving *
-              </label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                disabled={!isEditing && !!product}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                required
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Korte omschrijving *</label>
+              <TipTapEditor value={shortDraft} onChange={setShortDraft} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lange omschrijving</label>
+              <TipTapEditor value={longDraft} onChange={setLongDraft} />
             </div>
 
             <div>

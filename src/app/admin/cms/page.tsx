@@ -73,7 +73,7 @@ export default function CMSPage() {
             // Auto-fix: ensure retourvoorwaarden content contains link to /returns and PDF
             try {
               const existingRetour = normalized.find((p:any)=> (p.slug||'').toLowerCase() === 'wat-zijn-onze-retourvoorwaarden')
-              if (existingRetour && typeof existingRetour.content === 'string' && !existingRetour.content.includes('/returns')) {
+              if (existingRetour && existingRetour.id && typeof existingRetour.content === 'string' && !existingRetour.content.includes('/returns')) {
                 const res = await fetch('/cms/wat-zijn-onze-retourvoorwaarden.html')
                 if (res.ok) {
                   const html = await res.text()
@@ -341,17 +341,19 @@ export default function CMSPage() {
       setSaving(true)
       setError('')
 
-      if (editingPage) {
+      if (editingPage && pageData.id) {
         // Update existing page
         try {
           await FirebaseService.updateCMSPage(pageData.id, pageData)
+          setPages(prev => prev.map(p => 
+            p.id === pageData.id ? pageData : p
+          ))
         } catch (error) {
           console.log('Firebase update not available, local update')
+          setPages(prev => prev.map(p => 
+            p.id === pageData.id ? pageData : p
+          ))
         }
-        
-        setPages(prev => prev.map(p => 
-          p.id === pageData.id ? pageData : p
-        ))
       } else {
         // Create new page
         const newPage = {
@@ -362,12 +364,16 @@ export default function CMSPage() {
         }
         
         try {
-          await FirebaseService.createCMSPage(newPage)
+          const created = await FirebaseService.createCMSPage(newPage)
+          if (created) {
+            setPages(prev => [...prev, created as any])
+          } else {
+            setPages(prev => [...prev, newPage])
+          }
         } catch (error) {
           console.log('Firebase create not available, local create')
+          setPages(prev => [...prev, newPage])
         }
-        
-        setPages(prev => [...prev, newPage])
       }
 
       setShowPageModal(false)
@@ -387,11 +393,25 @@ export default function CMSPage() {
       setError('')
 
       if (editingHeaderFooter && editingHeaderFooter.id) {
-        await FirebaseService.updateHeaderFooter(String(editingHeaderFooter.id), { ...headerFooterData, updated_at: new Date().toISOString() })
-        setHeaderFooter(prev => prev.map(hf => hf.id === editingHeaderFooter.id ? { ...headerFooterData, id: editingHeaderFooter.id } : hf))
+        try {
+          await FirebaseService.updateHeaderFooter(String(editingHeaderFooter.id), { ...headerFooterData, updated_at: new Date().toISOString() })
+          setHeaderFooter(prev => prev.map(hf => hf.id === editingHeaderFooter.id ? { ...headerFooterData, id: editingHeaderFooter.id } : hf))
+        } catch (error) {
+          console.log('Firebase update not available, local update')
+          setHeaderFooter(prev => prev.map(hf => hf.id === editingHeaderFooter.id ? { ...headerFooterData, id: editingHeaderFooter.id } : hf))
+        }
       } else {
-        const created = await FirebaseService.createHeaderFooter({ ...headerFooterData, updated_at: new Date().toISOString() })
-        setHeaderFooter(prev => [...prev, created as any])
+        try {
+          const created = await FirebaseService.createHeaderFooter({ ...headerFooterData, updated_at: new Date().toISOString() })
+          if (created) {
+            setHeaderFooter(prev => [...prev, created as any])
+          } else {
+            setHeaderFooter(prev => [...prev, { ...headerFooterData, id: Date.now().toString(), updated_at: new Date().toISOString() }])
+          }
+        } catch (error) {
+          console.log('Firebase create not available, local create')
+          setHeaderFooter(prev => [...prev, { ...headerFooterData, id: Date.now().toString(), updated_at: new Date().toISOString() }])
+        }
       }
 
       setShowHeaderFooterModal(false)
@@ -409,11 +429,11 @@ export default function CMSPage() {
       try {
         try {
           await FirebaseService.deleteCMSPage(pageId)
+          setPages(prev => prev.filter(p => p.id !== pageId))
         } catch (error) {
           console.log('Firebase delete not available, local delete')
+          setPages(prev => prev.filter(p => p.id !== pageId))
         }
-        
-        setPages(prev => prev.filter(p => p.id !== pageId))
       } catch (error) {
         console.error('Error deleting page:', error)
         setError('Fout bij het verwijderen van pagina')

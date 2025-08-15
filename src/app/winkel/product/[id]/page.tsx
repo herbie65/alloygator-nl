@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils'
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
+import { FirebaseService } from '@/lib/firebase'
 
 interface Product {
   id: string
@@ -162,15 +163,91 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [activeTab, setActiveTab] = useState('description')
 
+  // Zet de paginatitel zodra product geladen is
   useEffect(() => {
-    // Find product by ID
-    const foundProduct = staticProducts.find(p => p.id === productId)
-    if (foundProduct) {
-      setProduct(foundProduct)
+    if (product?.name) {
+      document.title = `${product.name}`
     } else {
-      router.push('/winkel')
+      document.title = 'Product niet gevonden'
     }
-    setLoading(false)
+  }, [product?.name])
+
+  useEffect(() => {
+    let isMounted = true
+    const load = async () => {
+      try {
+        // 1) Probeer vanuit Firebase direct document te halen
+        let doc: any = null
+        try {
+          // Probeer eerst direct op id
+          doc = await FirebaseService.getDocument('products', productId)
+        } catch (_) {}
+
+        // 2) Als direct document niet bestaat, probeer te zoeken binnen alle producten op veld `id`
+        if (!doc) {
+          try {
+            const list = await FirebaseService.getDocuments('products')
+            if (Array.isArray(list) && list.length) {
+              // Vind op id of slug
+              doc = list.find((p: any) => String(p.id) === String(productId) || String(p.slug || '').toLowerCase() === String(productId).toLowerCase()) || null
+            }
+          } catch (_) {}
+        }
+
+        if (doc && isMounted) {
+          const mapped: any = {
+            id: String(doc.id),
+            slug: doc.slug || '',
+            name: doc.name || doc.title || 'Product',
+            description: doc.description || '',
+            short_description: doc.short_description || '',
+            long_description: doc.long_description || '',
+            price: Number(doc.price || doc.cost_price || 0),
+            vat_category: doc.vat_category || 'standard',
+            category: doc.category || 'accessoires',
+            image_url: doc.image_url || doc.image || undefined,
+            sku: doc.sku || '',
+            ean_code: doc.ean_code || doc.ean || '',
+            stock_quantity: Number(doc.stock_quantity || doc.stock || 0),
+            weight: Number(doc.weight || 0),
+            dimensions: doc.dimensions || '',
+            material: doc.material || '',
+            color: doc.color || '',
+            warranty: doc.warranty || '',
+            instructions: doc.instructions || '',
+            features: Array.isArray(doc.features) ? doc.features : [],
+            specifications: doc.specifications || {},
+            created_at: doc.created_at || new Date().toISOString(),
+            updated_at: doc.updated_at || new Date().toISOString(),
+            reviews: Array.isArray(doc.reviews) ? doc.reviews : [],
+          }
+          setProduct(mapped)
+          setLoading(false)
+          return
+        }
+
+        // 3) Fallback naar statische producten
+        const foundProduct = staticProducts.find(p => p.id === productId)
+        if (foundProduct && isMounted) {
+          setProduct(foundProduct)
+          setLoading(false)
+          return
+        }
+
+        // 4) Als niets gevonden, terug naar winkel
+        if (isMounted) {
+          setLoading(false)
+          router.push('/winkel')
+        }
+      } catch {
+        if (isMounted) {
+          setLoading(false)
+          router.push('/winkel')
+        }
+      }
+    }
+    load()
+    return () => { isMounted = false }
   }, [productId, router])
 
   const addToCart = () => {
@@ -310,6 +387,9 @@ export default function ProductDetailPage() {
                   <span className="text-sm text-gray-500">{dealer.isDealer ? 'excl. BTW' : vatText}</span>
                 </div>
                 <p className="text-sm text-gray-600">SKU: {product.sku}</p>
+                {(product as any).ean_code && (
+                  <p className="text-sm text-gray-600">EAN: {(product as any).ean_code}</p>
+                )}
               </div>
 
               {/* Stock Status */}
@@ -406,7 +486,10 @@ export default function ProductDetailPage() {
               {activeTab === 'description' && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Productbeschrijving</h3>
-                  <p className="text-gray-700 leading-relaxed">{product.description}</p>
+                  <div
+                    className="text-gray-700 leading-relaxed prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: String((product as any).long_description || product.description || '') }}
+                  />
                   
                   <div className="mt-6">
                     <h4 className="font-medium text-gray-900 mb-2">Inclusief:</h4>

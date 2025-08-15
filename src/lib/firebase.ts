@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, setDoc, DocumentReference } from 'firebase/firestore';
 
 // Firebase configuratie
 const firebaseConfig = {
@@ -15,31 +15,86 @@ console.log('Firebase config loaded successfully');
 
 // Initialize Firebase only if not already initialized
 let app;
-try {
-  const apps = getApps();
-  if (apps.length === 0) {
+let db: any = null;
+
+const initializeFirebase = () => {
+  console.log('initializeFirebase called');
+  try {
+    const apps = getApps();
+    console.log('Existing apps:', apps.length);
+    if (apps.length === 0) {
+      app = initializeApp(firebaseConfig);
+      console.log('Firebase initialized successfully');
+    } else {
+      app = apps[0];
+      console.log('Firebase already initialized');
+    }
+    
+    if (!db) {
+      console.log('Creating new Firestore instance...');
+      db = getFirestore(app);
+      console.log('Firestore database initialized, db value:', db);
+    } else {
+      console.log('db already exists:', db);
+    }
+    
+    return db;
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    // Fallback initialization
+    console.log('Attempting fallback initialization...');
     app = initializeApp(firebaseConfig);
-    console.log('Firebase initialized successfully');
-  } else {
-    app = apps[0];
-    console.log('Firebase already initialized');
+    db = getFirestore(app);
+    console.log('Firestore database initialized (fallback), db value:', db);
+    return db;
   }
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  // Fallback initialization
-  app = initializeApp(firebaseConfig);
 }
 
-const db = getFirestore(app);
-console.log('Firestore database initialized');
+// Ensure Firebase is initialized on module load in the browser so hooks using `db` work immediately
+try {
+  if (typeof window !== 'undefined') {
+    initializeFirebase();
+  }
+} catch (_) {
+  // ignore init errors here; callers using getDb() will retry
+}
+
+const getDb = () => {
+  console.log('getDb called, db value:', db);
+  if (!db) {
+    console.log('db is null/undefined, initializing Firebase...');
+    return initializeFirebase();
+  }
+  console.log('db exists, returning:', db);
+  return db;
+}
+
+// BTW (VAT) nummers voor e-Boekhouden
+export const BTW_NUMMERS = {
+  HOOG_VERK_21: 'HOOG_VERK_21',    // 21% BTW verkoop
+  LAAG_VERK_9: 'LAAG_VERK_9',      // 9% BTW verkoop
+  BI_EU_VERK: 'BI_EU_VERK',        // BTW-vrije verkoop binnen EU
+  GEEN: 'GEEN'                      // Geen BTW
+}
 
 // Database service functies
 export class FirebaseService {
   // Generic CRUD operations
   static async getDocument(collectionName: string, docId: string) {
     try {
-      const docRef = doc(db, collectionName, docId);
+      console.log('getDocument called for:', collectionName, docId);
+      const database = getDb();
+      console.log('database from getDb:', database);
+      if (!database) {
+        throw new Error('Database is undefined after getDb() call');
+      }
+      
+      // Gebruik de geïmporteerde doc functie expliciet
+      const docRef: DocumentReference = doc(database, collectionName, docId);
+      console.log('docRef created:', docRef);
+      
       const docSnap = await getDoc(docRef);
+      console.log('docSnap retrieved:', docSnap.exists());
       
       if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() };
@@ -54,7 +109,8 @@ export class FirebaseService {
 
   static async getDocuments(collectionName: string, conditions: any[] = []) {
     try {
-      let q: any = collection(db, collectionName);
+      const database = getDb();
+      let q: any = collection(database, collectionName);
       
       // Apply conditions
       conditions.forEach(condition => {
@@ -77,7 +133,8 @@ export class FirebaseService {
 
   static async addDocument(collectionName: string, data: any) {
     try {
-      const docRef = await addDoc(collection(db, collectionName), {
+      const database = getDb();
+      const docRef = await addDoc(collection(database, collectionName), {
         ...data,
         created_at: new Date(),
         updated_at: new Date()
@@ -94,7 +151,8 @@ export class FirebaseService {
       if (!docId || typeof docId !== 'string') {
         throw new Error(`Invalid document id for collection ${collectionName}`)
       }
-      const docRef = doc(db, collectionName, docId);
+      const database = getDb();
+      const docRef = doc(database, collectionName, docId);
       const { id, ...updateData } = data; // Remove id from data to avoid conflicts
       await setDoc(docRef, {
         ...updateData,
@@ -109,7 +167,8 @@ export class FirebaseService {
 
   static async deleteDocument(collectionName: string, docId: string) {
     try {
-      const docRef = doc(db, collectionName, docId);
+      const database = getDb();
+      const docRef = doc(database, collectionName, docId);
       await deleteDoc(docRef);
       return true;
     } catch (error) {
@@ -128,7 +187,96 @@ export class FirebaseService {
   }
 
   static async addCustomer(customerData: any) {
-    return this.addDocument('customers', customerData);
+    try {
+      // Get the next available customer number
+      const customers = await this.getDocuments('customers');
+      let nextNumber = 2000; // Start from 2000
+      
+      if (customers && customers.length > 0) {
+        // Find the highest existing customer number
+        const existingNumbers = customers
+          .map(c => {
+            const match = String(c.id).match(/^#?(\d+)$/);
+            return match ? parseInt(match[1]) : 0;
+          })
+          .filter(num => num >= 2000);
+        
+        if (existingNumbers.length > 0) {
+          nextNumber = Math.max(...existingNumbers) + 1;
+        }
+      }
+      
+      // Create customer with custom ID
+      const customerId = `#${nextNumber}`;
+      const database = getDb();
+      const docRef = doc(database, 'customers', customerId);
+      
+      await setDoc(docRef, {
+        ...customerData,
+        id: customerId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: customerId, ...customerData };
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      throw error;
+    }
+  }
+
+  // Migrate existing customers to numeric IDs
+  static async migrateCustomersToNumericIds() {
+    try {
+      const customers = await this.getDocuments('customers');
+      if (!customers || customers.length === 0) return;
+      
+      let nextNumber = 2000;
+      const migratedCustomers = [];
+      
+      for (const customer of customers) {
+        // Check if customer already has numeric ID
+        if (String(customer.id).match(/^#?(\d+)$/)) {
+          const num = parseInt(String(customer.id).replace('#', ''));
+          if (num >= 2000) {
+            nextNumber = Math.max(nextNumber, num + 1);
+          }
+        }
+      }
+      
+      for (const customer of customers) {
+        // Skip if already has numeric ID
+        if (String(customer.id).match(/^#?(\d+)$/)) {
+          const num = parseInt(String(customer.id).replace('#', ''));
+          if (num >= 2000) continue;
+        }
+        
+        // Create new numeric ID
+        const newId = `#${nextNumber}`;
+        const database = getDb();
+        
+        // Create new document with numeric ID
+        const newDocRef = doc(database, 'customers', newId);
+        await setDoc(newDocRef, {
+          ...customer,
+          id: newId,
+          updated_at: new Date().toISOString()
+        });
+        
+        // Delete old document
+        const oldDocRef = doc(database, 'customers', customer.id);
+        await deleteDoc(oldDocRef);
+        
+        migratedCustomers.push({ oldId: customer.id, newId });
+        nextNumber++;
+      }
+      
+      console.log(`✅ Migrated ${migratedCustomers.length} customers to numeric IDs:`, migratedCustomers);
+      return migratedCustomers;
+    } catch (error) {
+      console.error('Error migrating customers:', error);
+      throw error;
+    }
   }
 
   static async updateCustomer(id: string, customerData: any) {
@@ -149,7 +297,44 @@ export class FirebaseService {
   }
 
   static async addProduct(productData: any) {
-    return this.addDocument('products', productData);
+    try {
+      const database = getDb();
+
+      // Helper: bepaal volgende numerieke product-ID (als string)
+      const getNextProductId = async (): Promise<string> => {
+        const all: any[] = await this.getDocuments('products');
+        const numericIds = (all || [])
+          .map((p) => {
+            const m = String(p.id || '').match(/^\d+$/);
+            return m ? parseInt(m[0], 10) : NaN;
+          })
+          .filter((n) => Number.isFinite(n)) as number[];
+        const next = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
+        return String(next);
+      };
+
+      // Als een geldige numerieke id is meegegeven, gebruik die; anders genereer volgende
+      const providedId = productData?.id;
+      const hasNumericId = typeof providedId !== 'undefined' && /^\d+$/.test(String(providedId));
+      const productId = hasNumericId ? String(providedId) : await getNextProductId();
+
+      const nowIso = new Date().toISOString();
+      const { id: _omitId, created_at, updated_at, ...rest } = productData || {};
+
+      const payload = {
+        ...rest,
+        id: productId,
+        created_at: created_at || nowIso,
+        updated_at: nowIso,
+      };
+
+      const docRef = doc(database, 'products', productId);
+      await setDoc(docRef, payload, { merge: true });
+      return { id: productId, ...payload };
+    } catch (error) {
+      console.error('Error adding product:', error);
+      throw error;
+    }
   }
 
   static async updateProduct(id: string, productData: any) {
