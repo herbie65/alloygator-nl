@@ -104,9 +104,15 @@ export default function HomePage() {
     const firstH1 = root.querySelector('h1')
     if (firstH1) firstH1.classList.add('font-bebas', 'uppercase', 'tracking-wide')
 
-    // Hero video(s): vergroot naar 200%, crop en maak donkerder
+    // Hero video(s): vergroot naar 200%, crop en maak donkerder. Let op: CMS gebruikt vaak `absolute inset-0`,
+    // waardoor `height` genegeerd wordt. We forceren daarom `bottom:auto` en verschuiven `top` negatief om te centreren.
     const videos = Array.from(root.querySelectorAll('video')) as HTMLVideoElement[]
     videos.forEach((vid) => {
+      vid.style.position = 'absolute'
+      vid.style.left = '0'
+      vid.style.right = '0'
+      vid.style.bottom = 'auto' // override van `inset-0`
+      vid.style.top = '-50%'
       vid.style.width = '100%'
       vid.style.height = '200%'
       vid.style.objectFit = 'cover'
