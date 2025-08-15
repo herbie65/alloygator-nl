@@ -104,26 +104,31 @@ export default function HomePage() {
     const firstH1 = root.querySelector('h1')
     if (firstH1) firstH1.classList.add('font-bebas', 'uppercase', 'tracking-wide')
 
-    // Hero video(s): vergroot visueel naar 200% met scale, crop en maak donkerder.
+    // Hero video(s): vergroot naar 200% hoogte (zonder zoom), crop en maak donkerder.
     const videos = Array.from(root.querySelectorAll('video')) as HTMLVideoElement[]
     videos.forEach((vid) => {
       vid.style.position = 'absolute'
       vid.style.left = '0'
       vid.style.right = '0'
-      vid.style.top = '0'
-      vid.style.bottom = '0'
+      vid.style.bottom = 'auto'
+      vid.style.top = '-50%'
       vid.style.width = '100%'
-      vid.style.height = '100%'
+      vid.style.height = '200%'
       vid.style.objectFit = 'cover'
       vid.style.display = 'block'
-      // Zoom (i.p.v. height manipulatie) zodat het altijd zichtbaar is binnen absolute container
-      vid.style.transform = 'scale(2)'
-      vid.style.transformOrigin = 'center center'
-      vid.style.willChange = 'transform'
+      vid.style.transform = ''
+      vid.style.transformOrigin = ''
+      vid.style.willChange = ''
       // Donkerder maken
       vid.style.filter = 'brightness(0.55)'
-      const parent = vid.parentElement
+      const parent = vid.parentElement as HTMLElement | null
       if (parent && !parent.style.overflow) parent.style.overflow = 'hidden'
+      // Geef de hero extra bodemruimte zodat de volgende sectie de video niet "afsnijdt"
+      const section = vid.closest('section') as HTMLElement | null
+      if (section) {
+        section.style.position = section.style.position || 'relative'
+        section.style.paddingBottom = section.style.paddingBottom || '10vh'
+      }
     })
   }, [cmsHtml])
 
