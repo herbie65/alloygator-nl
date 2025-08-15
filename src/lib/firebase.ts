@@ -288,7 +288,44 @@ export class FirebaseService {
   }
 
   static async addProduct(productData: any) {
-    return this.addDocument('products', productData);
+    try {
+      const database = getDb();
+
+      // Helper: bepaal volgende numerieke product-ID (als string)
+      const getNextProductId = async (): Promise<string> => {
+        const all: any[] = await this.getDocuments('products');
+        const numericIds = (all || [])
+          .map((p) => {
+            const m = String(p.id || '').match(/^\d+$/);
+            return m ? parseInt(m[0], 10) : NaN;
+          })
+          .filter((n) => Number.isFinite(n)) as number[];
+        const next = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
+        return String(next);
+      };
+
+      // Als een geldige numerieke id is meegegeven, gebruik die; anders genereer volgende
+      const providedId = productData?.id;
+      const hasNumericId = typeof providedId !== 'undefined' && /^\d+$/.test(String(providedId));
+      const productId = hasNumericId ? String(providedId) : await getNextProductId();
+
+      const nowIso = new Date().toISOString();
+      const { id: _omitId, created_at, updated_at, ...rest } = productData || {};
+
+      const payload = {
+        ...rest,
+        id: productId,
+        created_at: created_at || nowIso,
+        updated_at: nowIso,
+      };
+
+      const docRef = doc(database, 'products', productId);
+      await setDoc(docRef, payload, { merge: true });
+      return { id: productId, ...payload };
+    } catch (error) {
+      console.error('Error adding product:', error);
+      throw error;
+    }
   }
 
   static async updateProduct(id: string, productData: any) {

@@ -17,11 +17,14 @@ interface Product {
 
 
 export default function AlloyGatorSetPage() {
-  const [allProducts, loading, error] = useFirebaseRealtime<Product>('products', 'created_at')
+  // Haal alle producten op (geen documentId meegeven)
+  const [allProducts, loading, error] = useFirebaseRealtime<Product>('products')
   const dealer = useDealerPricing()
 
   // Filter products for this category
-  const products = allProducts.filter(p => p.category === 'alloygator-set')
+  const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
+  const list: any[] = Array.isArray(allProducts) ? (allProducts as unknown as any[]) : []
+  const products = list.filter((p) => normalizeCategory(p.category) === 'alloygator-set')
 
   useEffect(() => {}, [])
 

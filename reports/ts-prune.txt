@@ -1,0 +1,241 @@
+next.config.ts:35 - default
+src/middleware.ts:3 - middleware
+src/middleware.ts:38 - config
+src/app/error.tsx:5 - default
+src/app/layout-test.tsx:142 - default
+src/app/layout-test.tsx:5 - revalidate
+src/app/robots.ts:3 - default
+src/app/sitemap.ts:3 - default
+src/hooks/useDealerPricing.ts:6 - DealerPricingInfo (used in module)
+src/lib/database.ts:4 - getCustomers (used in module)
+src/lib/database.ts:8 - getCustomerById (used in module)
+src/lib/database.ts:12 - addCustomer (used in module)
+src/lib/database.ts:16 - updateCustomer (used in module)
+src/lib/database.ts:20 - deleteCustomer (used in module)
+src/lib/database.ts:24 - getProducts (used in module)
+src/lib/database.ts:28 - addProduct (used in module)
+src/lib/database.ts:32 - updateProduct (used in module)
+src/lib/database.ts:36 - getVatSettings (used in module)
+src/lib/database.ts:40 - updateVatSettings
+src/lib/database.ts:44 - getShippingSettings (used in module)
+src/lib/database.ts:48 - updateShippingSettings (used in module)
+src/lib/database.ts:52 - getPaymentSettings (used in module)
+src/lib/database.ts:56 - updatePaymentSettings (used in module)
+src/lib/database.ts:60 - getHeaderSettings (used in module)
+src/lib/database.ts:64 - updateHeaderSettings (used in module)
+src/lib/database.ts:68 - getDhlSettings (used in module)
+src/lib/database.ts:72 - updateDhlSettings (used in module)
+src/lib/database.ts:76 - getOrders (used in module)
+src/lib/database.ts:80 - getOrderById (used in module)
+src/lib/database.ts:84 - addOrder (used in module)
+src/lib/database.ts:88 - updateOrder (used in module)
+src/lib/database.ts:92 - getDealers (used in module)
+src/lib/database.ts:96 - createDealer (used in module)
+src/lib/database.ts:100 - updateDealer (used in module)
+src/lib/database.ts:104 - deleteDealer (used in module)
+src/lib/database.ts:108 - getCustomerGroups (used in module)
+src/lib/database.ts:112 - createCustomerGroup (used in module)
+src/lib/database.ts:116 - updateCustomerGroup (used in module)
+src/lib/database.ts:120 - deleteCustomerGroup (used in module)
+src/lib/database.ts:124 - getCMSPages (used in module)
+src/lib/database.ts:128 - createCMSPage (used in module)
+src/lib/database.ts:132 - updateCMSPage (used in module)
+src/lib/database.ts:136 - deleteCMSPage (used in module)
+src/lib/database.ts:141 - getCategories (used in module)
+src/lib/database.ts:145 - getCategoryById (used in module)
+src/lib/database.ts:149 - createCategory (used in module)
+src/lib/database.ts:153 - updateCategory (used in module)
+src/lib/database.ts:157 - deleteCategory (used in module)
+src/lib/firebase-admin.ts:45 - adminApp
+src/lib/firebase-admin.ts:46 - adminStorage
+src/lib/firebase-admin.ts:47 - adminFirestore
+src/lib/firebase.ts:64 - BTW_NUMMERS
+src/lib/firebase.ts:594 - db (used in module)
+src/lib/google-maps.ts:11 - loadGoogleMaps
+src/lib/google-maps.ts:68 - isGoogleMapsLoaded
+src/lib/invoice.ts:30 - generateInvoicePdfBuffer
+src/lib/invoice.ts:193 - nextInvoiceNumber
+src/lib/invoice.ts:204 - saveInvoicePdf
+src/lib/invoice.ts:8 - OrderRecord (used in module)
+src/lib/vat-utils.ts:1 - VatSettings (used in module)
+src/lib/vat-utils.ts:15 - Product (used in module)
+src/lib/vat-utils.ts:38 - calculatePriceWithVatComplex
+src/lib/vat-utils.ts:76 - getVatDisplayTextComplex
+.next/types/app/layout.ts:54 - PageProps
+.next/types/app/layout.ts:58 - LayoutProps (used in module)
+.next/types/app/page.ts:54 - PageProps (used in module)
+.next/types/app/page.ts:58 - LayoutProps
+src/app/about/page.tsx:5 - default
+src/app/account/page.tsx:60 - default
+src/app/checkout/page.tsx:86 - default
+src/app/components/CartIcon.tsx:13 - default
+src/app/components/ServicePointSelector.tsx:27 - default
+src/app/contact/layout.tsx:6 - default
+src/app/contact/layout.tsx:1 - metadata
+src/app/contact/page.tsx:14 - default
+src/app/dealer-login/page.tsx:6 - default
+src/app/returns/page.tsx:24 - default
+src/app/test-products/page.tsx:13 - default
+src/app/wishlist/page.tsx:87 - default
+src/services/accounting/eboekhouden.ts:158 - addFactuur
+src/services/accounting/orderToBookings.ts:3 - OrderItem (used in module)
+src/services/accounting/orderToBookings.ts:11 - Customer (used in module)
+src/services/accounting/orderToBookings.ts:20 - Order (used in module)
+src/services/accounting/orderToBookings.ts:30 - BookingRule (used in module)
+src/services/accounting/orderToBookings.ts:38 - OrderBookings (used in module)
+.next/types/app/[slug]/page.ts:54 - PageProps (used in module)
+.next/types/app/[slug]/page.ts:58 - LayoutProps
+.next/types/app/admin/layout.ts:54 - PageProps
+.next/types/app/admin/layout.ts:58 - LayoutProps (used in module)
+.next/types/app/admin/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/page.ts:58 - LayoutProps
+.next/types/app/cart/page.ts:54 - PageProps (used in module)
+.next/types/app/cart/page.ts:58 - LayoutProps
+.next/types/app/fotos-media/layout.ts:54 - PageProps
+.next/types/app/fotos-media/layout.ts:58 - LayoutProps (used in module)
+.next/types/app/fotos-media/page.ts:54 - PageProps (used in module)
+.next/types/app/fotos-media/page.ts:58 - LayoutProps
+.next/types/app/home/page.ts:54 - PageProps (used in module)
+.next/types/app/home/page.ts:58 - LayoutProps
+.next/types/app/vind-een-dealer/layout.ts:54 - PageProps
+.next/types/app/vind-een-dealer/layout.ts:58 - LayoutProps (used in module)
+.next/types/app/vind-een-dealer/page.ts:54 - PageProps (used in module)
+.next/types/app/vind-een-dealer/page.ts:58 - LayoutProps
+.next/types/app/winkel/page.ts:54 - PageProps (used in module)
+.next/types/app/winkel/page.ts:58 - LayoutProps
+src/app/admin/analytics/page.tsx:41 - default
+src/app/admin/components/AdminSidebar.tsx:200 - default
+src/app/admin/components/CustomerCRM.tsx:72 - default
+src/app/admin/components/CustomerImport.tsx:33 - default
+src/app/admin/components/DatabaseViewer.tsx:11 - default
+src/app/admin/components/DhlParcelSettings.tsx:23 - default
+src/app/admin/components/HeaderManager.tsx:27 - default
+src/app/admin/components/PaymentSettings.tsx:17 - default
+src/app/admin/components/ShippingAddressManager.tsx:23 - default
+src/app/admin/components/ShippingSettings.tsx:17 - default
+src/app/admin/components/VatSettings.tsx:24 - default
+src/app/admin/crm/page.tsx:57 - default
+src/app/admin/customer-groups/page.tsx:8 - default
+src/app/admin/customers/page.tsx:68 - default
+src/app/admin/dealers/page.tsx:27 - default
+src/app/admin/documents/page.tsx:43 - default
+src/app/admin/emails/page.tsx:16 - default
+src/app/admin/invoices/page.tsx:28 - default
+src/app/admin/media/page.tsx:5 - default
+src/app/admin/orders/page.tsx:48 - default
+src/app/admin/settings/page.tsx:7 - default
+src/app/admin/simple/page.tsx:1 - default
+src/app/admin/test-admin/page.tsx:16 - default
+src/app/admin/users/page.tsx:7 - default
+src/app/api/contact/route.ts:3 - POST
+src/app/api/geocode/route.ts:3 - GET
+src/app/api/orders/route.ts:6 - GET
+src/app/api/orders/route.ts:16 - POST
+src/app/api/orders/route.ts:27 - PUT
+src/app/api/orders/route.ts:4 - dynamic
+src/app/api/payment-methods/route.ts:4 - GET
+src/app/api/payment-methods/route.ts:33 - POST
+src/app/api/payment-methods/route.ts:69 - PUT
+src/app/api/payment-methods/route.ts:103 - DELETE
+src/app/api/returns/route.ts:24 - POST
+src/app/api/shipping-methods/route.ts:4 - GET
+src/app/api/shipping-methods/route.ts:14 - POST
+src/app/api/shipping-methods/route.ts:26 - PUT
+src/app/api/shipping-methods/route.ts:60 - DELETE
+src/app/api/test/route.ts:3 - GET
+src/app/api/test/route.ts:12 - POST
+src/app/api/upload/route.ts:7 - POST
+src/app/api/upload/route.ts:5 - dynamic
+src/app/api/vat-settings/route.ts:4 - GET
+src/app/api/vat-settings/route.ts:17 - POST
+src/app/api/vat-settings/route.ts:52 - PUT
+src/app/api/vat-settings/route.ts:85 - DELETE
+src/app/api/vat-validate/route.ts:15 - GET
+src/app/auth/forgot/page.tsx:5 - default
+src/app/auth/login/page.tsx:6 - default
+src/app/auth/reset/page.tsx:61 - default
+src/app/checkout/cart/page.tsx:25 - default
+src/app/order-confirmation/[id]/page.tsx:40 - default
+src/app/payment/return/page.tsx:154 - default
+src/app/winkel/accessoires/page.tsx:19 - default
+src/app/winkel/alloygator-set/page.tsx:19 - default
+src/app/winkel/montagehulpmiddelen/page.tsx:19 - default
+.next/types/app/admin/categories/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/categories/page.ts:58 - LayoutProps
+.next/types/app/admin/cms/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/cms/page.ts:58 - LayoutProps
+.next/types/app/admin/login/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/login/page.ts:58 - LayoutProps
+.next/types/app/admin/products/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/products/page.ts:58 - LayoutProps
+.next/types/app/api/settings/route.ts:313 - PageProps
+.next/types/app/api/settings/route.ts:317 - LayoutProps
+src/app/admin/crm/[id]/page.tsx:7 - default
+src/app/admin/settings/eboekhouden/page.tsx:6 - default
+src/app/admin/settings/koppelingen/page.tsx:14 - default
+src/app/api/accounting/sync-order-new/route.ts:11 - POST
+src/app/api/accounting/sync-order-new/route.ts:176 - GET
+src/app/api/accounting/test-connection/route.ts:4 - POST
+src/app/api/accounting/test-connection/route.ts:28 - GET
+src/app/api/admin/migrate-customers/route.ts:4 - POST
+src/app/api/admin/migrate-customers/route.ts:31 - GET
+src/app/api/admin/users/route.ts:4 - GET
+src/app/api/admin/users/route.ts:14 - POST
+src/app/api/auth/bulk-set-passwords/route.ts:7 - POST
+src/app/api/auth/bulk-set-passwords/route.ts:4 - dynamic
+src/app/api/auth/forgot/route.ts:8 - GET
+src/app/api/auth/forgot/route.ts:15 - POST
+src/app/api/auth/forgot/route.ts:5 - dynamic
+src/app/api/auth/login/route.ts:6 - POST
+src/app/api/auth/login/route.ts:4 - dynamic
+src/app/api/auth/register/route.ts:6 - POST
+src/app/api/auth/register/route.ts:4 - dynamic
+src/app/api/auth/reset/route.ts:6 - POST
+src/app/api/auth/reset/route.ts:4 - dynamic
+src/app/api/auth/set-password/route.ts:6 - POST
+src/app/api/auth/set-password/route.ts:4 - dynamic
+src/app/api/cms/upsert/route.ts:6 - POST
+src/app/api/cms/upsert/route.ts:4 - dynamic
+src/app/api/dhl/create-shipment/route.ts:5 - POST
+src/app/api/dhl/pickup-locations/route.ts:5 - GET
+src/app/api/dhl/test-auth/route.ts:5 - POST
+src/app/api/documents/upload/route.ts:8 - POST
+src/app/api/documents/upload/route.ts:6 - dynamic
+src/app/api/email/order-confirmation/route.ts:5 - POST
+src/app/api/email/order-confirmation/route.ts:3 - dynamic
+src/app/api/email/payment-confirmation/route.ts:6 - POST
+src/app/api/email/status-update/route.ts:7 - POST
+src/app/api/email/status-update/route.ts:5 - dynamic
+src/app/api/email/test/route.ts:7 - POST
+src/app/api/email/test/route.ts:5 - dynamic
+src/app/api/invoices/generate/route.ts:4 - POST
+src/app/api/media/delete/route.ts:7 - POST
+src/app/api/media/delete/route.ts:5 - dynamic
+src/app/api/media/list/route.ts:7 - GET
+src/app/api/media/list/route.ts:5 - dynamic
+src/app/api/media/rename/route.ts:7 - POST
+src/app/api/media/rename/route.ts:5 - dynamic
+src/app/api/media/social/route.ts:97 - GET
+src/app/api/media/social/route.ts:141 - POST
+src/app/api/orders/mark-paid/route.ts:8 - GET
+src/app/api/payment/mollie/route.ts:21 - POST
+src/app/api/payment/mollie/route.ts:121 - GET
+.next/types/app/admin/settings/colors/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/settings/colors/page.ts:58 - LayoutProps
+.next/types/app/admin/settings/suppliers/page.ts:54 - PageProps (used in module)
+.next/types/app/admin/settings/suppliers/page.ts:58 - LayoutProps
+.next/types/app/api/products/backfill-descriptions/route.ts:313 - PageProps
+.next/types/app/api/products/backfill-descriptions/route.ts:317 - LayoutProps
+.next/types/app/api/products/backfill-slugs/route.ts:313 - PageProps
+.next/types/app/api/products/backfill-slugs/route.ts:317 - LayoutProps
+.next/types/app/api/social/feed/route.ts:313 - PageProps
+.next/types/app/api/social/feed/route.ts:317 - LayoutProps
+.next/types/app/winkel/product/[id]/layout.ts:54 - PageProps
+.next/types/app/winkel/product/[id]/layout.ts:58 - LayoutProps (used in module)
+.next/types/app/winkel/product/[id]/page.ts:54 - PageProps (used in module)
+.next/types/app/winkel/product/[id]/page.ts:58 - LayoutProps
+src/app/api/admin/auth/forgot/route.ts:4 - POST
+src/app/api/admin/auth/reset/route.ts:4 - POST
+src/app/api/payment/mollie/webhook/route.ts:64 - POST
+.next/types/app/api/admin/auth/login/route.ts:313 - PageProps
+.next/types/app/api/admin/auth/login/route.ts:317 - LayoutProps

@@ -14,7 +14,7 @@ interface Color {
 }
 
 export default function ColorsPage() {
-  const [colors, loading, error] = useFirebaseRealtime<Color>('product_colors', 'created_at')
+  const [colors, loading, error] = useFirebaseRealtime<Color>('product_colors')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingColor, setEditingColor] = useState<Color | null>(null)
   const [formData, setFormData] = useState({ name: '', hex_code: '#000000' })
@@ -98,7 +98,7 @@ export default function ColorsPage() {
             <h2 className="text-lg font-semibold text-gray-900">Beschikbare Kleuren</h2>
           </div>
           
-          {colors.length === 0 ? (
+          {(!Array.isArray(colors) || colors.length === 0) ? (
             <div className="p-6 text-center text-gray-500">
               <div className="text-4xl mb-4">🎨</div>
               <p>Nog geen kleuren toegevoegd</p>
@@ -124,7 +124,7 @@ export default function ColorsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {colors.map((color) => (
+                  {(colors as any[]).map((color) => (
                     <tr key={color.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">

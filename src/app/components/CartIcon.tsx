@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 interface CartItem {
-  id: number
+  id: string
   name: string
   price: number
   quantity: number
@@ -34,11 +34,11 @@ export default function CartIcon() {
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
-  const removeFromCart = (productId: number) => {
+  const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId))
   }
 
-  const updateQuantity = (productId: number, newQuantity: number) => {
+  const updateQuantity = (productId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(productId)
       return

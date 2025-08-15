@@ -170,22 +170,23 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
     if (formData.name && (shortDraft || formData.short_description || formData.description)) {
       const categorySlug = normalizeCategory(formData.category)
       const productData = {
-  ...formData,
-  ...dynamicValues,
-  id: product?.id || `product_${Date.now()}`,
-  price: Number(formData.price) || 0,
-  cost_price: Number(formData.cost_price) || 0,
-  stock_quantity: Number(formData.stock_quantity) || 0,
-  min_stock: Number(formData.min_stock) || 0,
-  weight: Number(formData.weight) || 0,
-  features: Array.isArray(formData.features) ? formData.features : [],
-  specifications: formData.specifications || {},
-  created_at: formData.created_at ?? new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  category: categorySlug,
-  short_description: shortDraft || formData.short_description || formData.description || '',
-  long_description: longDraft || formData.long_description || '',
-} as Product
+        ...formData,
+        ...dynamicValues,
+        // Laat id leeg bij nieuw product zodat backend een numerieke id toewijst
+        id: product?.id, 
+        price: Number(formData.price) || 0,
+        cost_price: Number(formData.cost_price) || 0,
+        stock_quantity: Number(formData.stock_quantity) || 0,
+        min_stock: Number(formData.min_stock) || 0,
+        weight: Number(formData.weight) || 0,
+        features: Array.isArray(formData.features) ? formData.features : [],
+        specifications: formData.specifications || {},
+        created_at: formData.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        category: categorySlug,
+        short_description: shortDraft || formData.short_description || formData.description || '',
+        long_description: longDraft || formData.long_description || '',
+      } as Product
       
       onSave(productData)
       onClose()

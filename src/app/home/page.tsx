@@ -83,6 +83,41 @@ export default function HomePage() {
     return () => { mounted = false }
   }, [])
 
+  // Post-process CMS HTML om Bebas toe te passen op hero-teksten
+  useEffect(() => {
+    if (!cmsHtml) return
+    const root = document.getElementById('cms-home')
+    if (!root) return
+    const headings = root.querySelectorAll('h1, h2')
+    const matches = [
+      'uw ultieme lichtmetalen schild',
+      'tegen kostbare stoeprandschade',
+      'bescherm en upgrade je velgen met alloygator',
+    ]
+    headings.forEach((el) => {
+      const t = (el.textContent || '').toLowerCase()
+      if (matches.some((m) => t.includes(m))) {
+        el.classList.add('font-bebas', 'uppercase', 'tracking-wide')
+      }
+    })
+    // Zet altijd de eerste H1 in Bebas voor hero-stijl
+    const firstH1 = root.querySelector('h1')
+    if (firstH1) firstH1.classList.add('font-bebas', 'uppercase', 'tracking-wide')
+
+    // Hero video(s): vergroot naar 150%, crop en maak donkerder
+    const videos = Array.from(root.querySelectorAll('video')) as HTMLVideoElement[]
+    videos.forEach((vid) => {
+      vid.style.width = '100%'
+      vid.style.height = '150%'
+      vid.style.objectFit = 'cover'
+      vid.style.display = 'block'
+      // Donkerder maken
+      vid.style.filter = 'brightness(0.55)'
+      const parent = vid.parentElement
+      if (parent && !parent.style.overflow) parent.style.overflow = 'hidden'
+    })
+  }, [cmsHtml])
+
   // Toon loading state
   if (loading) {
     return (
@@ -106,10 +141,7 @@ export default function HomePage() {
   if (cmsHtml) {
     console.log('🎨 Rendering CMS content met lengte:', cmsHtml.length)
     return (
-      <div 
-        className="min-h-screen bg-white"
-        dangerouslySetInnerHTML={{ __html: cmsHtml }}
-      />
+      <div id="cms-home" className="min-h-screen bg-white" dangerouslySetInnerHTML={{ __html: cmsHtml }} />
     )
   }
 
@@ -119,7 +151,8 @@ export default function HomePage() {
     <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="text-4xl mb-4">🏠</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Home Pagina</h1>
+        <h1 className="text-2xl md:text-5xl font-bebas uppercase tracking-wide text-gray-900 mb-4">Uw ultieme lichtmetalen schild</h1>
+        <h2 className="text-xl md:text-3xl font-bebas uppercase tracking-wide text-gray-700 mb-6">tegen kostbare stoeprandschade</h2>
         <p className="text-gray-600 mb-6">
           Er is geen home pagina content gevonden in het CMS.
         </p>

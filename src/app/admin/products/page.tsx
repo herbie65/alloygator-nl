@@ -54,16 +54,17 @@ console.log(
       const nowIso = new Date().toISOString()
       const newProduct: any = {
         ...product,
-        id: `product_${Date.now()}`,
+        // Laat id weg zodat backend een numerieke id toewijst
+        id: undefined,
         name: `${product.name || product.title || 'Product'} (kopie)`,
         sku: '',
         ean_code: '',
         created_at: nowIso,
         updated_at: nowIso,
       }
-      await FirebaseService.addProduct(newProduct)
-      // Open direct in bewerken-modus voor snelle aanpassing
-      setEditingProduct(newProduct as Product)
+      const created = await FirebaseService.addProduct(newProduct)
+      // Open direct in bewerken-modus voor snelle aanpassing met nieuwe numerieke ID
+      setEditingProduct(created as Product)
       setSelectedProduct(null)
       setShowProductModal(true)
       // ververse lijst
