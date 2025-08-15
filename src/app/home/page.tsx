@@ -127,7 +127,16 @@ export default function HomePage() {
       const section = vid.closest('section') as HTMLElement | null
       if (section) {
         section.style.position = section.style.position || 'relative'
-        section.style.paddingBottom = section.style.paddingBottom || '10vh'
+        section.style.paddingBottom = section.style.paddingBottom || '8vh'
+        // Positioneer overlay/tekst naar beneden
+        const overlay = section.querySelector('.container') as HTMLElement | null
+        if (overlay) {
+          overlay.style.display = 'flex'
+          overlay.style.flexDirection = 'column'
+          overlay.style.justifyContent = 'flex-end'
+          overlay.style.minHeight = overlay.style.minHeight || '70vh'
+          overlay.style.paddingBottom = overlay.style.paddingBottom || '2rem'
+        }
       }
     })
   }, [cmsHtml])
