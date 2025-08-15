@@ -104,11 +104,11 @@ export default function HomePage() {
     const firstH1 = root.querySelector('h1')
     if (firstH1) firstH1.classList.add('font-bebas', 'uppercase', 'tracking-wide')
 
-    // Hero video(s): vergroot naar 150%, crop en maak donkerder
+    // Hero video(s): vergroot naar 200%, crop en maak donkerder
     const videos = Array.from(root.querySelectorAll('video')) as HTMLVideoElement[]
     videos.forEach((vid) => {
       vid.style.width = '100%'
-      vid.style.height = '150%'
+      vid.style.height = '200%'
       vid.style.objectFit = 'cover'
       vid.style.display = 'block'
       // Donkerder maken
