@@ -163,6 +163,15 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [activeTab, setActiveTab] = useState('description')
 
+  // Zet de paginatitel zodra product geladen is
+  useEffect(() => {
+    if (product?.name) {
+      document.title = `${product.name}`
+    } else {
+      document.title = 'Product niet gevonden'
+    }
+  }, [product?.name])
+
   useEffect(() => {
     let isMounted = true
     const load = async () => {
@@ -170,6 +179,7 @@ export default function ProductDetailPage() {
         // 1) Probeer vanuit Firebase direct document te halen
         let doc: any = null
         try {
+          // Probeer eerst direct op id
           doc = await FirebaseService.getDocument('products', productId)
         } catch (_) {}
 
@@ -178,7 +188,8 @@ export default function ProductDetailPage() {
           try {
             const list = await FirebaseService.getDocuments('products')
             if (Array.isArray(list) && list.length) {
-              doc = list.find((p: any) => String(p.id) === String(productId)) || null
+              // Vind op id of slug
+              doc = list.find((p: any) => String(p.id) === String(productId) || String(p.slug || '').toLowerCase() === String(productId).toLowerCase()) || null
             }
           } catch (_) {}
         }
@@ -186,6 +197,7 @@ export default function ProductDetailPage() {
         if (doc && isMounted) {
           const mapped: any = {
             id: String(doc.id),
+            slug: doc.slug || '',
             name: doc.name || doc.title || 'Product',
             description: doc.description || '',
             short_description: doc.short_description || '',

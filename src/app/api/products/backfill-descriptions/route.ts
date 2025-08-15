@@ -12,11 +12,18 @@ export async function POST(_req: NextRequest) {
       const hasShort = typeof p.short_description === 'string' && p.short_description.trim().length > 0
       const hasLong = typeof p.long_description === 'string' && p.long_description.trim().length > 0
       const hasDesc = typeof p.description === 'string' && p.description.trim().length > 0
+      const hasMetaTitle = typeof p.meta_title === 'string' && p.meta_title.trim().length > 0
+      const hasMetaDesc = typeof p.meta_description === 'string' && p.meta_description.trim().length > 0
 
-      if (!hasShort || !hasLong) {
+      if (!hasShort || !hasLong || !hasMetaTitle || !hasMetaDesc) {
         const update: any = {}
         if (!hasShort && hasDesc) update.short_description = p.description
         if (!hasLong && hasDesc) update.long_description = p.description
+        if (!hasMetaTitle) update.meta_title = p.name || p.title || 'Product'
+        if (!hasMetaDesc && (p.short_description || p.description)) {
+          const raw = String(p.short_description || p.description || '')
+          update.meta_description = raw.replace(/<[^>]*>/g, '').slice(0, 160)
+        }
 
         if (Object.keys(update).length > 0) {
           await FirebaseService.updateDocument('products', p.id, update)

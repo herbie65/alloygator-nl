@@ -495,16 +495,16 @@ export default function WinkelPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => {
+            {filteredProducts.map((product, index) => {
             const rawBase = Number((product as any).price || 0)
             const base = dealer.isDealer ? applyDealerDiscount(rawBase, dealer.discountPercent) : rawBase
             const displayPrice = dealer.isDealer ? base : calculatePriceWithVat(base, 21)
             const vatText = dealer.isDealer ? 'excl. BTW' : getVatDisplayText(21, 'NL')
             
             return (
-              <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div key={`${(product as any).id || (product as any).sku || 'p'}-${index}`} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Product Image */}
-                <Link href={`/winkel/product/${product.id}`}>
+                <Link href={`/winkel/product/${(product as any).slug || (product as any).id}`}>
                   <div className="h-48 bg-gray-200 flex items-center justify-center cursor-pointer">
                     {product.image_url ? (
                       <img
@@ -520,7 +520,7 @@ export default function WinkelPage() {
 
                 {/* Product Info */}
                 <div className="p-6">
-                  <Link href={`/winkel/product/${product.id}`}>
+                  <Link href={`/winkel/product/${(product as any).slug || (product as any).id}`}>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-green-600 transition-colors cursor-pointer">
                       {product.name}
                     </h3>

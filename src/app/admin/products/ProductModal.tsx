@@ -26,6 +26,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   // Lokale conceptvelden voor WYSIWYG zodat er niets buiten deze modal wordt geüpdatet tijdens typen
   const [shortDraft, setShortDraft] = useState<string>('')
   const [longDraft, setLongDraft] = useState<string>('')
+  const [existingSlugs, setExistingSlugs] = useState<string[]>([])
+  const [slugEdited, setSlugEdited] = useState<boolean>(false)
 
   const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
   const categoryLabelFromSlug = (slug: string) => {
@@ -35,6 +37,25 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
       case 'accessoires': return 'Accessoires'
       default: return slug || 'Algemeen'
     }
+  }
+  const slugify = (text: string) =>
+    String(text || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+  const uniqueSlug = (base: string, currentId?: string) => {
+    let s = slugify(base)
+    if (!s) return ''
+    let candidate = s
+    let i = 2
+    while (existingSlugs.includes(candidate)) {
+      // als je aan het editen bent met dezelfde slug/id, laat het staan
+      if (currentId && candidate === (formData as any).slug && currentId === (formData as any).id) break
+      candidate = `${s}-${i++}`
+    }
+    return candidate
   }
 
   useEffect(() => {
@@ -46,7 +67,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           const latest: any = await FirebaseService.getDocument('products', String(product.id))
           if (latest) {
             const normalizedCat = normalizeCategory(latest.category)
-            setFormData({ ...latest, category: normalizedCat })
+            const currentSlug = latest.slug || uniqueSlug(latest.name || latest.title || 'product', latest.id)
+            setFormData({ ...latest, category: normalizedCat, slug: currentSlug })
             setShortDraft(String(latest.short_description || latest.description || ''))
             setLongDraft(String(latest.long_description || ''))
             return
@@ -55,7 +77,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           // fallback op meegegeven product-object
         }
         const normalizedCat = normalizeCategory((product as any).category)
-        setFormData({ ...(product as any), category: normalizedCat })
+        const currentSlug = (product as any).slug || uniqueSlug((product as any).name || (product as any).title || 'product', (product as any).id)
+        setFormData({ ...(product as any), category: normalizedCat, slug: currentSlug })
         setShortDraft(String((product as any).short_description || (product as any).description || ''))
         setLongDraft(String((product as any).long_description || ''))
         return
@@ -71,6 +94,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
         category: 'alloygator-set',
         sku: '',
         ean_code: '',
+        slug: '',
         stock_quantity: 0,
         min_stock: 0,
         weight: 0,
@@ -89,6 +113,16 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
     }
     load()
   }, [product?.id, isOpen])
+
+  // Auto-slug uit naam wanneer niet handmatig aangepast
+  useEffect(() => {
+    if (!isOpen) return
+    if (slugEdited) return
+    const base = String(formData.name || '')
+    if (!base) return
+    const s = uniqueSlug(base, (formData as any).id)
+    setFormData(prev => ({ ...prev, slug: s }))
+  }, [formData.name, slugEdited, isOpen])
 
   // Load product attributes and colors
   useEffect(() => {
@@ -115,6 +149,12 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           })
           setDynamicValues(dynamic)
         }
+
+        try {
+          const all = await FirebaseService.getDocuments('products')
+          const slugs = (Array.isArray(all) ? all : []).map((p: any) => String(p.slug || '').toLowerCase()).filter(Boolean)
+          setExistingSlugs(slugs)
+        } catch {}
       } catch (error) {
         console.error('Error loading product data:', error)
       }
