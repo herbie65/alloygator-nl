@@ -50,6 +50,15 @@ const initializeFirebase = () => {
   }
 }
 
+// Ensure Firebase is initialized on module load in the browser so hooks using `db` work immediately
+try {
+  if (typeof window !== 'undefined') {
+    initializeFirebase();
+  }
+} catch (_) {
+  // ignore init errors here; callers using getDb() will retry
+}
+
 const getDb = () => {
   console.log('getDb called, db value:', db);
   if (!db) {

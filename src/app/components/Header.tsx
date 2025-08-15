@@ -127,7 +127,7 @@ export default function Header() {
             <Link href="/" className="text-gray-700 hover:text-green-600 transition-colors">
               Home
             </Link>
-            <Link href="/winkel" className="text-gray-700 hover:text-green-600 transition-colors">
+            <Link href="/winkel/alloygator-set" className="text-gray-700 hover:text-green-600 transition-colors">
               Winkel
             </Link>
             <Link href="/vind-een-dealer" className="text-gray-700 hover:text-green-600 transition-colors">
