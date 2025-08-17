@@ -726,9 +726,21 @@ export default function CRMPage() {
                   console.log('Row clicked for customer:', customer)
                   console.log('Customer ID:', customer.id)
                   try {
-                    router.push(`/admin/crm/${customer.id}`)
+                    // Try both methods
+                    const url = `/admin/crm/${customer.id}`
+                    console.log('Navigating to:', url)
+                    router.push(url)
+                    // Fallback: window.location
+                    setTimeout(() => {
+                      if (window.location.pathname !== url) {
+                        console.log('Router failed, using window.location')
+                        window.location.href = url
+                      }
+                    }, 100)
                   } catch (error) {
                     console.error('Navigation error:', error)
+                    // Fallback
+                    window.location.href = `/admin/crm/${customer.id}`
                   }
                 }}>
                   {getVisibleColumns().map(([columnKey, config]) => (
@@ -801,9 +813,21 @@ export default function CRMPage() {
                               console.log('Customer ID:', customer.id)
                               console.log('Router object:', router)
                               try {
-                                router.push(`/admin/crm/${customer.id}`)
+                                // Try both methods
+                                const url = `/admin/crm/${customer.id}`
+                                console.log('Navigating to:', url)
+                                router.push(url)
+                                // Fallback: window.location
+                                setTimeout(() => {
+                                  if (window.location.pathname !== url) {
+                                    console.log('Router failed, using window.location')
+                                    window.location.href = url
+                                  }
+                                }, 100)
                               } catch (error) {
                                 console.error('Navigation error:', error)
+                                // Fallback
+                                window.location.href = `/admin/crm/${customer.id}`
                               }
                             }}
                            className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
