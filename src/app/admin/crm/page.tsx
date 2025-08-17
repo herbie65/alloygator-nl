@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FirebaseService } from '@/lib/firebase'
 import { FirebaseClientService } from '@/lib/firebase-client'
+import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 import Link from 'next/link'
 
 interface Customer {
@@ -12,8 +13,6 @@ interface Customer {
   email: string
   phone: string
   company_name?: string
-  contact_first_name?: string
-  contact_last_name?: string
   address: string
   city: string
   postal_code: string
@@ -24,9 +23,9 @@ interface Customer {
   total_spent: number
   last_order_date?: string
   created_at: string
+  updated_at?: string
   notes?: string
   status: 'active' | 'inactive' | 'pending'
-  // Nieuwe velden
   invoice_email?: string
   vat_number?: string
   vat_verified?: boolean
@@ -39,6 +38,19 @@ interface Customer {
   credit_limit?: number
   tax_exempt?: boolean
   tax_exemption_reason?: string
+  // Nieuwe velden
+  contact_first_name?: string
+  contact_last_name?: string
+  separate_shipping_address?: boolean
+  shipping_address?: string
+  shipping_city?: string
+  shipping_postal_code?: string
+  shipping_country?: string
+  kvk_number?: string
+  separate_invoice_email?: boolean
+  show_on_map?: boolean
+  allow_invoice_payment?: boolean
+  invoice_payment_terms_days?: number
   // CRM velden
   last_contact?: string
   last_visit?: string
@@ -55,7 +67,7 @@ interface CustomerGroup {
 }
 
 export default function CRMPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, customersLoading, customersError] = useFirebaseRealtime<Customer[]>('customers')
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -184,218 +196,27 @@ export default function CRMPage() {
     }
   }
 
+  // Update loading state based on customers loading
   useEffect(() => {
-    const fetchData = async () => {
+    setLoading(customersLoading)
+  }, [customersLoading])
+
+  // Load customer groups on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      setError('')
+
+      // Try to load Firebase data first
       try {
-        setLoading(true)
-        setError('')
-
-        // Try to load Firebase data first
-        try {
-          const [customersData, groupsData] = await Promise.all([
-            FirebaseService.getCustomers(),
-            FirebaseService.getCustomerGroups()
-          ])
-          
-          if (customersData && customersData.length > 0) {
-            setCustomers(customersData)
-          } else {
-            // Fallback to dummy data if Firebase is empty
-            const dummyCustomers: Customer[] = [
-              {
-                id: '1',
-                name: 'Jan Jansen',
-                email: 'jan@jansen.nl',
-                phone: '+31 6 12345678',
-                company_name: 'Jansen Auto',
-                address: 'Hoofdstraat 123',
-                city: 'Amsterdam',
-                postal_code: '1000 AB',
-                country: 'Nederland',
-                is_dealer: true,
-                dealer_group: 'Premium',
-                total_orders: 15,
-                total_spent: 2500.00,
-                last_order_date: '2024-01-15',
-                created_at: '2023-06-01',
-                notes: 'Trouwe klant, altijd tevreden',
-                status: 'active'
-              },
-              {
-                id: '2',
-                name: 'Piet de Vries',
-                email: 'piet@devries.nl',
-                phone: '+31 6 87654321',
-                address: 'Kerkstraat 45',
-                city: 'Rotterdam',
-                postal_code: '3000 CD',
-                country: 'Nederland',
-                is_dealer: false,
-                total_orders: 3,
-                total_spent: 450.00,
-                last_order_date: '2024-01-10',
-                created_at: '2023-12-01',
-                notes: 'Nieuwe klant, veel potentieel',
-                status: 'active'
-              },
-              {
-                id: '3',
-                name: 'Maria Smit',
-                email: 'maria@smit.nl',
-                phone: '+31 6 11223344',
-                company_name: 'Smit Garage',
-                address: 'Industrieweg 78',
-                city: 'Utrecht',
-                postal_code: '3500 EF',
-                country: 'Nederland',
-                is_dealer: true,
-                dealer_group: 'Standard',
-                total_orders: 8,
-                total_spent: 1200.00,
-                last_order_date: '2024-01-05',
-                created_at: '2023-08-15',
-                notes: 'Goede dealer, regelmatige bestellingen',
-                status: 'active'
-              }
-            ]
-            setCustomers(dummyCustomers)
-          }
-
-          if (groupsData && groupsData.length > 0) {
-            setCustomerGroups(groupsData)
-          } else {
-            // Fallback to dummy groups
-            const dummyGroups: CustomerGroup[] = [
-              {
-                id: '1',
-                name: 'Premium Dealers',
-                discount_percentage: 15,
-                description: 'Hoogste korting voor premium dealers',
-                created_at: '2023-01-01'
-              },
-              {
-                id: '2',
-                name: 'Standard Dealers',
-                discount_percentage: 10,
-                description: 'Standaard korting voor dealers',
-                created_at: '2023-01-01'
-              },
-              {
-                id: '3',
-                name: 'Retail Klanten',
-                discount_percentage: 5,
-                description: 'Korting voor particuliere klanten',
-                created_at: '2023-01-01'
-              }
-            ]
-            setCustomerGroups(dummyGroups)
-          }
-
-          // Load customer groups to read annual_target_sets
-          try {
-            const groups = await FirebaseClientService.getCustomerGroups()
-            const map: Record<string, number> = {}
-            groups.forEach((g:any)=> {
-              const nameKey = (g.name||'').toLowerCase()
-              const idKey = String(g.id||'').toLowerCase()
-              const val = Number(g.annual_target_sets || 0)
-              if (nameKey) map[nameKey] = val
-              if (idKey) map[idKey] = val
-            })
-            setGroupTargets(map)
-          } catch {}
-
-          // Load latest contact moments and visits per customer (for list columns)
-          try {
-            const [allContacts, allVisits] = await Promise.all([
-              FirebaseClientService.getContactMoments(),
-              FirebaseClientService.getVisits()
-            ])
-            const contactMap: Record<string, string> = {}
-            ;(allContacts as any[]).forEach((c: any) => {
-              const cid = c.customer_id
-              if (!cid) return
-              const t = new Date(c.contact_date || c.created_at || 0).getTime()
-              const prev = contactMap[cid] ? new Date(contactMap[cid]).getTime() : 0
-              if (t > prev) contactMap[cid] = new Date(t).toISOString()
-            })
-            setLastContactByCustomer(contactMap)
-
-            const visitMap: Record<string, string> = {}
-            ;(allVisits as any[]).forEach((v: any) => {
-              const cid = v.customer_id
-              if (!cid) return
-              const t = new Date(v.visit_date || v.created_at || 0).getTime()
-              const prev = visitMap[cid] ? new Date(visitMap[cid]).getTime() : 0
-              if (t > prev) visitMap[cid] = new Date(t).toISOString()
-            })
-            setLastVisitByCustomer(visitMap)
-          } catch (e) {
-            setLastContactByCustomer({})
-            setLastVisitByCustomer({})
-          }
-        } catch (firebaseError) {
-          console.log('Firebase data not available, using dummy data')
-          // Use dummy data if Firebase fails
-          const dummyCustomers: Customer[] = [
-            {
-              id: '1',
-              name: 'Jan Jansen',
-              email: 'jan@jansen.nl',
-              phone: '+31 6 12345678',
-              company_name: 'Jansen Auto',
-              address: 'Hoofdstraat 123',
-              city: 'Amsterdam',
-              postal_code: '1000 AB',
-              country: 'Nederland',
-              is_dealer: true,
-              dealer_group: 'Premium',
-              total_orders: 15,
-              total_spent: 2500.00,
-              last_order_date: '2024-01-15',
-              created_at: '2023-06-01',
-              notes: 'Trouwe klant, altijd tevreden',
-              status: 'active'
-            },
-            {
-              id: '2',
-              name: 'Piet de Vries',
-              email: 'piet@devries.nl',
-              phone: '+31 6 87654321',
-              address: 'Kerkstraat 45',
-              city: 'Rotterdam',
-              postal_code: '3000 CD',
-              country: 'Nederland',
-              is_dealer: false,
-              total_orders: 3,
-              total_spent: 450.00,
-              last_order_date: '2024-01-10',
-              created_at: '2023-12-01',
-              notes: 'Nieuwe klant, veel potentieel',
-              status: 'active'
-            },
-            {
-              id: '3',
-              name: 'Maria Smit',
-              email: 'maria@smit.nl',
-              phone: '+31 6 11223344',
-              company_name: 'Smit Garage',
-              address: 'Industrieweg 78',
-              city: 'Utrecht',
-              postal_code: '3500 EF',
-              country: 'Nederland',
-              is_dealer: true,
-              dealer_group: 'Standard',
-              total_orders: 8,
-              total_spent: 1200.00,
-              last_order_date: '2024-01-05',
-              created_at: '2023-08-15',
-              notes: 'Goede dealer, regelmatige bestellingen',
-              status: 'active'
-            }
-          ]
-          setCustomers(dummyCustomers)
-
+        const [groupsData] = await Promise.all([
+          FirebaseService.getCustomerGroups()
+        ])
+        
+        if (groupsData && groupsData.length > 0) {
+          setCustomerGroups(groupsData)
+        } else {
+          // Fallback to dummy groups
           const dummyGroups: CustomerGroup[] = [
             {
               id: '1',
@@ -422,17 +243,44 @@ export default function CRMPage() {
           setCustomerGroups(dummyGroups)
         }
       } catch (error) {
-        console.error('Error fetching CRM data:', error)
-        setError('Fout bij het laden van CRM data')
+        console.error('Error loading data:', error)
+        setError('Fout bij het laden van data')
+        
+        console.log('Firebase data not available, using dummy data')
+        // Use dummy data if Firebase fails
+        const dummyGroups: CustomerGroup[] = [
+          {
+            id: '1',
+            name: 'Premium Dealers',
+            discount_percentage: 15,
+            description: 'Hoogste korting voor premium dealers',
+            created_at: '2023-01-01'
+          },
+          {
+            id: '2',
+            name: 'Standard Dealers',
+            discount_percentage: 10,
+            description: 'Standaard korting voor dealers',
+            created_at: '2023-01-01'
+          },
+          {
+            id: '3',
+            name: 'Retail Klanten',
+            discount_percentage: 5,
+            description: 'Korting voor particuliere klanten',
+            created_at: '2023-01-01'
+          }
+        ]
+        setCustomerGroups(dummyGroups)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
+    loadData()
   }, [])
 
-  const filteredCustomers = customers
+  const filteredCustomers = (customers || [])
     .filter(customer => {
       const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -499,10 +347,10 @@ export default function CRMPage() {
     })
 
   const getCustomerStats = () => {
-    const total = customers.length
-    const active = customers.filter(c => c.status === 'active').length
-    const dealers = customers.filter(c => c.is_dealer).length
-    const totalRevenue = customers.reduce((sum, c) => sum + (c.total_spent || 0), 0)
+    const total = (customers || []).length
+    const active = (customers || []).filter(c => c.status === 'active').length
+    const dealers = (customers || []).filter(c => c.is_dealer).length
+    const totalRevenue = (customers || []).reduce((sum, c) => sum + (c.total_spent || 0), 0)
     
     return { total, active, dealers, totalRevenue }
   }
@@ -564,6 +412,11 @@ export default function CRMPage() {
     setShowCustomerModal(true)
   }
 
+  const handleCustomerClick = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setShowCustomerModal(true)
+  }
+
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer)
     setShowCustomerModal(true)
@@ -572,19 +425,35 @@ export default function CRMPage() {
   const handleDeleteCustomer = async (customerId: string) => {
     if (confirm('Weet je zeker dat je deze klant wilt verwijderen?')) {
       try {
-        // Try to delete from Firebase
-        try {
-          await FirebaseService.deleteCustomer(customerId)
-        } catch (error) {
-          console.log('Firebase delete not available, local delete')
-        }
-        
-        // Remove from local state
-        setCustomers(prev => prev.filter(c => c.id !== customerId))
+        await FirebaseService.deleteCustomer(customerId)
+        // Customers will automatically update via useFirebaseRealtime
+        alert('Klant succesvol verwijderd')
       } catch (error) {
         console.error('Error deleting customer:', error)
-        setError('Fout bij het verwijderen van klant')
+        alert('Fout bij verwijderen van klant: ' + error)
       }
+    }
+  }
+
+  const handleUpdateCustomer = async (customerId: string, updates: Partial<Customer>) => {
+    try {
+      await FirebaseService.updateCustomer(customerId, updates)
+      // Customers will automatically update via useFirebaseRealtime
+      alert('Klant succesvol bijgewerkt')
+    } catch (error) {
+      console.error('Error updating customer:', error)
+      alert('Fout bij bijwerken van klant: ' + error)
+    }
+  }
+
+  const handleAddCustomer = async (newCustomer: Omit<Customer, 'id'>) => {
+    try {
+      await FirebaseService.addCustomer(newCustomer)
+      // Customers will automatically update via useFirebaseRealtime
+      alert('Klant succesvol toegevoegd')
+    } catch (error) {
+      console.error('Error adding customer:', error)
+      alert('Fout bij toevoegen van klant: ' + error)
     }
   }
 
@@ -595,30 +464,10 @@ export default function CRMPage() {
 
       if (editingCustomer) {
         // Update existing customer
-        try {
-          await FirebaseService.updateCustomer(customerData.id, customerData)
-        } catch (error) {
-          console.log('Firebase update not available, local update')
-        }
-        
-        setCustomers(prev => prev.map(c => 
-          c.id === customerData.id ? customerData : c
-        ))
+        await handleUpdateCustomer(editingCustomer.id, customerData)
       } else {
         // Create new customer
-        const newCustomer = {
-          ...customerData,
-          id: Date.now().toString(),
-          created_at: new Date().toISOString()
-        }
-        
-        try {
-          await FirebaseService.addCustomer(newCustomer)
-        } catch (error) {
-          console.log('Firebase create not available, local create')
-        }
-        
-        setCustomers(prev => [...prev, newCustomer])
+        await handleAddCustomer(customerData)
       }
 
       setShowCustomerModal(false)
@@ -878,7 +727,7 @@ export default function CRMPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
-                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => router.push(`/admin/crm/${customer.id}`)}>
+                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => handleCustomerClick(customer)}>
                   {getVisibleColumns().map(([columnKey, config]) => (
                     <td 
                       key={columnKey} 
@@ -944,7 +793,7 @@ export default function CRMPage() {
                       {columnKey === 'actions' && (
                         <div className="text-sm font-medium">
                           <button
-                            onClick={() => router.push(`/admin/crm/${customer.id}`)}
+                            onClick={() => handleCustomerClick(customer)}
                            className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
                           >
                             CRM
