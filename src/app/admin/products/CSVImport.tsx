@@ -14,17 +14,14 @@ export default function CSVImport({ isOpen, onClose, onImport }: CSVImportProps)
   const [preview, setPreview] = useState<any[]>([])
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
-  const [productAttributes, setProductAttributes] = useState<any[]>([])
-  const [showAddAttribute, setShowAddAttribute] = useState(false)
-  const [newAttributeName, setNewAttributeName] = useState('')
-  const [newAttributeType, setNewAttributeType] = useState('text')
+
 
   const commonMagentoFields = [
     'sku', 'name', 'description', 'short_description', 'price', 'cost', 
     'special_price', 'qty', 'stock_quantity', 'weight', 'categories',
     'category_ids', 'status', 'visibility', 'tax_class_id', 'image',
     'small_image', 'thumbnail', 'meta_title', 'meta_description',
-    'created_at', 'updated_at', 'type_id', 'attribute_set_id'
+    'created_at', 'updated_at', 'type_id'
   ]
 
   const [ourFields, setOurFields] = useState([
@@ -34,56 +31,9 @@ export default function CSVImport({ isOpen, onClose, onImport }: CSVImportProps)
     'features', 'specifications'
   ])
 
-  // Load product attributes on component mount
-  useEffect(() => {
-    const loadAttributes = async () => {
-      try {
-        const attributes = await FirebaseService.getProductAttributes()
-        setProductAttributes(attributes || [])
-        
-        // Add dynamic attributes to ourFields
-        const dynamicFields = (attributes || []).map((attr: any) => attr.name)
-        setOurFields(prev => [...prev, ...dynamicFields])
-      } catch (error) {
-        console.error('Error loading product attributes:', error)
-      }
-    }
 
-    if (isOpen) {
-      loadAttributes()
-    }
-  }, [isOpen])
 
-  const handleAddAttribute = async () => {
-    if (!newAttributeName.trim()) return
 
-    try {
-      const attributeData = {
-        id: `attr_${Date.now()}`,
-        name: newAttributeName.toLowerCase().replace(/\s+/g, '_'),
-        label: newAttributeName,
-        type: newAttributeType,
-        options: newAttributeType === 'select' ? [] : undefined, // For color/select attributes
-        created_at: new Date().toISOString()
-      }
-
-      await FirebaseService.createProductAttribute(attributeData)
-      
-      // Update local state
-      setProductAttributes(prev => [...prev, attributeData])
-      setOurFields(prev => [...prev, attributeData.name])
-      
-      // Clear form
-      setNewAttributeName('')
-      setNewAttributeType('text')
-      setShowAddAttribute(false)
-      
-      alert(`Attribuut "${attributeData.label}" toegevoegd!`)
-    } catch (error) {
-      console.error('Error adding attribute:', error)
-      alert('Fout bij toevoegen van attribuut')
-    }
-  }
 
   type ParsedCSV = { headers: string[]; rows: any[] }
 
@@ -328,59 +278,7 @@ const parseCSV = (csvText: string): ParsedCSV => {
                   Koppel de CSV kolommen aan onze database velden. Mis je een attribuut? Voeg het toe!
                 </p>
 
-                {/* Add New Attribute Section */}
-               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                   <h4 className="text-md font-medium text-green-900">Nieuw Attribuut Toevoegen</h4>
-                    <button
-                      onClick={() => setShowAddAttribute(!showAddAttribute)}
-                     className="text-green-600 hover:text-green-800 font-medium"
-                    >
-                      {showAddAttribute ? '🔼 Verberg' : '🔽 Toon'}
-                    </button>
-                  </div>
-                  
-                  {showAddAttribute && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-green-700 mb-1">
-                          Attribuut Naam
-                        </label>
-                        <input
-                          type="text"
-                          value={newAttributeName}
-                          onChange={(e) => setNewAttributeName(e.target.value)}
-                          placeholder="bijv. Kleur, Materiaal, etc."
-                          className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-green-700 mb-1">
-                          Type
-                        </label>
-                        <select
-                          value={newAttributeType}
-                          onChange={(e) => setNewAttributeType(e.target.value)}
-                          className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                          <option value="text">Tekst</option>
-                          <option value="number">Nummer</option>
-                          <option value="select">Selectie</option>
-                          <option value="boolean">Ja/Nee</option>
-                        </select>
-                      </div>
-                      <div className="flex items-end">
-                        <button
-                          onClick={handleAddAttribute}
-                          disabled={!newAttributeName.trim()}
-                          className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400"
-                        >
-                          ➕ Toevoegen
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                   {Object.keys(preview[0] || {}).map(csvField => (
@@ -408,16 +306,7 @@ const parseCSV = (csvText: string): ParsedCSV => {
                           ))}
                         </optgroup>
                         
-                        {/* Dynamic Attributes */}
-                        {productAttributes.length > 0 && (
-                          <optgroup label="🔧 Dynamische Attributen">
-                            {productAttributes.map(attr => (
-                              <option key={attr.name} value={attr.name}>
-                                {attr.label} ({attr.type})
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
+
                       </select>
                     </div>
                   ))}

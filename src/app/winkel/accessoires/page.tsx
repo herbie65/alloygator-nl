@@ -10,11 +10,11 @@ interface Product {
   name: string
   description: string
   price: number
-  image?: string
+  image_url?: string
+  image?: string // Backward compatibility
   category: string
+  slug?: string
 }
-
-
 
 export default function AccessoiresPage() {
   const [allProducts, loading, error] = useFirebaseRealtime<Product>('products')
@@ -23,7 +23,12 @@ export default function AccessoiresPage() {
   // Filter products for this category
   const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
   const list: any[] = Array.isArray(allProducts) ? (allProducts as unknown as any[]) : []
-  const products = list.filter(p => normalizeCategory(p.category) === 'accessoires')
+  const products = list.filter((p) => normalizeCategory(p.category) === 'accessoires')
+
+  // Helper function to get the correct image URL
+  const getProductImage = (product: Product) => {
+    return product.image_url || product.image || null
+  }
 
   useEffect(() => {}, [])
 
@@ -36,7 +41,7 @@ export default function AccessoiresPage() {
       name: product.name,
       price: product.price,
       quantity: 1,
-      image: (product as any).image,
+      image: getProductImage(product),
       category: product.category
     }
 
@@ -69,7 +74,7 @@ export default function AccessoiresPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Accessoires</h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Extra onderdelen en accessoires voor uw AlloyGator velgbescherming. 
-            Vervangingsonderdelen en aanvullende producten voor optimale functionaliteit.
+            Van vervangingsonderdelen tot extra bevestigingsmateriaal.
           </p>
         </div>
 
@@ -77,17 +82,28 @@ export default function AccessoiresPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {products.map((product) => (
             <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-              {product.image && (
-                <div className="aspect-w-16 aspect-h-9 bg-gray-200">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-48 object-cover"
-                  />
+              {/* Product Image - Clickable link to product detail */}
+              <Link href={`/winkel/product/${product.slug || product.id}`}>
+                <div className="h-48 flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                  {getProductImage(product) ? (
+                    <img 
+                      src={getProductImage(product)!} 
+                      alt={product.name}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-gray-400 text-4xl">🔧</div>
+                  )}
                 </div>
-              )}
+              </Link>
+              
               <div className="p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{product.name}</h3>
+                {/* Product Name - Clickable link to product detail */}
+                <Link href={`/winkel/product/${product.slug || product.id}`}>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2 hover:text-green-600 cursor-pointer">
+                    {product.name}
+                  </h3>
+                </Link>
                 <p className="text-gray-600 mb-4 line-clamp-3">{product.description}</p>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold text-green-600">
@@ -122,7 +138,7 @@ export default function AccessoiresPage() {
             <Link href="/winkel/alloygator-set" className="group">
               <div className="bg-gray-50 rounded-lg p-6 hover:bg-gray-100 transition-colors">
                 <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600">AlloyGator Sets</h3>
-                <p className="text-gray-600 mt-2">Complete sets voor velgbescherming</p>
+                <p className="text-gray-600 mt-2">Complete sets voor verschillende velgmaten</p>
               </div>
             </Link>
             <Link href="/winkel/montagehulpmiddelen" className="group">

@@ -40,9 +40,7 @@ export class FirebaseClientService {
       case 'customers': return `CUST-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_colors': return this.generateColorId(data)
-      case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'vat_settings': return `VAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`

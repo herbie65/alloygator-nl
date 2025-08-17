@@ -15,6 +15,7 @@ interface Product {
   vat_category: string
   category: string
   image_url?: string
+  image?: string // Backward compatibility
   sku: string
   stock_quantity: number
   weight: number
@@ -505,12 +506,12 @@ export default function WinkelPage() {
               <div key={`${(product as any).id || (product as any).sku || 'p'}-${index}`} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Product Image */}
                 <Link href={`/winkel/product/${(product as any).slug || (product as any).id}`}>
-                  <div className="h-48 bg-gray-200 flex items-center justify-center cursor-pointer">
+                  <div className="h-48 flex items-center justify-center cursor-pointer">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     ) : (
                       <div className="text-gray-400 text-4xl">🛞</div>

@@ -80,35 +80,30 @@ export const BTW_NUMMERS = {
 // Database service functies
 export class FirebaseService {
   // Helper functie om logische ID's te genereren
-  static generateLogicalId(collectionName: string, data?: any): string {
-    const now = new Date()
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
-    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '') // HHMMSS
+  static async generateLogicalId(collectionName: string, data: any): Promise<string> {
     const timestamp = Date.now()
+    const date = new Date(timestamp)
+    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    const timeStr = date.toTimeString().slice(0, 8).replace(/:/g, '')
     
     switch (collectionName) {
-      case 'customers': return `CUST-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'attribute_sets': return `SET-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_colors': return this.generateColorId(data)
-      case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'vat_settings': return `VAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'shipping_settings': return `SHIP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'payment_settings': return `PAY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_groups': return `GRP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customers': return await this.generateNumericCustomerId()
+      case 'users': return `USER-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'cms_pages': return `CMS-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'contact_moments': return `CONT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'visits': return `VISIT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'dealers': return `DEAL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'headers_footers': return `HF-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_activities': return `ACT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_documents': return `DOC-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_uploads': return `UPL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      default: return `${collectionName.toUpperCase()}-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'documents': return `DOC-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'invoices': return `INV-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'shipping_methods': return `SHIP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'payment_methods': return `PAY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'vat_settings': return `VAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'settings': return `SETT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_groups': return `CGRP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'returns': return `RET-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      default: return `${collectionName.toUpperCase().slice(0, 4)}-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
     }
   }
 
@@ -195,7 +190,7 @@ export class FirebaseService {
   static async addDocument(collectionName: string, data: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId(collectionName, data)
+      const logicalId = await this.generateLogicalId(collectionName, data)
       const docRef = doc(database, collectionName, logicalId)
       await setDoc(docRef, {
         ...data,
@@ -253,7 +248,7 @@ export class FirebaseService {
   static async addCustomer(customerData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('customers', customerData)
+      const logicalId = await this.generateLogicalId('customers', customerData)
       const docRef = doc(database, 'customers', logicalId);
       
       await setDoc(docRef, {
@@ -332,6 +327,33 @@ export class FirebaseService {
     return this.deleteDocument('customers', id);
   }
 
+  // Helper for generating numeric customer IDs
+  private static async generateNumericCustomerId(): Promise<string> {
+    try {
+      const existingCustomers = await this.getDocuments('customers');
+      let maxNumericId = 1999; // Start from 2000, so 1999 is the last one
+
+      if (existingCustomers && Array.isArray(existingCustomers)) {
+        for (const customer of existingCustomers) {
+          if (String(customer.id).match(/^#?(\d+)$/)) {
+            const num = parseInt(String(customer.id).replace('#', ''));
+            if (num > maxNumericId) {
+              maxNumericId = num;
+            }
+          }
+        }
+      }
+
+      const nextNumericId = maxNumericId + 1;
+      return `#${nextNumericId}`;
+    } catch (error) {
+      console.error('Error generating numeric customer ID:', error);
+      // Fallback to timestamp-based ID if there's an error
+      const timestamp = Date.now();
+      return `#${2000 + (timestamp % 1000)}`;
+    }
+  }
+
   // Specific operations for products
   static async getProducts() {
     return this.getDocuments('products');
@@ -344,7 +366,7 @@ export class FirebaseService {
   static async addProduct(productData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('products', productData)
+      const logicalId = await this.generateLogicalId('products', productData)
       
       const nowIso = new Date().toISOString();
       const { id: _omitId, created_at, updated_at, ...rest } = productData || {};
@@ -385,7 +407,7 @@ export class FirebaseService {
   static async addOrder(orderData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('orders', orderData)
+      const logicalId = await this.generateLogicalId('orders', orderData)
       const docRef = doc(database, 'orders', logicalId)
       
       await setDoc(docRef, {
@@ -414,7 +436,7 @@ export class FirebaseService {
   static async createVatSetting(vatData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('vat_settings', vatData)
+      const logicalId = await this.generateLogicalId('vat_settings', vatData)
       const docRef = doc(database, 'vat_settings', logicalId)
       
       await setDoc(docRef, {
@@ -447,7 +469,7 @@ export class FirebaseService {
   static async createShippingMethod(shippingData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('shipping_methods', shippingData)
+      const logicalId = await this.generateLogicalId('shipping_methods', shippingData)
       const docRef = doc(database, 'shipping_methods', logicalId)
       
       await setDoc(docRef, {
@@ -480,7 +502,7 @@ export class FirebaseService {
   static async createPaymentMethod(paymentData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('payment_methods', paymentData)
+      const logicalId = await this.generateLogicalId('payment_methods', paymentData)
       const docRef = doc(database, 'payment_methods', logicalId)
       
       await setDoc(docRef, {
@@ -532,7 +554,7 @@ export class FirebaseService {
   static async createCustomerGroup(groupData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('customer_groups', groupData)
+      const logicalId = await this.generateLogicalId('customer_groups', groupData)
       const docRef = doc(database, 'customer_groups', logicalId)
       
       await setDoc(docRef, {
@@ -565,7 +587,7 @@ export class FirebaseService {
   static async createCMSPage(pageData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('cms_pages', pageData)
+      const logicalId = await this.generateLogicalId('cms_pages', pageData)
       const docRef = doc(database, 'cms_pages', logicalId)
       
       await setDoc(docRef, {
@@ -601,7 +623,7 @@ export class FirebaseService {
   static async createContactMoment(contactData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('contact_moments', contactData)
+      const logicalId = await this.generateLogicalId('contact_moments', contactData)
       const docRef = doc(database, 'contact_moments', logicalId)
       
       await setDoc(docRef, {
@@ -637,7 +659,7 @@ export class FirebaseService {
   static async createVisit(visitData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('visits', visitData)
+      const logicalId = await this.generateLogicalId('visits', visitData)
       const docRef = doc(database, 'visits', logicalId)
       
       await setDoc(docRef, {
@@ -670,7 +692,7 @@ export class FirebaseService {
   static async createDealer(dealerData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('dealers', dealerData)
+      const logicalId = await this.generateLogicalId('dealers', dealerData)
       const docRef = doc(database, 'dealers', logicalId)
       
       await setDoc(docRef, {
@@ -716,7 +738,7 @@ export class FirebaseService {
   static async createHeaderFooter(data: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('header_footer', data)
+      const logicalId = await this.generateLogicalId('header_footer', data)
       const docRef = doc(database, 'header_footer', logicalId)
       
       await setDoc(docRef, {
@@ -772,7 +794,7 @@ export class FirebaseService {
   static async createCategory(categoryData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('categories', categoryData)
+      const logicalId = await this.generateLogicalId('categories', categoryData)
       const docRef = doc(database, 'categories', logicalId)
       
       await setDoc(docRef, {
@@ -797,100 +819,25 @@ export class FirebaseService {
     return await this.deleteDocument('categories', id);
   }
 
-  // Product Attributes
-  static async createProductAttribute(attributeData: any): Promise<string> {
-    const id = this.generateLogicalId('product_attributes', attributeData)
-    const docRef = doc(db, 'product_attributes', id)
-    const data = {
-      ...attributeData,
-      id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-    await setDoc(docRef, data)
-    return id
-  }
 
-  static async getProductAttributes(): Promise<any[]> {
-    const q = query(
-      collection(db, 'product_attributes'),
-      where('is_active', '==', true),
-      orderBy('sort_order', 'asc')
-    )
-    const snapshot = await getDocs(q)
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-  }
 
-  static async updateProductAttribute(attributeId: string, updateData: any): Promise<void> {
-    const docRef = doc(db, 'product_attributes', attributeId)
-    await updateDoc(docRef, {
-      ...updateData,
-      updated_at: new Date().toISOString()
-    })
-  }
 
-  static async deleteProductAttribute(attributeId: string): Promise<void> {
-    const docRef = doc(db, 'product_attributes', attributeId)
-    await deleteDoc(docRef)
-  }
 
-  // Attribute Sets
-  static async createAttributeSet(setData: any): Promise<string> {
-    const id = this.generateLogicalId('attribute_sets', setData)
-    const docRef = doc(db, 'attribute_sets', id)
-    const data = {
-      ...setData,
-      id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-    await setDoc(docRef, data)
-    return id
-  }
-
-  static async getAttributeSets(): Promise<any[]> {
-    try {
-      const q = query(
-        collection(db, 'attribute_sets'),
-        orderBy('created_at', 'desc')
-      )
-      const snapshot = await getDocs(q)
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    } catch (error) {
-      console.error('Error getting attribute sets:', error)
-      // Fallback: get all without ordering
-      try {
-        const snapshot = await getDocs(collection(db, 'attribute_sets'))
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      } catch (fallbackError) {
-        console.error('Fallback error getting attribute sets:', fallbackError)
-        return []
-      }
-    }
-  }
-
-  static async updateAttributeSet(setId: string, updateData: any): Promise<void> {
-    const docRef = doc(db, 'attribute_sets', setId)
-    await updateDoc(docRef, {
-      ...updateData,
-      updated_at: new Date().toISOString()
-    })
-  }
-
-  static async deleteAttributeSet(setId: string): Promise<void> {
-    const docRef = doc(db, 'attribute_sets', setId)
-    await deleteDoc(docRef)
-  }
-
-  // Product Colors
-  static async getProductColors() {
-    return await this.getDocuments('product_colors', []);
-  }
+  // Product Colors - DEPRECATED: Use product_attributes instead
+  // static async getProductColors(): Promise<any[]> {
+  //   const q = query(
+  //     collection(db, 'product_colors'),
+  //     where('is_active', '==', true),
+  //     orderBy('sort_order', 'asc')
+  //   )
+  //   const snapshot = await getDocs(q)
+  //   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  // }
 
   static async createProductColor(colorData: any) {
     try {
       const database = getDb();
-      const logicalId = this.generateLogicalId('product_colors', colorData)
+      const logicalId = await this.generateLogicalId('product_colors', colorData)
       const docRef = doc(database, 'product_colors', logicalId)
       
       await setDoc(docRef, {
@@ -915,76 +862,7 @@ export class FirebaseService {
     return await this.deleteDocument('product_colors', id);
   }
 
-  // Configurable Product and Variant operations
-  static async getProductVariants(parentProductId?: string): Promise<any[]> {
-    try {
-      if (parentProductId) {
-        // Get variants for specific parent
-        const q = query(
-          collection(db, 'product_variants'),
-          where('parent_product_id', '==', parentProductId)
-        )
-        const snapshot = await getDocs(q)
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      } else {
-        // Get all variants without complex queries
-        const snapshot = await getDocs(collection(db, 'product_variants'))
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      }
-    } catch (error) {
-      console.error('Error getting product variants:', error)
-      return []
-    }
-  }
 
-  static async addProductVariant(variantData: any) {
-    try {
-      const database = getDb();
-      const logicalId = this.generateLogicalId('product_variants', variantData);
-      const docRef = doc(database, 'product_variants', logicalId);
-      
-      await setDoc(docRef, {
-        ...variantData,
-        id: logicalId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-      
-      return { id: logicalId, ...variantData };
-    } catch (error) {
-      console.error('Error adding product variant:', error);
-      throw error;
-    }
-  }
-
-  static async updateProductVariant(variantId: string, updateData: any) {
-    try {
-      const database = getDb();
-      const docRef = doc(database, 'product_variants', variantId);
-      
-      await setDoc(docRef, {
-        ...updateData,
-        updated_at: new Date().toISOString()
-      }, { merge: true });
-      
-      return { id: variantId, ...updateData };
-    } catch (error) {
-      console.error('Error updating product variant:', error);
-      throw error;
-    }
-  }
-
-  static async deleteProductVariant(variantId: string) {
-    try {
-      const database = getDb();
-      const docRef = doc(database, 'product_variants', variantId);
-      await deleteDoc(docRef);
-      return true;
-    } catch (error) {
-      console.error('Error deleting product variant:', error);
-      throw error;
-    }
-  }
 
   // Settings
   static async getSettings() {

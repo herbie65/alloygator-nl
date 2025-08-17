@@ -111,7 +111,7 @@ console.log(
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center space-x-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Producten Beheren</h1>
           <p className="text-gray-600">Beheer uw productcatalogus</p>
@@ -127,7 +127,7 @@ console.log(
           >
             + Nieuw Product
           </button>
-                    <button 
+          <button 
             onClick={() => setShowCSVImport(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
           >

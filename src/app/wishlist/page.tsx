@@ -247,12 +247,12 @@ export default function WishlistPage() {
             return (
               <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <Link href={`/winkel/product/${product.id}`}>
-                  <div className="h-48 bg-gray-200 flex items-center justify-center cursor-pointer">
+                  <div className="h-48 flex items-center justify-center cursor-pointer">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     ) : (
                       <div className="text-gray-400 text-4xl">🛞</div>

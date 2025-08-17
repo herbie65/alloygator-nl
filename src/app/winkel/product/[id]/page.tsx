@@ -340,7 +340,7 @@ export default function ProductDetailPage() {
                     <img
                       src={product.image_url}
                       alt={product.name}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-contain rounded-lg"
                     />
                   ) : (
                     <div className="text-gray-400 text-8xl">🛞</div>

@@ -78,8 +78,7 @@ export default function CustomersPage() {
   const [filterGroup, setFilterGroup] = useState('all')
   const [sortBy, setSortBy] = useState('name')
   const [saving, setSaving] = useState(false)
-  const [bulkRunning, setBulkRunning] = useState(false)
-  const [bulkReport, setBulkReport] = useState<{total:number; updated:number; skipped:number; failed:number; msgs:string[]}>({ total: 0, updated: 0, skipped: 0, failed: 0, msgs: [] })
+  const [showCSVImport, setShowCSVImport] = useState(false)
 
   // Load customer groups
   useEffect(() => {
@@ -148,24 +147,45 @@ export default function CustomersPage() {
   }
 
   const handleSaveCustomer = async (customerData: Customer) => {
-    setSaving(true)
-
     try {
-      if (editingCustomer && editingCustomer.id) {
-        // Update existing customer
-        const { id, ...updateData } = customerData
-        await FirebaseService.updateCustomer(String(editingCustomer.id), updateData)
+      setSaving(true)
+      if (editingCustomer) {
+        await FirebaseService.updateCustomer(editingCustomer.id, customerData)
       } else {
-        // Create new customer
-        const { id, ...newCustomerData } = customerData
-        await FirebaseService.addCustomer(newCustomerData)
+        await FirebaseService.addCustomer(customerData)
       }
-
       setShowCustomerModal(false)
       setSelectedCustomer(null)
       setEditingCustomer(null)
-    } catch (err) {
-      console.error('Error saving customer:', err)
+    } catch (error) {
+      console.error('Error saving customer:', error)
+      alert('Fout bij opslaan van klant: ' + error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCSVImport = async (importedCustomers: Customer[]) => {
+    try {
+      setSaving(true)
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const customer of importedCustomers) {
+        try {
+          await FirebaseService.addCustomer(customer)
+          successCount++
+        } catch (error) {
+          console.error(`Error importing customer ${customer.name}:`, error)
+          errorCount++
+        }
+      }
+      
+      alert(`CSV Import voltooid! ${successCount} klanten succesvol geïmporteerd, ${errorCount} fouten.`)
+      setShowCSVImport(false)
+    } catch (error) {
+      console.error('CSV import error:', error)
+      alert('Fout bij importeren van klanten: ' + error)
     } finally {
       setSaving(false)
     }
@@ -209,46 +229,51 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-              <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Klanten Beheren</h1>
-            <p className="text-gray-600">Beheer uw klantdatabase</p>
-          </div>
-          <div className="flex space-x-3">
-            <button 
-              onClick={async () => {
-                if (confirm('Weet je zeker dat je alle klanten wilt migreren naar numerieke IDs? Dit kan niet ongedaan worden gemaakt.')) {
-                  try {
-                    const response = await fetch('/api/admin/migrate-customers', { method: 'POST' });
-                    const result = await response.json();
-                    if (result.success) {
-                      alert(result.message);
-                      // Refresh the page to show updated customer IDs
-                      window.location.reload();
-                    } else {
-                      alert('Fout bij migreren: ' + result.message);
-                    }
-                  } catch (error) {
-                    alert('Fout bij migreren: ' + error);
-                  }
-                }
-              }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              🔄 Migreer naar Numerieke IDs
-            </button>
-            <button 
-              onClick={() => {
-                setSelectedCustomer(null)
-                setEditingCustomer(null)
-                setShowCustomerModal(true)
-              }}
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-            >
-              + Nieuwe Klant
-            </button>
-          </div>
+              <div className="flex items-center space-x-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Klanten Beheren</h1>
+          <p className="text-gray-600">Beheer uw klantdatabase</p>
         </div>
+        <div className="flex space-x-3">
+          <button 
+            onClick={async () => {
+              if (confirm('Weet je zeker dat je alle klanten wilt migreren naar numerieke IDs? Dit kan niet ongedaan worden gemaakt.')) {
+                try {
+                  setSaving(true)
+                  const result = await FirebaseService.migrateCustomersToNumericIds()
+                  alert(`Migratie voltooid! ${result?.length || 0} klanten gemigreerd.`)
+                  // Refresh the page to show updated customer IDs
+                  window.location.reload()
+                } catch (error) {
+                  alert('Fout bij migreren: ' + error)
+                } finally {
+                  setSaving(false)
+                }
+              }
+            }}
+            disabled={saving}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            {saving ? 'Bezig...' : '🔄 Migreer naar Numerieke IDs'}
+          </button>
+          <button 
+            onClick={() => setShowCSVImport(true)}
+            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
+          >
+            📁 CSV Import
+          </button>
+          <button 
+            onClick={() => {
+              setSelectedCustomer(null)
+              setEditingCustomer(null)
+              setShowCustomerModal(true)
+            }}
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+          >
+            + Nieuwe Klant
+          </button>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -359,67 +384,6 @@ export default function CustomersPage() {
               </select>
             </div>
           </div>
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-900">Dealer geocoding</h3>
-              <p className="text-sm text-gray-600">Zet automatisch coördinaten voor dealers zonder locatie. 1 verzoek/sec (Nominatim limiet).</p>
-            </div>
-            <button
-              disabled={bulkRunning}
-              onClick={async () => {
-                try {
-                  setBulkRunning(true)
-                  const dealerCandidates = (customers || []).filter((c: any) => c.is_dealer && (!c.latitude || !c.longitude || c.latitude === 0 || c.longitude === 0))
-                  const total = dealerCandidates.length
-                  const report = { total, updated: 0, skipped: 0, failed: 0, msgs: [] as string[] }
-                  for (let i = 0; i < dealerCandidates.length; i++) {
-                    const c = dealerCandidates[i]
-                    const address = `${c.address || ''}, ${c.postal_code || ''} ${c.city || ''}, ${c.country || 'Nederland'}`.trim()
-                    if (!address || address === ', ,') { report.skipped++; report.msgs.push(`Overgeslagen: ${c.name} (geen adres)`); continue }
-                    try {
-                      const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`)
-                      const data = await res.json()
-                      if (res.ok && data.lat && data.lng) {
-                        await FirebaseService.updateCustomer(c.id, { latitude: data.lat, longitude: data.lng, show_on_map: true, updated_at: new Date().toISOString() })
-                        report.updated++
-                      } else {
-                        report.failed++
-                        report.msgs.push(`Mislukt: ${c.name} (${data.message || data.error || 'onbekende fout'})`)
-                      }
-                    } catch (e: any) {
-                      report.failed++
-                      report.msgs.push(`Mislukt: ${c.name} (${e?.message || 'netwerkfout'})`)
-                    }
-                    // Respect rate limit
-                    await new Promise(r => setTimeout(r, 1100))
-                    setBulkReport({ ...report })
-                  }
-                  setBulkReport(report)
-                  alert(`Geocode gereed. Totaal: ${report.total}, geüpdatet: ${report.updated}, overgeslagen: ${report.skipped}, mislukt: ${report.failed}`)
-                } finally {
-                  setBulkRunning(false)
-                }
-              }}
-              className={`px-4 py-2 ${bulkRunning ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white rounded text-sm`}
-            >
-              {bulkRunning ? 'Bezig…' : 'Geocodeer dealers (bulk)'}
-            </button>
-          </div>
-          {(bulkReport.total > 0) && (
-            <div className="mt-3 text-sm text-gray-700">
-              <div>Te verwerken: {bulkReport.total} • Geüpdatet: {bulkReport.updated} • Overgeslagen: {bulkReport.skipped} • Mislukt: {bulkReport.failed}</div>
-              {bulkReport.msgs.length > 0 && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-gray-600">Details</summary>
-                  <ul className="list-disc ml-5 mt-1">
-                    {bulkReport.msgs.slice(-10).map((m, idx) => (<li key={idx}>{m}</li>))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          )}
-        </div>
         </div>
 
         {/* Customers Table */}
@@ -570,6 +534,14 @@ export default function CustomersPage() {
             setEditingCustomer(null)
           }}
           saving={saving}
+        />
+      )}
+
+      {/* CSV Import Modal */}
+      {showCSVImport && (
+        <CustomerCSVImportModal
+          onClose={() => setShowCSVImport(false)}
+          onImport={handleCSVImport}
         />
       )}
     </div>
@@ -1282,6 +1254,303 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
               )}
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface CustomerCSVImportModalProps {
+  onClose: () => void
+  onImport: (customers: Customer[]) => void
+}
+
+function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalProps) {
+  const [csvData, setCsvData] = useState<string>('')
+  const [headers, setHeaders] = useState<string[]>([])
+  const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [preview, setPreview] = useState<any[]>([])
+  const [importing, setImporting] = useState(false)
+
+  // Available customer fields for mapping
+  const customerFields = [
+    { key: 'name', label: 'Naam *', required: true },
+    { key: 'email', label: 'Email *', required: true },
+    { key: 'phone', label: 'Telefoon', required: false },
+    { key: 'company_name', label: 'Bedrijfsnaam', required: false },
+    { key: 'address', label: 'Adres', required: false },
+    { key: 'city', label: 'Woonplaats', required: false },
+    { key: 'postal_code', label: 'Postcode', required: false },
+    { key: 'country', label: 'Land', required: false },
+    { key: 'is_dealer', label: 'Is Dealer', required: false },
+    { key: 'dealer_group', label: 'Dealer Groep', required: false },
+    { key: 'total_orders', label: 'Totaal Bestellingen', required: false },
+    { key: 'total_spent', label: 'Totaal Uitgegeven', required: false },
+    { key: 'status', label: 'Status', required: false },
+    { key: 'contact_first_name', label: 'Voornaam Contact', required: false },
+    { key: 'contact_last_name', label: 'Achternaam Contact', required: false },
+    { key: 'shipping_address', label: 'Verzendadres', required: false },
+    { key: 'shipping_city', label: 'Verzendplaats', required: false },
+    { key: 'shipping_postal_code', label: 'Verzendpostcode', required: false },
+    { key: 'shipping_country', label: 'Verzendland', required: false },
+    { key: 'kvk_number', label: 'KVK Nummer', required: false },
+    { key: 'invoice_email', label: 'Factuur Email', required: false },
+    { key: 'vat_number', label: 'BTW Nummer', required: false },
+    { key: 'website', label: 'Website', required: false },
+    { key: 'contact_person', label: 'Contactpersoon', required: false },
+    { key: 'payment_terms', label: 'Betaaltermijn', required: false },
+    { key: 'credit_limit', label: 'Kredietlimiet', required: false },
+    { key: 'notes', label: 'Notities', required: false }
+  ]
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        setCsvData(text)
+        parseCSV(text)
+      }
+      reader.readAsText(file)
+    }
+  }
+
+  const parseCSV = (csvText: string) => {
+    const lines = csvText.split('\n')
+    if (lines.length > 0) {
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+      setHeaders(headers)
+      
+      // Auto-map common fields
+      const autoMapping: Record<string, string> = {}
+      headers.forEach(header => {
+        const lowerHeader = header.toLowerCase()
+        if (lowerHeader.includes('naam') || lowerHeader.includes('name')) autoMapping[header] = 'name'
+        else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail')) autoMapping[header] = 'email'
+        else if (lowerHeader.includes('telefoon') || lowerHeader.includes('phone') || lowerHeader.includes('tel')) autoMapping[header] = 'phone'
+        else if (lowerHeader.includes('bedrijf') || lowerHeader.includes('company') || lowerHeader.includes('firma')) autoMapping[header] = 'company_name'
+        else if (lowerHeader.includes('adres') || lowerHeader.includes('address') || lowerHeader.includes('straat')) autoMapping[header] = 'address'
+        else if (lowerHeader.includes('woonplaats') || lowerHeader.includes('city') || lowerHeader.includes('plaats')) autoMapping[header] = 'city'
+        else if (lowerHeader.includes('postcode') || lowerHeader.includes('zip') || lowerHeader.includes('pc')) autoMapping[header] = 'postal_code'
+        else if (lowerHeader.includes('land') || lowerHeader.includes('country')) autoMapping[header] = 'country'
+        else if (lowerHeader.includes('dealer') || lowerHeader.includes('handelaar')) autoMapping[header] = 'is_dealer'
+        else if (lowerHeader.includes('status')) autoMapping[header] = 'status'
+        else if (lowerHeader.includes('voornaam') || lowerHeader.includes('first')) autoMapping[header] = 'contact_first_name'
+        else if (lowerHeader.includes('achternaam') || lowerHeader.includes('last')) autoMapping[header] = 'contact_last_name'
+        else if (lowerHeader.includes('kvk')) autoMapping[header] = 'kvk_number'
+        else if (lowerHeader.includes('btw') || lowerHeader.includes('vat')) autoMapping[header] = 'vat_number'
+        else if (lowerHeader.includes('website') || lowerHeader.includes('site')) autoMapping[header] = 'website'
+        else if (lowerHeader.includes('contactpersoon') || lowerHeader.includes('contact')) autoMapping[header] = 'contact_person'
+        else if (lowerHeader.includes('notities') || lowerHeader.includes('notes')) autoMapping[header] = 'notes'
+      })
+      setMapping(autoMapping)
+      
+      // Generate preview
+      if (lines.length > 1) {
+        const previewData = lines.slice(1, 6).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+          const row: any = {}
+          headers.forEach((header, index) => {
+            row[header] = values[index] || ''
+          })
+          return row
+        })
+        setPreview(previewData)
+      }
+    }
+  }
+
+  const handleImport = () => {
+    if (!csvData) return
+    
+    const lines = csvData.split('\n')
+    if (lines.length < 2) return
+    
+    const importedCustomers: Customer[] = []
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]
+      if (!line.trim()) continue
+      
+      const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+      const customerData: any = {
+        name: '',
+        email: '',
+        phone: '',
+        company_name: '',
+        address: '',
+        city: '',
+        postal_code: '',
+        country: 'Nederland',
+        is_dealer: false,
+        dealer_group: '',
+        total_orders: 0,
+        total_spent: 0,
+        status: 'active' as const,
+        contact_first_name: '',
+        contact_last_name: '',
+        separate_shipping_address: false,
+        shipping_address: '',
+        shipping_city: '',
+        shipping_postal_code: '',
+        shipping_country: 'Nederland',
+        kvk_number: '',
+        separate_invoice_email: false,
+        invoice_email: '',
+        vat_number: '',
+        vat_verified: false,
+        vat_reverse_charge: false,
+        latitude: null,
+        longitude: null,
+        website: '',
+        contact_person: '',
+        payment_terms: '',
+        credit_limit: 0,
+        tax_exempt: false,
+        tax_exemption_reason: '',
+        show_on_map: false,
+        notes: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      headers.forEach((header, index) => {
+        const field = mapping[header]
+        if (field && values[index]) {
+          const value = values[index]
+          
+          // Handle special field types
+          if (field === 'is_dealer') {
+            customerData[field] = ['true', '1', 'yes', 'ja'].includes(value.toLowerCase())
+          } else if (field === 'total_orders' || field === 'total_spent' || field === 'credit_limit') {
+            customerData[field] = parseFloat(value) || 0
+          } else if (field === 'status') {
+            customerData[field] = ['active', 'inactive', 'pending'].includes(value.toLowerCase()) ? value.toLowerCase() : 'active'
+          } else {
+            customerData[field] = value
+          }
+        }
+      })
+      
+      // Validate required fields
+      if (customerData.name && customerData.email) {
+        importedCustomers.push(customerData as Customer)
+      }
+    }
+    
+    if (importedCustomers.length > 0) {
+      onImport(importedCustomers)
+    } else {
+      alert('Geen geldige klanten gevonden in de CSV. Controleer of de verplichte velden (naam en email) zijn ingevuld.')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <div className="flex justify-between items-center p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900">CSV Import - Klanten</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div className="space-y-6">
+            {/* File Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload CSV Bestand
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Upload een CSV bestand met klantgegevens. De eerste rij moet kolomnamen bevatten.
+              </p>
+            </div>
+
+            {/* Field Mapping */}
+            {headers.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Kolom Mapping</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {headers.map(header => (
+                    <div key={header} className="flex items-center space-x-3">
+                      <label className="text-sm font-medium text-gray-700 min-w-[120px]">
+                        {header}:
+                      </label>
+                      <select
+                        value={mapping[header] || ''}
+                        onChange={(e) => setMapping(prev => ({ ...prev, [header]: e.target.value }))}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">Niet mappen</option>
+                        {customerFields.map(field => (
+                          <option key={field.key} value={field.key}>
+                            {field.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Preview */}
+            {preview.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Voorvertoning (eerste 5 rijen)</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {headers.map(header => (
+                          <th key={header} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {preview.map((row, index) => (
+                        <tr key={index}>
+                          {headers.map(header => (
+                            <td key={header} className="px-3 py-2 text-sm text-gray-900">
+                              {row[header] || ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Import Button */}
+            {csvData && (
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleImport}
+                  disabled={importing}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {importing ? 'Importeren...' : 'Importeren'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
