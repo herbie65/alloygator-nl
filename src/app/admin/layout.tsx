@@ -397,7 +397,9 @@ export default function AdminLayout({
       children: [
         { name: 'Producten Overzicht', href: '/admin/products', icon: '📦', color: 'bg-purple-400' },
         { name: 'Categorieën', href: '/admin/categories', icon: '📁', color: 'bg-purple-400' },
-        { name: 'Kleuren', href: '/admin/settings/colors', icon: '🎨', color: 'bg-purple-400' },
+        { name: 'Attributen', href: '#', icon: '🏷️', color: 'bg-purple-400', children: [
+          { name: 'Kleuren', href: '/admin/attributes/colors', icon: '🎨', color: 'bg-purple-300' }
+        ]},
         { name: 'Leveranciers', href: '/admin/settings/suppliers', icon: '🏭', color: 'bg-purple-400' }
       ]
     },
@@ -459,7 +461,13 @@ export default function AdminLayout({
   const isActive = (href: string) => pathname === href
   const isChildActive = (item: NavigationItem) => {
     if (item.children) {
-      return item.children.some(child => isActive(child.href))
+      return item.children.some(child => {
+        if (child.children) {
+          // Check nested children (like Attributen)
+          return child.children.some(grandChild => isActive(grandChild.href))
+        }
+        return isActive(child.href)
+      })
     }
     return isActive(item.href)
   }
@@ -530,25 +538,71 @@ export default function AdminLayout({
                         {isExpanded && (
                           <div className="ml-6 mt-2 space-y-1">
                             {item.children!.map((child) => (
-                              <Link
-                                key={child.name}
-                                href={child.href}
-                                className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
-                                  isActive(child.href)
-                                    ? `${child.color} text-white shadow-md`
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                                }`}
-                              >
-                                <div className={`w-4 h-4 rounded mr-3 flex items-center justify-center text-white text-xs font-bold ${child.color}`}>
-                                  {child.name.charAt(0)}
-                                </div>
-                                <span className="flex-1">{child.name}</span>
-                                {child.badge && (
-                                  <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                                    {child.badge}
-                                  </span>
+                              <div key={child.name}>
+                                {child.children ? (
+                                  // Nested children (like Attributen)
+                                  <div>
+                                    <button
+                                      onClick={() => toggleSection(child.name.toLowerCase())}
+                                      className={`w-full flex items-center justify-between px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
+                                        isChildActive(child)
+                                          ? `${child.color} text-white shadow-md`
+                                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                      }`}
+                                    >
+                                      <div className="flex items-center">
+                                        <div className={`w-4 h-4 rounded mr-3 flex items-center justify-center text-white text-xs font-bold ${child.color}`}>
+                                          {child.name.charAt(0)}
+                                        </div>
+                                        <span className="flex-1">{child.name}</span>
+                                      </div>
+                                      <span className={`transform transition-transform duration-200 ${expandedSections.includes(child.name.toLowerCase()) ? 'rotate-180' : ''}`}>
+                                        ▼
+                                      </span>
+                                    </button>
+                                    {expandedSections.includes(child.name.toLowerCase()) && (
+                                      <div className="ml-4 mt-1 space-y-1">
+                                        {child.children.map((grandChild) => (
+                                          <Link
+                                            key={grandChild.name}
+                                            href={grandChild.href}
+                                            className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
+                                              isActive(grandChild.href)
+                                                ? `${grandChild.color} text-white shadow-md`
+                                                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                                            }`}
+                                          >
+                                            <div className={`w-3 h-3 rounded mr-3 flex items-center justify-center text-white text-xs font-bold ${grandChild.color}`}>
+                                              {grandChild.name.charAt(0)}
+                                            </div>
+                                            <span className="flex-1">{grandChild.name}</span>
+                                          </Link>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  // Regular child (no nested children)
+                                  <Link
+                                    href={child.href}
+                                    className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
+                                      isActive(child.href)
+                                        ? `${child.color} text-white shadow-md`
+                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                    }`}
+                                  >
+                                    <div className={`w-4 h-4 rounded mr-3 flex items-center justify-center text-white text-xs font-bold ${child.color}`}>
+                                      {child.name.charAt(0)}
+                                    </div>
+                                    <span className="flex-1">{child.name}</span>
+                                    {child.badge && (
+                                      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                                        {child.badge}
+                                      </span>
+                                    )}
+                                  </Link>
                                 )}
-                              </Link>
+                              </div>
                             ))}
                           </div>
                         )}
