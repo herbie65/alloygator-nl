@@ -396,6 +396,7 @@ export default function AdminLayout({
       color: 'bg-purple-500',
       children: [
         { name: 'Producten Overzicht', href: '/admin/products', icon: '📦', color: 'bg-purple-400' },
+        { name: 'Product Varianten', href: '/admin/products/product-variants', icon: '🔗', color: 'bg-purple-400' },
         { name: 'Categorieën', href: '/admin/categories', icon: '📁', color: 'bg-purple-400' },
         { name: 'Attributen', href: '#', icon: '🏷️', color: 'bg-purple-400', children: [
           { name: 'Product Attributen', href: '/admin/attributes/product-attributes', icon: '🏷️', color: 'bg-purple-300' },

@@ -27,10 +27,11 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   // Configurable product state
   const [isConfigurable, setIsConfigurable] = useState(false)
   const [baseSku, setBaseSku] = useState('')
-  const [selectedAttributes, setSelectedAttributes] = useState<string[]>([])
-  const [variants, setVariants] = useState<ProductVariant[]>([])
-  const [showVariantModal, setShowVariantModal] = useState(false)
-  const [editingVariant, setEditingVariant] = useState<Partial<ProductVariant> | null>(null)
+  const [selectedAttributeSet, setSelectedAttributeSet] = useState('')
+  const [configurableAttributes, setConfigurableAttributes] = useState<string[]>([])
+  const [linkedVariants, setLinkedVariants] = useState<string[]>([])
+  const [attributeSets, setAttributeSets] = useState<any[]>([])
+  const [variants, setVariants] = useState<any[]>([])
   
   // Lokale conceptvelden voor WYSIWYG zodat er niets buiten deze modal wordt geüpdatet tijdens typen
   const [shortDraft, setShortDraft] = useState<string>('')
@@ -72,10 +73,11 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
       // Reset configurable product state when modal closes
       setIsConfigurable(false)
       setBaseSku('')
-      setSelectedAttributes([])
+      setSelectedAttributeSet('')
+      setConfigurableAttributes([])
+      setLinkedVariants([])
+      setAttributeSets([])
       setVariants([])
-      setShowVariantModal(false)
-      setEditingVariant(null)
       return
     }
     
@@ -95,7 +97,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
             if (latest.is_configurable) {
               setIsConfigurable(true)
               setBaseSku(latest.base_sku || '')
-              setSelectedAttributes(latest.configurable_attributes?.map((attr: any) => attr.id) || [])
+              setSelectedAttributeSet(latest.configurable_attribute_set || '')
+              setConfigurableAttributes(latest.configurable_attributes?.map((attr: any) => attr.id) || [])
               
               // Load variants
               try {
@@ -121,7 +124,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
         if ((product as any).is_configurable) {
           setIsConfigurable(true)
           setBaseSku((product as any).base_sku || '')
-          setSelectedAttributes((product as any).configurable_attributes?.map((attr: any) => attr.id) || [])
+          setSelectedAttributeSet((product as any).configurable_attribute_set || '')
+          setConfigurableAttributes((product as any).configurable_attributes?.map((attr: any) => attr.id) || [])
         }
         return
       }
@@ -224,6 +228,38 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
     }
   }, [isOpen, product])
 
+  // Load attribute sets and variants when modal opens
+  useEffect(() => {
+    const loadConfigurableData = async () => {
+      if (isOpen) {
+        try {
+          const [setsData, variantsData] = await Promise.all([
+            FirebaseService.getAttributeSets(),
+            FirebaseService.getProductVariants('')
+          ])
+          setAttributeSets(setsData || [])
+          setVariants(variantsData || [])
+        } catch (error) {
+          console.error('Error loading configurable data:', error)
+        }
+      }
+    }
+    
+    loadConfigurableData()
+  }, [isOpen])
+
+  // Update configurable attributes when attribute set changes
+  useEffect(() => {
+    if (selectedAttributeSet) {
+      const set = attributeSets.find(s => s.id === selectedAttributeSet)
+      if (set) {
+        setConfigurableAttributes(set.attributes || [])
+      }
+    } else {
+      setConfigurableAttributes([])
+    }
+  }, [selectedAttributeSet, attributeSets])
+
   // Create default colors if none exist
   const createDefaultColors = async () => {
     try {
@@ -273,7 +309,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
       const configurableData = isConfigurable ? {
         is_configurable: true,
         base_sku: baseSku,
-        configurable_attributes: selectedAttributes.map(attrId => 
+        configurable_attribute_set: selectedAttributeSet,
+        configurable_attributes: configurableAttributes.map(attrId => 
           productAttributes.find(attr => attr.id === attrId)
         ).filter(Boolean)
       } : {}
@@ -460,81 +497,129 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                 </select>
               </div>
 
-              {/* Configurable Product Section */}
-              <div className="col-span-2">
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <div className="flex items-center mb-4">
-                    <input
-                      type="checkbox"
-                      id="isConfigurable"
-                      checked={isConfigurable}
-                      onChange={(e) => setIsConfigurable(e.target.checked)}
-                      disabled={!isEditing}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="isConfigurable" className="ml-2 text-sm font-medium text-gray-700">
-                      Dit product is aanpasbaar (bijv. kleur, maat)
-                    </label>
-                  </div>
+                {/* Configurable Product Section */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Configurable Product Instellingen</h3>
                   
-                  {isConfigurable && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Basis SKU *
-                        </label>
-                        <input
-                          type="text"
-                          value={baseSku}
-                          onChange={(e) => setBaseSku(e.target.value)}
-                          disabled={!isEditing}
-                          placeholder="bijv. AG-SET-BASE"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Basis SKU voor dit product. Varianten krijgen hier een suffix.
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Selecteer Aanpasbare Eigenschappen
-                        </label>
-                        <div className="space-y-2">
-                          {productAttributes
-                            .filter(attr => ['color', 'size', 'select'].includes(attr.type))
-                            .map(attr => (
-                              <label key={attr.id} className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedAttributes.includes(attr.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedAttributes(prev => [...prev, attr.id])
-                                    } else {
-                                      setSelectedAttributes(prev => prev.filter(id => id !== attr.id))
-                                    }
-                                  }}
-                                  disabled={!isEditing}
-                                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                                />
-                                <span className="ml-2 text-sm text-gray-600">
-                                  {attr.label} ({attr.type})
-                                </span>
-                              </label>
-                            ))}
-                        </div>
-                        {selectedAttributes.length === 0 && (
-                          <p className="text-xs text-orange-600 mt-1">
-                            ⚠️ Selecteer minimaal één eigenschap om varianten te kunnen maken.
-                          </p>
-                        )}
-                      </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="isConfigurable"
+                        checked={isConfigurable}
+                        onChange={(e) => setIsConfigurable(e.target.checked)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isConfigurable" className="ml-2 block text-sm font-medium text-gray-700">
+                        Dit product is configureerbaar
+                      </label>
                     </div>
-                  )}
+
+                    {isConfigurable && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Basis SKU
+                          </label>
+                          <input
+                            type="text"
+                            value={baseSku}
+                            onChange={(e) => setBaseSku(e.target.value)}
+                            placeholder="bijv. TSHIRT-BASE"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Basis SKU voor het configurable product (zonder varianten)
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Attribuutset
+                          </label>
+                          <select
+                            value={selectedAttributeSet}
+                            onChange={(e) => setSelectedAttributeSet(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="">-- Selecteer attribuutset --</option>
+                            {attributeSets.map((set) => (
+                              <option key={set.id} value={set.id}>
+                                {set.name} ({set.attributes?.length || 0} attributen)
+                              </option>
+                            ))}
+                          </select>
+                          {attributeSets.length === 0 && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              ⚠️ Geen attribuutsets beschikbaar. Maak eerst een attribuutset aan in 
+                              <a href="/admin/attributes/attribute-sets" className="text-green-600 hover:underline ml-1">
+                                Attributen → Attribuutsets
+                              </a>
+                            </p>
+                          )}
+                        </div>
+
+                        {configurableAttributes.length > 0 && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Configureerbare Attributen
+                            </label>
+                            <div className="space-y-2">
+                              {configurableAttributes.map((attrId) => {
+                                const attribute = productAttributes.find(attr => attr.id === attrId)
+                                return attribute ? (
+                                  <div key={attrId} className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={true}
+                                      disabled
+                                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">
+                                      {attribute.label} ({attribute.type})
+                                    </span>
+                                  </div>
+                                ) : null
+                              })}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Deze attributen zijn automatisch geselecteerd op basis van de gekozen attribuutset
+                            </p>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Gekoppelde Varianten
+                          </label>
+                          <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
+                            {variants
+                              .filter(v => v.parent_product_id === product?.id)
+                              .map((variant) => (
+                                <div key={variant.id} className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-700">
+                                    {variant.name} - €{variant.price}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {variant.color && `${variant.color}`}
+                                    {variant.size && ` ${variant.size}`}
+                                  </span>
+                                </div>
+                              ))}
+                            {variants.filter(v => v.parent_product_id === product?.id).length === 0 && (
+                              <p className="text-sm text-gray-500">
+                                Geen varianten gekoppeld. Maak varianten aan in 
+                                <a href="/admin/products/product-variants" className="text-green-600 hover:underline ml-1">
+                                  Product Varianten
+                                </a>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Leverancier</label>
@@ -831,17 +916,17 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingVariant({
-                        name: '',
-                        sku: '',
-                        ean_code: '',
-                        price: 0,
-                        stock_quantity: 0,
-                        min_stock: 0,
-                        color: '',
-                        active: true
-                      });
-                      setShowVariantModal(true);
+                      // setEditingVariant({
+                      //   name: '',
+                      //   sku: '',
+                      //   ean_code: '',
+                      //   price: 0,
+                      //   stock_quantity: 0,
+                      //   min_stock: 0,
+                      //   color: '',
+                      //   active: true
+                      // });
+                      // setShowVariantModal(true);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
                   >
@@ -868,8 +953,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setEditingVariant(variant)
-                                    setShowVariantModal(true)
+                                    // setEditingVariant(variant)
+                                    // setShowVariantModal(true)
                                   }}
                                   className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                                 >
@@ -956,7 +1041,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
       />
       
       {/* Variant Modal */}
-      {showVariantModal && (
+      {/* {showVariantModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
@@ -1142,7 +1227,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   )
 }
