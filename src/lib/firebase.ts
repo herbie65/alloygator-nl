@@ -87,7 +87,7 @@ export class FirebaseService {
     const timeStr = date.toTimeString().slice(0, 8).replace(/:/g, '')
     
     switch (collectionName) {
-      case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'products': return await this.generateNumericProductId()
       case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_colors': return this.generateColorId(data)
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
@@ -104,6 +104,32 @@ export class FirebaseService {
       case 'customer_groups': return `CGRP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'returns': return `RET-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       default: return `${collectionName.toUpperCase().slice(0, 4)}-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+    }
+  }
+
+  // Helper for generating numeric product IDs
+  private static async generateNumericProductId(): Promise<string> {
+    try {
+      const products = await this.getDocuments('products')
+      let maxId = 0
+
+      if (Array.isArray(products)) {
+        for (const p of products) {
+          const idStr = String(p.id || '')
+          if (/^\d+$/.test(idStr)) {
+            const n = parseInt(idStr, 10)
+            if (n > maxId) maxId = n
+          }
+        }
+      }
+
+      const next = maxId + 1
+      return String(next)
+    } catch (error) {
+      console.error('Error generating numeric product ID:', error)
+      // Fallback to time-based suffix if listing products failed
+      const ts = Date.now()
+      return String(100000 + (ts % 100000))
     }
   }
 
