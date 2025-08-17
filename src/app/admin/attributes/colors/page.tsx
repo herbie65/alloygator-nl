@@ -80,13 +80,6 @@ export default function ColorsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Kleuren Beheer</h1>
           <p className="text-gray-600">Beheer beschikbare kleuren als product attributen</p>
-          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>💡 ID Generatie:</strong> Nieuwe kleuren krijgen automatisch ID's op basis van medeklinkers in de naam.
-              <br />
-              <strong>Voorbeelden:</strong> "Rood" → "kleur-rd", "Blauw" → "kleur-blw", "Groen" → "kleur-grn"
-            </p>
-          </div>
         </div>
         <div className="flex space-x-3">
           <button
