@@ -231,8 +231,8 @@ export async function ensureInvoice(orderId: string) {
       throw new Error('Customer not found')
     }
 
-    // Generate invoice number
-    const invoiceNumber = `INV-${Date.now()}`
+    // Generate invoice number using counter
+    const invoiceNumber = await nextInvoiceNumber()
 
     // Create invoice data
     const invoiceData = {
@@ -255,8 +255,28 @@ export async function ensureInvoice(orderId: string) {
       updated_at: new Date().toISOString()
     })
 
+    // Generate PDF and save
+    const orderForPdf = { ...orderAny, invoice_number: invoiceNumber, customer }
+    const pdfBuffer = await generateInvoicePdfBuffer(orderForPdf)
+    const url = await saveInvoicePdf({ invoice_number: invoiceNumber, orderNumber: orderAny.orderNumber }, pdfBuffer)
+
+    // Email PDF to customer and admin
+    try {
+      const email = new EmailService()
+      await email.init()
+      await email.sendInvoiceEmail(
+        {
+          orderNumber: String(orderAny.orderNumber || orderId),
+          customerName: customer?.name || customer?.contact_first_name || 'Klant',
+          customerEmail: customer?.invoice_email || customer?.email
+        },
+        pdfBuffer,
+        invoiceNumber
+      )
+    } catch (e) { console.error('invoice email send error', e) }
+
     return {
-      url: `/invoices/${newInvoice.id}`,
+      url,
       number: invoiceNumber
     }
 
