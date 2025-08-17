@@ -44,8 +44,8 @@ export default function AttributeSetsPage() {
           const colorAttr = attributes.find(attr => attr.name === 'color')
           const sizeAttr = attributes.find(attr => attr.name === 'size')
           
-          console.log('🎨 Color attribute found:', colorAttr?.name)
-          console.log('📏 Size attribute found:', sizeAttr?.name)
+          console.log('🎨 Color attribute found:', colorAttr?.name, colorAttr?.id)
+          console.log('📏 Size attribute found:', sizeAttr?.name, sizeAttr?.id)
           
           if (colorAttr && sizeAttr) {
             // Check if set already exists
@@ -66,14 +66,17 @@ export default function AttributeSetsPage() {
               })
               
               console.log('✅ Default attribute set created with ID:', setId)
+              console.log('📋 Set attributes:', [colorAttr.id, sizeAttr.id])
               
               // Force reload
               setTimeout(() => setRefreshKey(k => k + 1), 1000)
             } else {
               console.log('✅ Default attribute set already exists:', existingSet.name)
+              console.log('📋 Existing set attributes:', existingSet.attributes)
             }
           } else {
             console.log('⚠️ Missing required attributes for default set')
+            console.log('📝 Available attributes:', attributes.map(a => ({ name: a.name, id: a.id })))
           }
         }
       } catch (error) {

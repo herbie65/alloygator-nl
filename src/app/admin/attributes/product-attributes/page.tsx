@@ -28,6 +28,8 @@ export default function ProductAttributesPage() {
   const [attributes, loading, error] = useFirebaseRealtime<ProductAttribute>('product_attributes', undefined, refreshKey)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingAttribute, setEditingAttribute] = useState<ProductAttribute | null>(null)
+  const [showValuesModal, setShowValuesModal] = useState(false)
+  const [editingValues, setEditingValues] = useState<any[]>([])
   const [formData, setFormData] = useState<{
     name: string
     label: string
@@ -377,9 +379,18 @@ export default function ProductAttributesPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEdit(attribute)}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-indigo-600 hover:text-indigo-900"
                           >
                             Bewerken
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingValues(attribute.values || [])
+                              setShowValuesModal(true)
+                            }}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Waarden
                           </button>
                           <button
                             onClick={() => handleDelete(attribute.id)}
@@ -518,6 +529,94 @@ export default function ProductAttributesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Values Modal */}
+      {showValuesModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Attribuutwaarden Bewerken
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Huidige Waarden
+                  </label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
+                    {editingValues.map((value, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={value.label}
+                          onChange={(e) => {
+                            const newValues = [...editingValues]
+                            newValues[index] = { ...newValues[index], label: e.target.value }
+                            setEditingValues(newValues)
+                          }}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            const newValues = editingValues.filter((_, i) => i !== index)
+                            setEditingValues(newValues)
+                          }}
+                          className="text-red-600 hover:text-red-900 text-sm"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setEditingValues([...editingValues, { id: Date.now().toString(), label: '', value: '', sort_order: editingValues.length }])
+                  }}
+                  className="w-full px-3 py-2 text-sm font-medium text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50"
+                >
+                  + Nieuwe Waarde Toevoegen
+                </button>
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowValuesModal(false)
+                      setEditingValues([])
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                  >
+                    Annuleren
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (editingAttribute) {
+                          await FirebaseService.updateProductAttribute(editingAttribute.id, {
+                            ...editingAttribute,
+                            values: editingValues.filter(v => v.label.trim() !== '')
+                          })
+                          setShowValuesModal(false)
+                          setEditingValues([])
+                          setRefreshKey(k => k + 1)
+                        }
+                      } catch (error) {
+                        console.error('Error updating attribute values:', error)
+                        alert('Fout bij bijwerken van waarden: ' + error)
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700"
+                  >
+                    Opslaan
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
