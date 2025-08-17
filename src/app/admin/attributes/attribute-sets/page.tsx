@@ -74,18 +74,25 @@ export default function AttributeSetsPage() {
     loadData()
   }, [refreshKey])
 
+  // Load data
   const loadData = async () => {
     try {
       setLoading(true)
+      console.log('🔄 Loading attribute sets and attributes...')
+      
       const [setsData, attributesData] = await Promise.all([
         FirebaseService.getAttributeSets(),
         FirebaseService.getProductAttributes()
       ])
       
+      console.log('📋 Attribute sets loaded:', setsData?.length || 0)
+      console.log('🏷️ Attributes loaded:', attributesData?.length || 0)
+      console.log('📝 Attributes details:', attributesData?.map(a => ({ name: a.name, label: a.label, values: a.values?.length || 0 })))
+      
       setAttributeSets(setsData || [])
       setAttributes(attributesData || [])
     } catch (error) {
-      console.error('Error loading data:', error)
+      console.error('❌ Error loading data:', error)
     } finally {
       setLoading(false)
     }

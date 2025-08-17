@@ -89,11 +89,15 @@ export default function ProductAttributesPage() {
         // Check if we have the color attribute but no values yet
         if (Array.isArray(attributes)) {
           const colorAttribute = attributes.find(attr => attr.name === 'color')
+          console.log('🎨 Color attribute found:', colorAttribute)
+          
           if (colorAttribute && !colorAttribute.values) {
             console.log('🎨 Migrating existing colors to attribute values...')
             
             // Get existing colors from the old system
             const existingColors = await FirebaseService.getProductColors()
+            console.log('🎨 Existing colors found:', existingColors?.length || 0)
+            
             if (Array.isArray(existingColors) && existingColors.length > 0) {
               // Convert colors to attribute values
               const colorValues = existingColors.map(color => ({
@@ -104,6 +108,8 @@ export default function ProductAttributesPage() {
                 sort_order: 0
               }))
               
+              console.log('🎨 Color values to add:', colorValues)
+              
               // Update the color attribute with values
               await FirebaseService.updateProductAttribute(colorAttribute.id, {
                 ...colorAttribute,
@@ -112,7 +118,13 @@ export default function ProductAttributesPage() {
               
               console.log(`✅ Migrated ${colorValues.length} colors to attribute values`)
               setRefreshKey(k => k + 1)
+            } else {
+              console.log('⚠️ No existing colors found to migrate')
             }
+          } else if (colorAttribute && colorAttribute.values) {
+            console.log('✅ Color attribute already has values:', colorAttribute.values.length)
+          } else {
+            console.log('⚠️ Color attribute not found')
           }
         }
       } catch (error) {

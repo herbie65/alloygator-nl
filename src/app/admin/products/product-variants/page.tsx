@@ -92,8 +92,10 @@ export default function ProductVariantsPage() {
     try {
       if (editingVariant) {
         await FirebaseService.updateProductVariant(editingVariant.id, variantData)
+        console.log('✅ Variant updated successfully')
       } else {
         await FirebaseService.addProductVariant(variantData)
+        console.log('✅ Variant created successfully')
       }
       
       setShowModal(false)
@@ -101,6 +103,7 @@ export default function ProductVariantsPage() {
       setRefreshKey(k => k + 1)
     } catch (error) {
       console.error('Error saving variant:', error)
+      alert('Fout bij opslaan van variant: ' + error)
     }
   }
 
@@ -285,7 +288,7 @@ export default function ProductVariantsPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Naam
+                      Naam *
                     </label>
                     <input
                       type="text"
@@ -293,12 +296,13 @@ export default function ProductVariantsPage() {
                       defaultValue={editingVariant?.name || ''}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="bijv. T-shirt Rood M"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      SKU
+                      SKU *
                     </label>
                     <input
                       type="text"
@@ -306,6 +310,7 @@ export default function ProductVariantsPage() {
                       defaultValue={editingVariant?.sku || ''}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="bijv. TSHIRT-RED-M"
                     />
                   </div>
 
@@ -318,46 +323,53 @@ export default function ProductVariantsPage() {
                       name="ean_code"
                       defaultValue={editingVariant?.ean_code || ''}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="1234567890123"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Prijs (€)
+                      Prijs (€) *
                     </label>
                     <input
                       type="number"
                       name="price"
                       step="0.01"
+                      min="0"
                       defaultValue={editingVariant?.price || ''}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="29.99"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Voorraad
+                        Voorraad *
                       </label>
                       <input
                         type="number"
                         name="stock_quantity"
+                        min="0"
                         defaultValue={editingVariant?.stock_quantity || ''}
                         required
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="100"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Min Voorraad
+                        Min Voorraad *
                       </label>
                       <input
                         type="number"
                         name="min_stock"
+                        min="0"
                         defaultValue={editingVariant?.min_stock || ''}
                         required
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="10"
                       />
                     </div>
                   </div>
@@ -378,6 +390,11 @@ export default function ProductVariantsPage() {
                         </option>
                       ))}
                     </select>
+                    {getAttributeValues('color').length === 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Geen kleuren beschikbaar. Voeg kleuren toe in Product Attributen.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -396,6 +413,11 @@ export default function ProductVariantsPage() {
                         </option>
                       ))}
                     </select>
+                    {getAttributeValues('size').length === 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Geen maten beschikbaar. Voeg maten toe in Product Attributen.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -416,6 +438,11 @@ export default function ProductVariantsPage() {
                           </option>
                         ))}
                     </select>
+                    {products.filter(p => p.is_configurable).length === 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Geen configurable products beschikbaar. Maak eerst een configurable product aan.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex justify-end space-x-3 pt-4">
