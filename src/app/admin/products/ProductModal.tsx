@@ -477,12 +477,26 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Korte omschrijving *</label>
-              <TipTapEditor value={shortDraft} onChange={setShortDraft} />
+              <TipTapEditor 
+                value={shortDraft} 
+                onChange={(value) => {
+                  console.log('Short description changed:', value)
+                  setShortDraft(value)
+                }} 
+              />
+              <p className="text-xs text-gray-500 mt-1">Gebruik de toolbar bovenaan om tekst op te maken</p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Lange omschrijving</label>
-              <TipTapEditor value={longDraft} onChange={setLongDraft} />
+              <TipTapEditor 
+                value={longDraft} 
+                onChange={(value) => {
+                  console.log('Long description changed:', value)
+                  setLongDraft(value)
+                }} 
+              />
+              <p className="text-xs text-gray-500 mt-1">Gebruik de toolbar bovenaan om tekst op te maken</p>
             </div>
 
             <div>

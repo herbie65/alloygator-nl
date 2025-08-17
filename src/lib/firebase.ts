@@ -79,6 +79,43 @@ export const BTW_NUMMERS = {
 
 // Database service functies
 export class FirebaseService {
+  // Helper functie om logische ID's te genereren
+  static generateLogicalId(collectionName: string, data?: any): string {
+    const now = new Date()
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '') // HHMMSS
+    const timestamp = Date.now()
+    
+    switch (collectionName) {
+      case 'customers': return `CUST-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_colors': return `COLOR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'vat_settings': return `VAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'shipping_settings': return `SHIP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'payment_settings': return `PAY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'dhl_settings': return `DHL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'header_settings': return `HEAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'cms_pages': return `CMS-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'contact_moments': return `CONTACT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'visits': return `VISIT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_groups': return `GROUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'dealers': return `DEALER-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'settings': return `SETTING-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'header_footer': return `HEADFOOT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'shipping_methods': return `SHIPM-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'payment_methods': return `PAYM-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_activities': return `ACTIVITY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_documents': return `DOC-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_uploads': return `UPLOAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      default: return `${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+    }
+  }
+
   // Generic CRUD operations
   static async getDocument(collectionName: string, docId: string) {
     try {
@@ -134,12 +171,15 @@ export class FirebaseService {
   static async addDocument(collectionName: string, data: any) {
     try {
       const database = getDb();
-      const docRef = await addDoc(collection(database, collectionName), {
+      const logicalId = this.generateLogicalId(collectionName, data)
+      const docRef = doc(database, collectionName, logicalId)
+      await setDoc(docRef, {
         ...data,
-        created_at: new Date(),
-        updated_at: new Date()
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
-      return { id: docRef.id, ...data };
+      return { id: logicalId, ...data };
     } catch (error) {
       console.error('Error adding document:', error);
       throw error;
@@ -188,37 +228,18 @@ export class FirebaseService {
 
   static async addCustomer(customerData: any) {
     try {
-      // Get the next available customer number
-      const customers = await this.getDocuments('customers');
-      let nextNumber = 2000; // Start from 2000
-      
-      if (customers && customers.length > 0) {
-        // Find the highest existing customer number
-        const existingNumbers = customers
-          .map(c => {
-            const match = String(c.id).match(/^#?(\d+)$/);
-            return match ? parseInt(match[1]) : 0;
-          })
-          .filter(num => num >= 2000);
-        
-        if (existingNumbers.length > 0) {
-          nextNumber = Math.max(...existingNumbers) + 1;
-        }
-      }
-      
-      // Create customer with custom ID
-      const customerId = `#${nextNumber}`;
       const database = getDb();
-      const docRef = doc(database, 'customers', customerId);
+      const logicalId = this.generateLogicalId('customers', customerData)
+      const docRef = doc(database, 'customers', logicalId);
       
       await setDoc(docRef, {
         ...customerData,
-        id: customerId,
+        id: logicalId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
       
-      return { id: customerId, ...customerData };
+      return { id: logicalId, ...customerData };
     } catch (error) {
       console.error('Error adding customer:', error);
       throw error;
@@ -299,38 +320,21 @@ export class FirebaseService {
   static async addProduct(productData: any) {
     try {
       const database = getDb();
-
-      // Helper: bepaal volgende numerieke product-ID (als string)
-      const getNextProductId = async (): Promise<string> => {
-        const all: any[] = await this.getDocuments('products');
-        const numericIds = (all || [])
-          .map((p) => {
-            const m = String(p.id || '').match(/^\d+$/);
-            return m ? parseInt(m[0], 10) : NaN;
-          })
-          .filter((n) => Number.isFinite(n)) as number[];
-        const next = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
-        return String(next);
-      };
-
-      // Als een geldige numerieke id is meegegeven, gebruik die; anders genereer volgende
-      const providedId = productData?.id;
-      const hasNumericId = typeof providedId !== 'undefined' && /^\d+$/.test(String(providedId));
-      const productId = hasNumericId ? String(providedId) : await getNextProductId();
-
+      const logicalId = this.generateLogicalId('products', productData)
+      
       const nowIso = new Date().toISOString();
       const { id: _omitId, created_at, updated_at, ...rest } = productData || {};
 
       const payload = {
         ...rest,
-        id: productId,
+        id: logicalId,
         created_at: created_at || nowIso,
         updated_at: nowIso,
       };
 
-      const docRef = doc(database, 'products', productId);
+      const docRef = doc(database, 'products', logicalId);
       await setDoc(docRef, payload, { merge: true });
-      return { id: productId, ...payload };
+      return { id: logicalId, ...payload };
     } catch (error) {
       console.error('Error adding product:', error);
       throw error;
@@ -355,7 +359,23 @@ export class FirebaseService {
   }
 
   static async addOrder(orderData: any) {
-    return this.addDocument('orders', orderData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('orders', orderData)
+      const docRef = doc(database, 'orders', logicalId)
+      
+      await setDoc(docRef, {
+        ...orderData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...orderData };
+    } catch (error) {
+      console.error('Error adding order:', error);
+      throw error;
+    }
   }
 
   static async updateOrder(id: string, orderData: any) {
@@ -368,7 +388,23 @@ export class FirebaseService {
   }
 
   static async createVatSetting(vatData: any) {
-    return this.addDocument('vat_settings', vatData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('vat_settings', vatData)
+      const docRef = doc(database, 'vat_settings', logicalId)
+      
+      await setDoc(docRef, {
+        ...vatData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...vatData };
+    } catch (error) {
+      console.error('Error creating VAT setting:', error);
+      throw error;
+    }
   }
 
   static async updateVatSetting(id: string, vatData: any) {
@@ -385,7 +421,23 @@ export class FirebaseService {
   }
 
   static async createShippingMethod(shippingData: any) {
-    return this.addDocument('shipping_methods', shippingData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('shipping_methods', shippingData)
+      const docRef = doc(database, 'shipping_methods', logicalId)
+      
+      await setDoc(docRef, {
+        ...shippingData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...shippingData };
+    } catch (error) {
+      console.error('Error creating shipping method:', error);
+      throw error;
+    }
   }
 
   static async updateShippingMethod(id: string, shippingData: any) {
@@ -402,7 +454,23 @@ export class FirebaseService {
   }
 
   static async createPaymentMethod(paymentData: any) {
-    return this.addDocument('payment_methods', paymentData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('payment_methods', paymentData)
+      const docRef = doc(database, 'payment_methods', logicalId)
+      
+      await setDoc(docRef, {
+        ...paymentData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...paymentData };
+    } catch (error) {
+      console.error('Error creating payment method:', error);
+      throw error;
+    }
   }
 
   static async updatePaymentMethod(id: string, paymentData: any) {
@@ -438,7 +506,23 @@ export class FirebaseService {
   }
 
   static async createCustomerGroup(groupData: any) {
-    return this.addDocument('customer_groups', groupData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('customer_groups', groupData)
+      const docRef = doc(database, 'customer_groups', logicalId)
+      
+      await setDoc(docRef, {
+        ...groupData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...groupData };
+    } catch (error) {
+      console.error('Error creating customer group:', error);
+      throw error;
+    }
   }
 
   static async updateCustomerGroup(id: string, groupData: any) {
@@ -455,7 +539,23 @@ export class FirebaseService {
   }
 
   static async createCMSPage(pageData: any) {
-    return this.addDocument('cms_pages', pageData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('cms_pages', pageData)
+      const docRef = doc(database, 'cms_pages', logicalId)
+      
+      await setDoc(docRef, {
+        ...pageData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...pageData };
+    } catch (error) {
+      console.error('Error creating CMS page:', error);
+      throw error;
+    }
   }
 
   static async updateCMSPage(id: string, pageData: any) {
@@ -475,7 +575,23 @@ export class FirebaseService {
   }
 
   static async createContactMoment(contactData: any) {
-    return this.addDocument('contact_moments', contactData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('contact_moments', contactData)
+      const docRef = doc(database, 'contact_moments', logicalId)
+      
+      await setDoc(docRef, {
+        ...contactData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...contactData };
+    } catch (error) {
+      console.error('Error creating contact moment:', error);
+      throw error;
+    }
   }
 
   static async updateContactMoment(id: string, contactData: any) {
@@ -495,7 +611,23 @@ export class FirebaseService {
   }
 
   static async createVisit(visitData: any) {
-    return this.addDocument('visits', visitData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('visits', visitData)
+      const docRef = doc(database, 'visits', logicalId)
+      
+      await setDoc(docRef, {
+        ...visitData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...visitData };
+    } catch (error) {
+      console.error('Error creating visit:', error);
+      throw error;
+    }
   }
 
   static async updateVisit(id: string, visitData: any) {
@@ -512,7 +644,23 @@ export class FirebaseService {
   }
 
   static async createDealer(dealerData: any) {
-    return this.addDocument('dealers', dealerData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('dealers', dealerData)
+      const docRef = doc(database, 'dealers', logicalId)
+      
+      await setDoc(docRef, {
+        ...dealerData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...dealerData };
+    } catch (error) {
+      console.error('Error creating dealer:', error);
+      throw error;
+    }
   }
 
   static async updateDealer(id: string, dealerData: any) {
@@ -542,7 +690,23 @@ export class FirebaseService {
   }
 
   static async createHeaderFooter(data: any) {
-    return this.addDocument('header_footer', data)
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('header_footer', data)
+      const docRef = doc(database, 'header_footer', logicalId)
+      
+      await setDoc(docRef, {
+        ...data,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...data };
+    } catch (error) {
+      console.error('Error creating header/footer:', error);
+      throw error;
+    }
   }
 
   // Specific operations for DHL settings
@@ -582,7 +746,23 @@ export class FirebaseService {
   }
 
   static async createCategory(categoryData: any) {
-    return await this.addDocument('categories', categoryData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('categories', categoryData)
+      const docRef = doc(database, 'categories', logicalId)
+      
+      await setDoc(docRef, {
+        ...categoryData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...categoryData };
+    } catch (error) {
+      console.error('Error creating category:', error);
+      throw error;
+    }
   }
 
   static async updateCategory(id: string, categoryData: any) {
@@ -599,7 +779,23 @@ export class FirebaseService {
   }
 
   static async createProductAttribute(attributeData: any) {
-    return await this.addDocument('product_attributes', attributeData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('product_attributes', attributeData)
+      const docRef = doc(database, 'product_attributes', logicalId)
+      
+      await setDoc(docRef, {
+        ...attributeData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...attributeData };
+    } catch (error) {
+      console.error('Error creating product attribute:', error);
+      throw error;
+    }
   }
 
   static async updateProductAttribute(id: string, attributeData: any) {
@@ -616,7 +812,23 @@ export class FirebaseService {
   }
 
   static async createProductColor(colorData: any) {
-    return await this.addDocument('product_colors', colorData);
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('product_colors', colorData)
+      const docRef = doc(database, 'product_colors', logicalId)
+      
+      await setDoc(docRef, {
+        ...colorData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...colorData };
+    } catch (error) {
+      console.error('Error creating product color:', error);
+      throw error;
+    }
   }
 
   static async updateProductColor(id: string, colorData: any) {

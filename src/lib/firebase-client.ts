@@ -29,6 +29,43 @@ if (typeof window !== 'undefined') {
 
 // Frontend Firebase service
 export class FirebaseClientService {
+  // Helper functie om logische ID's te genereren
+  static generateLogicalId(collectionName: string, data?: any): string {
+    const now = new Date()
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '') // HHMMSS
+    const timestamp = Date.now()
+    
+    switch (collectionName) {
+      case 'customers': return `CUST-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_colors': return `COLOR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'vat_settings': return `VAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'shipping_settings': return `SHIP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'payment_settings': return `PAY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'dhl_settings': return `DHL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'header_settings': return `HEAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'cms_pages': return `CMS-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'contact_moments': return `CONTACT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'visits': return `VISIT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_groups': return `GROUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'dealers': return `DEALER-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'settings': return `SETTING-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'header_footer': return `HEADFOOT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'shipping_methods': return `SHIPM-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'payment_methods': return `PAYM-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_activities': return `ACTIVITY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_documents': return `DOC-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_uploads': return `UPLOAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      default: return `${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+    }
+  }
+
   // Check if we're in development mode
   private static isDevelopment() {
     return typeof window !== 'undefined' && (
@@ -346,8 +383,15 @@ getCompanyInfo
 
   static async addActivity(data: any) {
     try {
-      const ref = await addDoc(collection(db, 'customer_activities'), { ...data, created_at: new Date().toISOString() })
-      return { id: ref.id, ...data }
+      const logicalId = this.generateLogicalId('customer_activities', data)
+      const docRef = doc(db, 'customer_activities', logicalId)
+      await setDoc(docRef, {
+        ...data,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      return { id: logicalId, ...data }
     } catch (e) { console.error('Error adding activity:', e); throw e }
   }
 
@@ -369,8 +413,15 @@ getCompanyInfo
 
   static async addCustomerDocument(meta: any) {
     try {
-      const ref = await addDoc(collection(db, 'customer_documents'), { ...meta, uploaded_at: new Date().toISOString() })
-      return { id: ref.id, ...meta }
+      const logicalId = this.generateLogicalId('customer_documents', meta)
+      const docRef = doc(db, 'customer_documents', logicalId)
+      await setDoc(docRef, {
+        ...meta,
+        id: logicalId,
+        uploaded_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      });
+      return { id: logicalId, ...meta }
     } catch (e) { console.error('Error adding document:', e); throw e }
   }
 
@@ -402,8 +453,15 @@ getCompanyInfo
   // Add new document
   static async addDocument(collectionName: string, data: any) {
     try {
-      const docRef = await addDoc(collection(db, collectionName), data);
-      return { id: docRef.id, ...data };
+      const logicalId = this.generateLogicalId(collectionName, data)
+      const docRef = doc(db, collectionName, logicalId)
+      await setDoc(docRef, {
+        ...data,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      return { id: logicalId, ...data };
     } catch (error) {
       console.error(`Error adding document to ${collectionName}:`, error);
       throw error;
@@ -481,11 +539,15 @@ getCompanyInfo
 
   static async addContactMoment(data: any) {
     try {
-      const ref = await addDoc(collection(db, 'contact_moments'), { 
-        ...data, 
-        created_at: new Date().toISOString() 
+      const logicalId = this.generateLogicalId('contact_moments', data)
+      const docRef = doc(db, 'contact_moments', logicalId)
+      await setDoc(docRef, {
+        ...data,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
-      return { id: ref.id, ...data };
+      return { id: logicalId, ...data };
     } catch (error) {
       console.error('Error adding contact moment:', error);
       throw error;
@@ -587,11 +649,15 @@ getCompanyInfo
 
   static async addVisit(data: any) {
     try {
-      const ref = await addDoc(collection(db, 'visits'), { 
-        ...data, 
-        created_at: new Date().toISOString() 
+      const logicalId = this.generateLogicalId('visits', data)
+      const docRef = doc(db, 'visits', logicalId)
+      await setDoc(docRef, {
+        ...data,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
-      return { id: ref.id, ...data };
+      return { id: logicalId, ...data };
     } catch (error) {
       console.error('Error adding visit:', error);
       throw error;
@@ -881,13 +947,17 @@ getCompanyInfo
   // Add customer upload
   static async addCustomerUpload(data: any) {
     try {
-      const ref = await addDoc(collection(db, 'customer_uploads'), {
+      const logicalId = this.generateLogicalId('customer_uploads', data)
+      const docRef = doc(db, 'customer_uploads', logicalId)
+      await setDoc(docRef, {
         ...data,
+        id: logicalId,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         status: 'pending', // pending, approved, rejected
         admin_notified: false
       });
-      return { id: ref.id, ...data };
+      return { id: logicalId, ...data };
     } catch (error) {
       console.error('Error adding customer upload:', error);
       throw error;
