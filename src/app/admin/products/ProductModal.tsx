@@ -23,6 +23,7 @@ interface ProductModalProps {
 export default function ProductModal({ product, isEditing, isOpen, onClose, onSave }: ProductModalProps) {
   const [formData, setFormData] = useState<Partial<Product & { min_stock?: number }>>({})
   const [suppliers, setSuppliers] = useState<any[]>([])
+  const [productColors, setProductColors] = useState<any[]>([])
   const [showMedia, setShowMedia] = useState(false)
   
   // Lokale conceptvelden voor WYSIWYG zodat er niets buiten deze modal wordt geüpdatet tijdens typen
@@ -157,6 +158,19 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
       loadData()
     }
   }, [isOpen, product])
+
+  // Load product colors from database (product_colors)
+  useEffect(() => {
+    const loadColors = async () => {
+      try {
+        const colors = await FirebaseService.getDocuments('product_colors')
+        setProductColors(Array.isArray(colors) ? colors : [])
+      } catch (_) {
+        setProductColors([])
+      }
+    }
+    if (isOpen) loadColors()
+  }, [isOpen])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -357,13 +371,29 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kleur
+                  Kleur {(!productColors || productColors.length === 0) && (
+                    <span title="Geen kleuren in database gevonden" className="text-orange-500 ml-1">❗</span>
+                  )}
                 </label>
+                {/* DB dropdown (additief) */}
+                <select
+                  value={formData.color || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                  disabled={!isEditing && !!product}
+                  className="w-full px-3 py-2 mb-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                >
+                  <option value="">— Kies kleur (database) —</option>
+                  {productColors.map((c: any) => (
+                    <option key={c.id} value={c.name || c.id}>{c.name || c.id}</option>
+                  ))}
+                </select>
+                {/* Vrije invoer blijft beschikbaar (niet verwijderen) */}
                 <input
                   type="text"
                   value={formData.color || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
                   disabled={!isEditing && !!product}
+                  placeholder="of typ handmatig een kleur"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 />
               </div>
