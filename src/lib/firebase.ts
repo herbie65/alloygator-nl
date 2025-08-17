@@ -88,7 +88,7 @@ export class FirebaseService {
     
     switch (collectionName) {
       case 'products': return await this.generateNumericProductId()
-      case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'orders': return await this.generateSequentialOrderId()
       case 'product_colors': return this.generateColorId(data)
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
@@ -130,6 +130,33 @@ export class FirebaseService {
       // Fallback to time-based suffix if listing products failed
       const ts = Date.now()
       return String(100000 + (ts % 100000))
+    }
+  }
+
+  // Helper for generating sequential order IDs like AGO-05000, AGO-05001, ...
+  private static async generateSequentialOrderId(): Promise<string> {
+    const PREFIX = 'AGO-'
+    const START = 5000 // first => AGO-05000
+    try {
+      const orders = await this.getDocuments('orders')
+      let max = START - 1
+      if (Array.isArray(orders)) {
+        for (const o of orders) {
+          const id = String(o.id || '')
+          const m = id.match(/^AGO-(\d{5})$/)
+          if (m) {
+            const n = parseInt(m[1], 10)
+            if (n > max) max = n
+          }
+        }
+      }
+      const next = Math.max(max + 1, START)
+      const padded = String(next).padStart(5, '0')
+      return `${PREFIX}${padded}`
+    } catch (e) {
+      console.error('Error generating sequential order ID:', e)
+      const fallback = `${PREFIX}${String(START).padStart(5, '0')}`
+      return fallback
     }
   }
 
