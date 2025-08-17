@@ -58,6 +58,7 @@ export interface ProductVariant {
   image_url?: string
   
   // Variant-specifieke eigenschappen
+  color?: string  // Kleur van deze variant
   attribute_values: ProductAttributeValue[]
   price_adjustment?: number  // Extra kosten voor deze variant
   weight_adjustment?: number

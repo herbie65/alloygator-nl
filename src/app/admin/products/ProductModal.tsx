@@ -781,6 +781,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                         price: 0,
                         stock_quantity: 0,
                         min_stock: 0,
+                        color: '',
                         active: true
                       });
                       setShowVariantModal(true);
@@ -803,6 +804,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                                 <p className="text-sm text-gray-600">SKU: {variant.sku} • EAN: {variant.ean_code}</p>
                                 <p className="text-sm text-gray-600">
                                   Prijs: €{variant.price} • Voorraad: {variant.stock_quantity} • Min: {variant.min_stock}
+                                  {variant.color && ` • Kleur: ${variant.color}`}
                                 </p>
                               </div>
                               <div className="flex items-center space-x-2">
@@ -997,6 +999,32 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kleur
+                    </label>
+                    <select
+                      value={editingVariant?.color || ''}
+                      onChange={(e) => setEditingVariant(prev => ({ ...prev, color: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">-- Selecteer kleur --</option>
+                      {productColors.map((color) => (
+                        <option key={color.id} value={color.name}>
+                          {color.name}
+                        </option>
+                      ))}
+                    </select>
+                    {productColors.length === 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Geen kleuren beschikbaar. Voeg kleuren toe in 
+                        <a href="/admin/settings/colors" className="text-green-600 hover:underline ml-1">
+                          Instellingen → Kleuren
+                        </a>
+                      </p>
+                    )}
                   </div>
                 </div>
                 
