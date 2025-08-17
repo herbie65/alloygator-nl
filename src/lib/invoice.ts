@@ -275,6 +275,14 @@ export async function ensureInvoice(orderId: string) {
       )
     } catch (e) { console.error('invoice email send error', e) }
 
+    // Persist invoice_url on the order for Admin > Facturen download link
+    try {
+      await FirebaseService.updateDocument('orders', orderId, {
+        invoice_url: url,
+        updated_at: new Date().toISOString()
+      })
+    } catch (e) { console.error('failed to persist invoice_url on order', e) }
+
     return {
       url,
       number: invoiceNumber
