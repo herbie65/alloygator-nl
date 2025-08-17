@@ -379,14 +379,27 @@ export default function OrdersPage() {
         }
         await FirebaseService.updateOrder(orderId, updateData)
         console.log(`Order marked as paid and processing in Firebase: ${orderId}`)
+
+        // Als dit een 'op rekening' order is, laat server de factuur genereren en mailen
+        if (String(order.payment_method || '').toLowerCase() === 'invoice') {
+          try {
+            const token = process.env.NEXT_PUBLIC_ADMIN_PAYMENT_TOKEN || ''
+            const url = `/api/orders/mark-paid?id=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`
+            await fetch(url)
+          } catch (e) {
+            console.error('mark-paid api call failed', e)
+          }
+        }
       } catch (error) {
-        console.error('Firebase update failed:', error)
-        // Revert local state if Firebase update fails
-        setOrders(prev => prev.map(o => 
-          o.id === orderId ? { ...o, payment_status: 'open', status: 'nieuw' } : o
-        ))
-        setError(`Fout bij bijwerken betaalstatus in database: ${error}`)
-        return
+        console.error('Firebase update failed, trying direct mark-paid API...', error)
+        // Fallback: use secured mark-paid API which will also ensure invoice
+        try {
+          const token = process.env.NEXT_PUBLIC_ADMIN_PAYMENT_TOKEN || ''
+          const url = `/api/orders/mark-paid?id=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`
+          await fetch(url)
+        } catch (e) {
+          console.error('mark-paid API failed', e)
+        }
       }
 
       // Automatische workflow acties bij status wijziging naar 'verwerken'
