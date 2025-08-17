@@ -398,8 +398,7 @@ export default function AdminLayout({
         { name: 'Producten Overzicht', href: '/admin/products', icon: '📦', color: 'bg-purple-400' },
         { name: 'Categorieën', href: '/admin/categories', icon: '📁', color: 'bg-purple-400' },
         { name: 'Attributen', href: '#', icon: '🏷️', color: 'bg-purple-400', children: [
-          { name: 'Product Attributen', href: '/admin/attributes/product-attributes', icon: '🏷️', color: 'bg-purple-300' },
-          { name: 'Kleuren', href: '/admin/attributes/colors', icon: '🎨', color: 'bg-purple-300' }
+          { name: 'Product Attributen', href: '/admin/attributes/product-attributes', icon: '🏷️', color: 'bg-purple-300' }
         ]},
         { name: 'Leveranciers', href: '/admin/settings/suppliers', icon: '🏭', color: 'bg-purple-400' }
       ]

@@ -12,6 +12,13 @@ interface ProductAttribute {
   is_used_for_configurable: boolean
   is_active: boolean
   sort_order: number
+  values?: Array<{
+    id: string
+    label: string
+    value: string
+    hex_code?: string
+    sort_order: number
+  }>
   created_at: string
   updated_at: string
 }
@@ -74,6 +81,49 @@ export default function ProductAttributesPage() {
     
     createDefaultAttributes()
   }, [loading, attributes, refreshKey])
+
+  // Migrate existing colors to attribute values
+  useEffect(() => {
+    const migrateColorsToAttributes = async () => {
+      try {
+        // Check if we have the color attribute but no values yet
+        if (Array.isArray(attributes)) {
+          const colorAttribute = attributes.find(attr => attr.name === 'color')
+          if (colorAttribute && !colorAttribute.values) {
+            console.log('🎨 Migrating existing colors to attribute values...')
+            
+            // Get existing colors from the old system
+            const existingColors = await FirebaseService.getProductColors()
+            if (Array.isArray(existingColors) && existingColors.length > 0) {
+              // Convert colors to attribute values
+              const colorValues = existingColors.map(color => ({
+                id: color.id,
+                label: color.name,
+                value: color.name.toLowerCase(),
+                hex_code: color.hex_code,
+                sort_order: 0
+              }))
+              
+              // Update the color attribute with values
+              await FirebaseService.updateProductAttribute(colorAttribute.id, {
+                ...colorAttribute,
+                values: colorValues
+              })
+              
+              console.log(`✅ Migrated ${colorValues.length} colors to attribute values`)
+              setRefreshKey(k => k + 1)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error migrating colors:', error)
+      }
+    }
+    
+    if (attributes && Array.isArray(attributes) && attributes.length > 0) {
+      migrateColorsToAttributes()
+    }
+  }, [attributes, refreshKey])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -208,6 +258,9 @@ export default function ProductAttributesPage() {
                       Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Waarden
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Configurable
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -235,6 +288,24 @@ export default function ProductAttributesPage() {
                         }`}>
                           {attribute.type}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {attribute.values && attribute.values.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {attribute.values.map((value, index) => (
+                              <span
+                                key={value.id}
+                                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  value.hex_code ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800'
+                                }`}
+                              >
+                                {value.label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Geen waarden</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {attribute.is_used_for_configurable ? (
