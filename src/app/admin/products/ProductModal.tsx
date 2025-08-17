@@ -166,7 +166,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
     setFormData(prev => ({ ...prev, slug: s }))
   }, [formData.name, slugEdited, isOpen])
 
-  // Load product attributes and colors
+  // Load product colors and attributes
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -179,6 +179,11 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
         setProductAttributes(attrs)
         setProductColors(Array.isArray(colors) ? colors : [])
         setSuppliers(Array.isArray(supplierList) ? supplierList : [])
+
+        // If no colors exist, create some default ones
+        if (!Array.isArray(colors) || colors.length === 0) {
+          await createDefaultColors();
+        }
 
         // Load existing dynamic values from product if editing
         if (product) {
@@ -206,6 +211,36 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
       loadData()
     }
   }, [isOpen, product])
+
+  // Create default colors if none exist
+  const createDefaultColors = async () => {
+    try {
+      const defaultColors = [
+        { name: 'Rood', hex_code: '#FF0000' },
+        { name: 'Blauw', hex_code: '#0000FF' },
+        { name: 'Groen', hex_code: '#00FF00' },
+        { name: 'Geel', hex_code: '#FFFF00' },
+        { name: 'Zwart', hex_code: '#000000' },
+        { name: 'Wit', hex_code: '#FFFFFF' },
+        { name: 'Grijs', hex_code: '#808080' },
+        { name: 'Oranje', hex_code: '#FFA500' },
+        { name: 'Paars', hex_code: '#800080' },
+        { name: 'Bruin', hex_code: '#A52A2A' }
+      ];
+      
+      for (const color of defaultColors) {
+        await FirebaseService.createProductColor(color);
+      }
+      
+      // Reload colors after creating defaults
+      const colors = await FirebaseService.getProductColors();
+      setProductColors(Array.isArray(colors) ? colors : []);
+      
+      console.log('Default colors created successfully');
+    } catch (error) {
+      console.error('Error creating default colors:', error);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
