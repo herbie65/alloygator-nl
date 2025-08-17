@@ -723,25 +723,12 @@ export default function CRMPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
                 <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => {
-                  console.log('Row clicked for customer:', customer)
+                  console.log('🚀 Row clicked!')
+                  console.log('Customer:', customer)
                   console.log('Customer ID:', customer.id)
-                  try {
-                    // Try both methods
-                    const url = `/admin/crm/${customer.id}`
-                    console.log('Navigating to:', url)
-                    router.push(url)
-                    // Fallback: window.location
-                    setTimeout(() => {
-                      if (window.location.pathname !== url) {
-                        console.log('Router failed, using window.location')
-                        window.location.href = url
-                      }
-                    }, 100)
-                  } catch (error) {
-                    console.error('Navigation error:', error)
-                    // Fallback
-                    window.location.href = `/admin/crm/${customer.id}`
-                  }
+                  const url = `/admin/crm/${customer.id}`
+                  console.log('🚀 Navigating to:', url)
+                  window.location.href = url
                 }}>
                   {getVisibleColumns().map(([columnKey, config]) => (
                     <td 
@@ -809,26 +796,12 @@ export default function CRMPage() {
                         <div className="text-sm font-medium">
                           <button
                             onClick={() => {
-                              console.log('CRM button clicked for customer:', customer)
+                              console.log('🚀 CRM button clicked!')
+                              console.log('Customer:', customer)
                               console.log('Customer ID:', customer.id)
-                              console.log('Router object:', router)
-                              try {
-                                // Try both methods
-                                const url = `/admin/crm/${customer.id}`
-                                console.log('Navigating to:', url)
-                                router.push(url)
-                                // Fallback: window.location
-                                setTimeout(() => {
-                                  if (window.location.pathname !== url) {
-                                    console.log('Router failed, using window.location')
-                                    window.location.href = url
-                                  }
-                                }, 100)
-                              } catch (error) {
-                                console.error('Navigation error:', error)
-                                // Fallback
-                                window.location.href = `/admin/crm/${customer.id}`
-                              }
+                              const url = `/admin/crm/${customer.id}`
+                              console.log('🚀 Navigating to:', url)
+                              window.location.href = url
                             }}
                            className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
                           >
