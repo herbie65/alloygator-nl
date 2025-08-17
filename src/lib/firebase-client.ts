@@ -41,7 +41,7 @@ export class FirebaseClientService {
       case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'product_colors': return `COLOR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_colors': return this.generateColorId(data)
       case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
@@ -64,6 +64,34 @@ export class FirebaseClientService {
       case 'customer_uploads': return `UPLOAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       default: return `${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
     }
+  }
+
+  // Helper functie om kleur ID's te genereren op basis van medeklinkers
+  static generateColorId(colorData: any): string {
+    if (!colorData || !colorData.name) {
+      // Fallback naar timestamp als er geen naam is
+      const now = new Date()
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '')
+      const timestamp = Date.now()
+      return `kleur-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+    }
+
+    // Haal medeklinkers uit de kleurnaam
+    const consonants = colorData.name.toLowerCase()
+      .replace(/[aeiou]/g, '') // Verwijder alle klinkers
+      .replace(/[^a-z]/g, '') // Verwijder alle niet-alfabetische karakters
+      .substring(0, 8) // Maximaal 8 medeklinkers
+
+    // Als er geen medeklinkers zijn, gebruik de eerste letters
+    if (!consonants) {
+      const firstLetters = colorData.name.toLowerCase()
+        .replace(/[^a-z]/g, '')
+        .substring(0, 4)
+      return `kleur-${firstLetters}`
+    }
+
+    return `kleur-${consonants}`
   }
 
   // Check if we're in development mode

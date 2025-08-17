@@ -91,15 +91,18 @@ export default function ColorsPage() {
       }
 
       let migratedCount = 0
+      let skippedCount = 0
+      
       for (const color of existingColors) {
-        // Skip if already has logical ID format
-        if (color.id && color.id.includes('COLOR-')) {
-          console.log(`⏭️ Skipping ${color.name} - already has logical ID`)
+        // Skip if already has logical ID format (kleur-)
+        if (color.id && color.id.startsWith('kleur-')) {
+          console.log(`⏭️ Skipping ${color.name} - already has logical ID: ${color.id}`)
+          skippedCount++
           continue
         }
 
         try {
-          // Create new color with logical ID
+          // Create new color with logical ID based on consonants
           const newColorData = {
             name: color.name,
             hex_code: color.hex_code,
@@ -107,21 +110,28 @@ export default function ColorsPage() {
             updated_at: new Date().toISOString()
           }
           
-          await FirebaseService.createProductColor(newColorData)
+          console.log(`🔄 Migrating ${color.name} (${color.id}) to new ID...`)
+          const newColor = await FirebaseService.createProductColor(newColorData)
+          console.log(`✅ Created new color with ID: ${newColor.id}`)
           
           // Delete old color if it has a different ID
-          if (color.id && !color.id.includes('COLOR-')) {
+          if (color.id && !color.id.startsWith('kleur-')) {
             await FirebaseService.deleteProductColor(color.id)
+            console.log(`🗑️ Deleted old color with ID: ${color.id}`)
           }
           
           migratedCount++
-          console.log(`✅ Migrated ${color.name}`)
         } catch (error) {
           console.error(`❌ Error migrating ${color.name}:`, error)
         }
       }
 
-      alert(`Migratie voltooid! ${migratedCount} kleuren gemigreerd naar logische ID's.`)
+      const message = `Migratie voltooid!\n\n` +
+        `✅ ${migratedCount} kleuren gemigreerd naar logische ID's\n` +
+        `⏭️ ${skippedCount} kleuren overgeslagen (hadden al logische ID's)\n\n` +
+        `Nieuwe ID's zijn gebaseerd op medeklinkers van de kleurnaam (bijv. "kleur-rd" voor "Rood")`
+      
+      alert(message)
       setRefreshKey(k => k + 1)
     } catch (error) {
       console.error('❌ Migration error:', error)
@@ -135,6 +145,13 @@ export default function ColorsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Kleuren Beheer</h1>
           <p className="text-gray-600">Beheer beschikbare kleuren als product attributen</p>
+          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>💡 ID Generatie:</strong> Nieuwe kleuren krijgen automatisch ID's op basis van medeklinkers in de naam.
+              <br />
+              <strong>Voorbeelden:</strong> "Rood" → "kleur-rd", "Blauw" → "kleur-blw", "Groen" → "kleur-grn"
+            </p>
+          </div>
         </div>
         <div className="flex space-x-3">
           <button

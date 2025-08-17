@@ -91,29 +91,52 @@ export class FirebaseService {
       case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'product_colors': return `COLOR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'product_colors': return this.generateColorId(data)
       case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'suppliers': return `SUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'vat_settings': return `VAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'shipping_settings': return `SHIP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'payment_settings': return `PAY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'dhl_settings': return `DHL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'header_settings': return `HEAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_groups': return `GRP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'cms_pages': return `CMS-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'contact_moments': return `CONTACT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'contact_moments': return `CONT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'visits': return `VISIT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_groups': return `GROUP-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'dealers': return `DEALER-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'settings': return `SETTING-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'header_footer': return `HEADFOOT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'shipping_methods': return `SHIPM-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'payment_methods': return `PAYM-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_activities': return `ACTIVITY-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'dealers': return `DEAL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'headers_footers': return `HF-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_activities': return `ACT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'customer_documents': return `DOC-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      case 'customer_uploads': return `UPLOAD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
-      default: return `${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'customer_uploads': return `UPL-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      default: return `${collectionName.toUpperCase()}-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
     }
+  }
+
+  // Helper functie om kleur ID's te genereren op basis van medeklinkers
+  static generateColorId(colorData: any): string {
+    if (!colorData || !colorData.name) {
+      // Fallback naar timestamp als er geen naam is
+      const now = new Date()
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '')
+      const timestamp = Date.now()
+      return `kleur-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+    }
+
+    // Haal medeklinkers uit de kleurnaam
+    const consonants = colorData.name.toLowerCase()
+      .replace(/[aeiou]/g, '') // Verwijder alle klinkers
+      .replace(/[^a-z]/g, '') // Verwijder alle niet-alfabetische karakters
+      .substring(0, 8) // Maximaal 8 medeklinkers
+
+    // Als er geen medeklinkers zijn, gebruik de eerste letters
+    if (!consonants) {
+      const firstLetters = colorData.name.toLowerCase()
+        .replace(/[^a-z]/g, '')
+        .substring(0, 4)
+      return `kleur-${firstLetters}`
+    }
+
+    return `kleur-${consonants}`
   }
 
   // Generic CRUD operations
