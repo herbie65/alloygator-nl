@@ -775,7 +775,22 @@ export class FirebaseService {
 
   // Product Attributes
   static async getProductAttributes() {
-    return await this.getDocuments('product_attributes', []);
+    try {
+      const database = getDb();
+      const attributesRef = collection(database, 'product_attributes');
+      const q = query(attributesRef, where('is_active', '==', true), orderBy('sort_order'));
+      const querySnapshot = await getDocs(q);
+      
+      const attributes: any[] = [];
+      querySnapshot.forEach((doc) => {
+        attributes.push({ id: doc.id, ...doc.data() });
+      });
+      
+      return attributes;
+    } catch (error) {
+      console.error('Error getting product attributes:', error);
+      throw error;
+    }
   }
 
   static async createProductAttribute(attributeData: any) {
@@ -837,6 +852,75 @@ export class FirebaseService {
 
   static async deleteProductColor(id: string) {
     return await this.deleteDocument('product_colors', id);
+  }
+
+  // Configurable Product and Variant operations
+  static async getProductVariants(parentProductId: string) {
+    try {
+      const database = getDb();
+      const variantsRef = collection(database, 'product_variants');
+      const q = query(variantsRef, where('parent_product_id', '==', parentProductId));
+      const querySnapshot = await getDocs(q);
+      
+      const variants: any[] = [];
+      querySnapshot.forEach((doc) => {
+        variants.push({ id: doc.id, ...doc.data() });
+      });
+      
+      return variants;
+    } catch (error) {
+      console.error('Error getting product variants:', error);
+      throw error;
+    }
+  }
+
+  static async addProductVariant(variantData: any) {
+    try {
+      const database = getDb();
+      const logicalId = this.generateLogicalId('product_variants', variantData);
+      const docRef = doc(database, 'product_variants', logicalId);
+      
+      await setDoc(docRef, {
+        ...variantData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...variantData };
+    } catch (error) {
+      console.error('Error adding product variant:', error);
+      throw error;
+    }
+  }
+
+  static async updateProductVariant(variantId: string, updateData: any) {
+    try {
+      const database = getDb();
+      const docRef = doc(database, 'product_variants', variantId);
+      
+      await setDoc(docRef, {
+        ...updateData,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+      
+      return { id: variantId, ...updateData };
+    } catch (error) {
+      console.error('Error updating product variant:', error);
+      throw error;
+    }
+  }
+
+  static async deleteProductVariant(variantId: string) {
+    try {
+      const database = getDb();
+      const docRef = doc(database, 'product_variants', variantId);
+      await deleteDoc(docRef);
+      return true;
+    } catch (error) {
+      console.error('Error deleting product variant:', error);
+      throw error;
+    }
   }
 
   // Settings
