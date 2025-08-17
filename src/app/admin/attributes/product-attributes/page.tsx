@@ -47,39 +47,43 @@ export default function ProductAttributesPage() {
   // Create default attributes if none exist
   useEffect(() => {
     const createDefaultAttributes = async () => {
-      if (!loading && (!Array.isArray(attributes) || attributes.length === 0)) {
-        try {
-          console.log('🏷️ Creating default product attributes...')
-          
-          // Create "Kleur" attribute
-          await FirebaseService.createProductAttribute({
-            name: 'color',
-            label: 'Kleur',
-            type: 'dropdown',
-            is_used_for_configurable: true,
-            is_active: true,
-            sort_order: 1
-          })
-          
-          // Create "Maat" attribute
-          await FirebaseService.createProductAttribute({
-            name: 'size',
-            label: 'Maat',
-            type: 'dropdown',
-            is_used_for_configurable: true,
-            is_active: true,
-            sort_order: 2
-          })
-          
-          console.log('✅ Default attributes created successfully')
-          setRefreshKey(k => k + 1)
-        } catch (error) {
-          console.error('❌ Error creating default attributes:', error)
-        }
+      try {
+        console.log('🏷️ Creating default product attributes...')
+        
+        // Create "Kleur" attribute
+        const colorAttrId = await FirebaseService.createProductAttribute({
+          name: 'color',
+          label: 'Kleur',
+          type: 'dropdown',
+          is_used_for_configurable: true,
+          is_active: true,
+          sort_order: 1
+        })
+        
+        console.log('✅ Color attribute created with ID:', colorAttrId)
+        
+        // Create "Maat" attribute
+        const sizeAttrId = await FirebaseService.createProductAttribute({
+          name: 'size',
+          label: 'Maat',
+          type: 'dropdown',
+          is_used_for_configurable: true,
+          is_active: true,
+          sort_order: 2
+        })
+        
+        console.log('✅ Size attribute created with ID:', sizeAttrId)
+        
+        // Force reload
+        setTimeout(() => setRefreshKey(k => k + 1), 1000)
+      } catch (error) {
+        console.error('❌ Error creating default attributes:', error)
       }
     }
     
-    createDefaultAttributes()
+    if (!loading && (!Array.isArray(attributes) || attributes.length === 0)) {
+      createDefaultAttributes()
+    }
   }, [loading, attributes, refreshKey])
 
   // Migrate existing colors to attribute values
@@ -134,6 +138,42 @@ export default function ProductAttributesPage() {
     
     if (attributes && Array.isArray(attributes) && attributes.length > 0) {
       migrateColorsToAttributes()
+    }
+  }, [attributes, refreshKey])
+
+  // Add test color values if none exist
+  useEffect(() => {
+    const addTestColorValues = async () => {
+      try {
+        if (Array.isArray(attributes)) {
+          const colorAttribute = attributes.find(attr => attr.name === 'color')
+          
+          if (colorAttribute && (!colorAttribute.values || colorAttribute.values.length === 0)) {
+            console.log('🎨 Adding test color values...')
+            
+            // Add some test colors
+            const testColors = [
+              { id: 'test-red', label: 'Rood', value: 'rood', hex_code: '#FF0000', sort_order: 1 },
+              { id: 'test-blue', label: 'Blauw', value: 'blauw', hex_code: '#0000FF', sort_order: 2 },
+              { id: 'test-green', label: 'Groen', value: 'groen', hex_code: '#00FF00', sort_order: 3 }
+            ]
+            
+            await FirebaseService.updateProductAttribute(colorAttribute.id, {
+              ...colorAttribute,
+              values: testColors
+            })
+            
+            console.log('✅ Test color values added')
+            setTimeout(() => setRefreshKey(k => k + 1), 1000)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error adding test colors:', error)
+      }
+    }
+    
+    if (attributes && Array.isArray(attributes) && attributes.length > 0) {
+      addTestColorValues()
     }
   }, [attributes, refreshKey])
 

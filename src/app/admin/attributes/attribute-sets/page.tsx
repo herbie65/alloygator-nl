@@ -36,39 +36,56 @@ export default function AttributeSetsPage() {
   // Create default attribute set if none exist
   useEffect(() => {
     const createDefaultAttributeSet = async () => {
-      if (!loading && (!Array.isArray(attributeSets) || attributeSets.length === 0)) {
-        try {
-          console.log('📋 Creating default attribute set...')
-          
-          // Get color and size attributes
+      try {
+        console.log('📋 Checking if default attribute set exists...')
+        
+        // Always try to create the default set if we have attributes
+        if (attributes && attributes.length > 0) {
           const colorAttr = attributes.find(attr => attr.name === 'color')
           const sizeAttr = attributes.find(attr => attr.name === 'size')
           
+          console.log('🎨 Color attribute found:', colorAttr?.name)
+          console.log('📏 Size attribute found:', sizeAttr?.name)
+          
           if (colorAttr && sizeAttr) {
-            // Create "Kleur & Maat" attribute set
-            await FirebaseService.createAttributeSet({
-              name: 'Kleur & Maat',
-              description: 'Standaard attribuutset voor producten met kleur en maat opties',
-              attributes: [colorAttr.id, sizeAttr.id],
-              is_active: true,
-              sort_order: 1
-            })
+            // Check if set already exists
+            const existingSet = attributeSets.find(set => 
+              set.name === 'Kleur & Maat' || 
+              set.attributes?.includes(colorAttr.id)
+            )
             
-            console.log('✅ Default attribute set created successfully')
-            setRefreshKey(k => k + 1)
+            if (!existingSet) {
+              console.log('📋 Creating default "Kleur & Maat" attribute set...')
+              
+              const setId = await FirebaseService.createAttributeSet({
+                name: 'Kleur & Maat',
+                description: 'Standaard attribuutset voor producten met kleur en maat opties',
+                attributes: [colorAttr.id, sizeAttr.id],
+                is_active: true,
+                sort_order: 1
+              })
+              
+              console.log('✅ Default attribute set created with ID:', setId)
+              
+              // Force reload
+              setTimeout(() => setRefreshKey(k => k + 1), 1000)
+            } else {
+              console.log('✅ Default attribute set already exists:', existingSet.name)
+            }
           } else {
-            console.log('⚠️ Color or size attributes not found, cannot create default set')
+            console.log('⚠️ Missing required attributes for default set')
           }
-        } catch (error) {
-          console.error('❌ Error creating default attribute set:', error)
         }
+      } catch (error) {
+        console.error('❌ Error creating default attribute set:', error)
       }
     }
     
+    // Run immediately when attributes are loaded
     if (attributes && attributes.length > 0) {
       createDefaultAttributeSet()
     }
-  }, [loading, attributeSets, attributes, refreshKey])
+  }, [attributes, attributeSets, refreshKey])
 
   useEffect(() => {
     loadData()
