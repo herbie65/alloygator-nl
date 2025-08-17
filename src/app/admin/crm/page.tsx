@@ -722,7 +722,15 @@ export default function CRMPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
-                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => router.push(`/admin/crm/${customer.id}`)}>
+                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => {
+                  console.log('Row clicked for customer:', customer)
+                  console.log('Customer ID:', customer.id)
+                  try {
+                    router.push(`/admin/crm/${customer.id}`)
+                  } catch (error) {
+                    console.error('Navigation error:', error)
+                  }
+                }}>
                   {getVisibleColumns().map(([columnKey, config]) => (
                     <td 
                       key={columnKey} 
@@ -788,7 +796,16 @@ export default function CRMPage() {
                       {columnKey === 'actions' && (
                         <div className="text-sm font-medium">
                           <button
-                            onClick={() => router.push(`/admin/crm/${customer.id}`)}
+                            onClick={() => {
+                              console.log('CRM button clicked for customer:', customer)
+                              console.log('Customer ID:', customer.id)
+                              console.log('Router object:', router)
+                              try {
+                                router.push(`/admin/crm/${customer.id}`)
+                              } catch (error) {
+                                console.error('Navigation error:', error)
+                              }
+                            }}
                            className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
                           >
                             CRM
