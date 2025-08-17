@@ -74,71 +74,6 @@ export default function ColorsPage() {
     setRefreshKey(k => k + 1)
   }
 
-  // Migrate existing colors to logical IDs
-  const migrateToLogicalIds = async () => {
-    if (!confirm('Weet je zeker dat je alle kleuren wilt migreren naar logische ID\'s? Dit kan niet ongedaan worden gemaakt.')) {
-      return
-    }
-
-    try {
-      console.log('🔄 Starting migration to logical IDs...')
-      
-      // Get all existing colors
-      const existingColors = await FirebaseService.getProductColors()
-      if (!Array.isArray(existingColors) || existingColors.length === 0) {
-        alert('Geen kleuren gevonden om te migreren')
-        return
-      }
-
-      let migratedCount = 0
-      let skippedCount = 0
-      
-      for (const color of existingColors) {
-        // Skip if already has logical ID format (kleur-)
-        if (color.id && color.id.startsWith('kleur-')) {
-          console.log(`⏭️ Skipping ${color.name} - already has logical ID: ${color.id}`)
-          skippedCount++
-          continue
-        }
-
-        try {
-          // Create new color with logical ID based on consonants
-          const newColorData = {
-            name: color.name,
-            hex_code: color.hex_code,
-            created_at: color.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          
-          console.log(`🔄 Migrating ${color.name} (${color.id}) to new ID...`)
-          const newColor = await FirebaseService.createProductColor(newColorData)
-          console.log(`✅ Created new color with ID: ${newColor.id}`)
-          
-          // Delete old color if it has a different ID
-          if (color.id && !color.id.startsWith('kleur-')) {
-            await FirebaseService.deleteProductColor(color.id)
-            console.log(`🗑️ Deleted old color with ID: ${color.id}`)
-          }
-          
-          migratedCount++
-        } catch (error) {
-          console.error(`❌ Error migrating ${color.name}:`, error)
-        }
-      }
-
-      const message = `Migratie voltooid!\n\n` +
-        `✅ ${migratedCount} kleuren gemigreerd naar logische ID's\n` +
-        `⏭️ ${skippedCount} kleuren overgeslagen (hadden al logische ID's)\n\n` +
-        `Nieuwe ID's zijn gebaseerd op medeklinkers van de kleurnaam (bijv. "kleur-rd" voor "Rood")`
-      
-      alert(message)
-      setRefreshKey(k => k + 1)
-    } catch (error) {
-      console.error('❌ Migration error:', error)
-      alert('Fout tijdens migratie: ' + error.message)
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -154,13 +89,6 @@ export default function ColorsPage() {
           </div>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={migrateToLogicalIds}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-            title="Migreer bestaande kleuren naar logische ID's"
-          >
-            🔄 Migreer ID's
-          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
