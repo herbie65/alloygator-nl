@@ -286,7 +286,14 @@ export default function CRMPage() {
                           customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           customer.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = filterStatus === 'all' || customer.status === filterStatus
-      const matchesGroup = filterGroup === 'all' || customer.dealer_group === filterGroup
+      // Support matching by group id or by group name
+      const normalize = (v: any) => String(v || '').toLowerCase().trim()
+      const selectedGroupName = customerGroups.find(g => g.id === filterGroup)?.name
+      const matchesGroup = (
+        filterGroup === 'all' ||
+        normalize(customer.dealer_group) === normalize(filterGroup) ||
+        normalize(customer.dealer_group) === normalize(selectedGroupName)
+      )
       
       return matchesSearch && matchesStatus && matchesGroup
     })
@@ -381,6 +388,39 @@ export default function CRMPage() {
     }
     load()
   }, [year, customers])
+
+  // Load latest visits and contact moments per customer
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [visitsRes, contactsRes] = await Promise.all([
+          FirebaseClientService.getVisits().catch(() => FirebaseClientService.getAllVisits()),
+          FirebaseClientService.getContactMoments().catch(() => FirebaseClientService.getAllContactMoments())
+        ])
+        const visitMap: Record<string, string> = {}
+        const contactMap: Record<string, string> = {}
+        const safeDate = (v: any) => new Date(v || 0).getTime()
+        for (const v of (Array.isArray(visitsRes) ? visitsRes : []) as any[]) {
+          const cid = (v as any).customer_id || (v as any).customer?.id
+          const ts = safeDate((v as any).visit_date || (v as any).created_at)
+          if (!cid || !ts) continue
+          if (!visitMap[cid] || new Date(visitMap[cid]).getTime() < ts) visitMap[cid] = new Date(ts).toISOString()
+        }
+        for (const c of (Array.isArray(contactsRes) ? contactsRes : []) as any[]) {
+          const cid = (c as any).customer_id || (c as any).customer?.id
+          const ts = safeDate((c as any).contact_date || (c as any).created_at)
+          if (!cid || !ts) continue
+          if (!contactMap[cid] || new Date(contactMap[cid]).getTime() < ts) contactMap[cid] = new Date(ts).toISOString()
+        }
+        setLastVisitByCustomer(visitMap)
+        setLastContactByCustomer(contactMap)
+      } catch (_) {
+        setLastVisitByCustomer({})
+        setLastContactByCustomer({})
+      }
+    }
+    load()
+  }, [customers])
 
   // Handle column sorting
   const handleSort = (columnKey: string) => {
@@ -723,12 +763,8 @@ export default function CRMPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
                 <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => {
-                  console.log('🚀 Row clicked!')
-                  console.log('Customer:', customer)
-                  console.log('Customer ID:', customer.id)
-                  const url = `/admin/crm/${customer.id}`
-                  console.log('🚀 Navigating to:', url)
-                  window.location.href = url
+                  const url = `/admin/crm/${encodeURIComponent(customer.id)}`
+                  try { (router as any)?.push ? (router as any).push(url) : (window.location.href = url) } catch { window.location.href = url }
                 }}>
                   {getVisibleColumns().map(([columnKey, config]) => (
                     <td 
@@ -795,26 +831,23 @@ export default function CRMPage() {
                       {columnKey === 'actions' && (
                         <div className="text-sm font-medium">
                           <button
-                            onClick={() => {
-                              console.log('🚀 CRM button clicked!')
-                              console.log('Customer:', customer)
-                              console.log('Customer ID:', customer.id)
-                              const url = `/admin/crm/${customer.id}`
-                              console.log('🚀 Navigating to:', url)
-                              window.location.href = url
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = `/admin/crm/${encodeURIComponent(customer.id)}`
+                              try { (router as any)?.push ? (router as any).push(url) : (window.location.href = url) } catch { window.location.href = url }
                             }}
                            className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
                           >
                             CRM
                           </button>
                           <button 
-                            onClick={() => handleEditCustomer(customer)}
+                            onClick={(e) => { e.stopPropagation(); handleEditCustomer(customer) }}
                             className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
                           >
                             Bewerken
                           </button>
                           <button 
-                            onClick={() => handleDeleteCustomer(customer.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(customer.id) }}
                             className="text-red-600 hover:text-red-900 transition-colors duration-200"
                           >
                             Verwijderen

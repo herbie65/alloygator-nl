@@ -6,6 +6,9 @@ import { FirebaseClientService } from '@/lib/firebase-client'
 
 export default function CustomerDashboardPage() {
   const params = useParams() as { id: string }
+  const decodedId = useMemo(() => {
+    try { return decodeURIComponent(params.id || '') } catch { return params.id }
+  }, [params.id])
   const [loading, setLoading] = useState(true)
   const [customer, setCustomer] = useState<any>(null)
   const [orders, setOrders] = useState<any[]>([])
@@ -31,7 +34,7 @@ export default function CustomerDashboardPage() {
       try {
         setLoading(true)
         const [c, o, s, vt, cmt] = await Promise.all([
-          FirebaseClientService.getCustomerById(params.id),
+          FirebaseClientService.getCustomerById(decodedId),
           FirebaseClientService.getOrders(),
           FirebaseClientService.getSettings(),
           FirebaseClientService.getCollection('crm_settings'),
@@ -47,7 +50,7 @@ export default function CustomerDashboardPage() {
         setVisitsLoading(true)
         try {
           // Try the normal query first
-          v = await FirebaseClientService.getVisits(params.id)
+          v = await FirebaseClientService.getVisits(decodedId)
           console.log(`✅ Loaded ${v.length} visits via normal query`)
           
           // If no visits found, try fallback method
@@ -58,7 +61,7 @@ export default function CustomerDashboardPage() {
               console.log(`🔍 Total visits loaded: ${allVisits.length}`)
               console.log(`🔍 All visit customer_ids:`, allVisits.map((visit: any) => visit.customer_id))
               
-              v = allVisits.filter((visit: any) => visit.customer_id === params.id)
+              v = allVisits.filter((visit: any) => visit.customer_id === decodedId)
               console.log(`✅ Loaded ${v.length} visits via fallback method for customer ${params.id}`)
             } catch (fallbackError) {
               console.log('❌ Fallback method also failed:', fallbackError.message)
@@ -86,7 +89,7 @@ export default function CustomerDashboardPage() {
         setContactMomentsLoading(true)
         try {
           // Try the normal query first
-          cm = await FirebaseClientService.getContactMoments(params.id)
+          cm = await FirebaseClientService.getContactMoments(decodedId)
           console.log(`✅ Loaded ${cm.length} contact moments via normal query`)
           
           // If no contact moments found, try fallback method
@@ -97,7 +100,7 @@ export default function CustomerDashboardPage() {
               console.log(`🔍 Total contact moments loaded: ${allContacts.length}`)
               console.log(`🔍 All contact customer_ids:`, allContacts.map((contact: any) => contact.customer_id))
               
-              cm = allContacts.filter((contact: any) => contact.customer_id === params.id)
+              cm = allContacts.filter((contact: any) => contact.customer_id === decodedId)
               console.log(`✅ Loaded ${cm.length} contact moments via fallback method for customer ${params.id}`)
             } catch (fallbackError) {
               console.log('❌ Fallback method also failed:', fallbackError.message)
@@ -135,7 +138,7 @@ export default function CustomerDashboardPage() {
 
          // Load documents for this customer
          try {
-           const customerDocs = await FirebaseClientService.getDocuments({ customerId: params.id })
+           const customerDocs = await FirebaseClientService.getDocuments({ customerId: decodedId })
           setDocuments(customerDocs)
           console.log(`✅ Loaded ${customerDocs.length} documents for customer ${params.id}`)
         } catch (error) {
@@ -183,7 +186,7 @@ setTargets({
       } finally { setLoading(false) }
     }
     load()
-  }, [params.id])
+  }, [decodedId])
 
   // Delete functions
   const handleDeleteVisit = async (visitId: string) => {
@@ -560,7 +563,7 @@ setTargets({
       {/* Visit Modal */}
               {showVisitModal && (
           <VisitModal
-            customerId={params.id}
+            customerId={decodedId}
             visitTypes={visitTypes}
             onClose={() => setShowVisitModal(false)}
             onSave={(visit) => {
@@ -573,7 +576,7 @@ setTargets({
       {/* Contact Modal */}
       {showContactModal && (
         <ContactModal
-          customerId={params.id}
+          customerId={decodedId}
           contactMomentTypes={contactMomentTypes}
           onClose={() => setShowContactModal(false)}
           onSave={(contact) => {
@@ -586,7 +589,7 @@ setTargets({
       {/* Document Modal */}
       {showDocumentModal && (
         <DocumentModal
-          customerId={params.id}
+          customerId={decodedId}
           customerEmail={customer?.email || ''}
           categories={docCategories}
           permissions={docPermissions}

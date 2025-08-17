@@ -53,6 +53,8 @@ export default function DocumentsPage() {
   const [sortBy, setSortBy] = useState('created_at')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  // Customer display names per document id (additive, non-breaking)
+  const [customerNameByDocId, setCustomerNameByDocId] = useState<Record<string, string>>({})
 
   // Load data
   useEffect(() => {
@@ -77,6 +79,35 @@ export default function DocumentsPage() {
   }, [])
 
   // Tip: menu sluit na actie of bij opnieuw klikken op dezelfde knop
+
+  // Resolve customer company names for documents linked to a customer (by id or email)
+  useEffect(() => {
+    const resolveNames = async () => {
+      try {
+        const map: Record<string, string> = {}
+        await Promise.all((documents || []).map(async (doc) => {
+          try {
+            if (doc.customer_id) {
+              const c: any = await FirebaseClientService.getCustomerById(doc.customer_id)
+              if (c) {
+                map[doc.id] = (c.company_name || c.name || `${c.contact_first_name || ''} ${c.contact_last_name || ''}`.trim() || c.email || doc.customer_email || doc.customer_id)
+              }
+            } else if (doc.customer_email) {
+              const list: any[] = await FirebaseClientService.getCustomersByEmail(doc.customer_email)
+              const c: any = Array.isArray(list) && list.length ? list[0] : null
+              if (c) {
+                map[doc.id] = (c.company_name || c.name || `${c.contact_first_name || ''} ${c.contact_last_name || ''}`.trim() || doc.customer_email)
+              }
+            }
+          } catch (_) { /* ignore per-doc errors */ }
+        }))
+        setCustomerNameByDocId(map)
+      } catch (_) {
+        setCustomerNameByDocId({})
+      }
+    }
+    resolveNames()
+  }, [documents])
 
   // Filter and sort documents
   const filteredDocuments = documents
@@ -331,6 +362,11 @@ export default function DocumentsPage() {
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                           {getPermissionName(document.permission)}
                         </span>
+                        {(document.customer_id || document.customer_email) && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            Klant: {customerNameByDocId[document.id] || document.customer_email || document.customer_id}
+                          </div>
+                        )}
                         {String(document.permission ?? '').toLowerCase().includes('private') &&
   ((document.customer_email ?? document.customer_id)) && (
     <div className="text-xs text-gray-500 mt-1">
