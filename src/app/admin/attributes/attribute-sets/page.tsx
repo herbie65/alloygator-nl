@@ -33,6 +33,43 @@ export default function AttributeSetsPage() {
   const [editingSet, setEditingSet] = useState<AttributeSet | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // Create default attribute set if none exist
+  useEffect(() => {
+    const createDefaultAttributeSet = async () => {
+      if (!loading && (!Array.isArray(attributeSets) || attributeSets.length === 0)) {
+        try {
+          console.log('📋 Creating default attribute set...')
+          
+          // Get color and size attributes
+          const colorAttr = attributes.find(attr => attr.name === 'color')
+          const sizeAttr = attributes.find(attr => attr.name === 'size')
+          
+          if (colorAttr && sizeAttr) {
+            // Create "Kleur & Maat" attribute set
+            await FirebaseService.createAttributeSet({
+              name: 'Kleur & Maat',
+              description: 'Standaard attribuutset voor producten met kleur en maat opties',
+              attributes: [colorAttr.id, sizeAttr.id],
+              is_active: true,
+              sort_order: 1
+            })
+            
+            console.log('✅ Default attribute set created successfully')
+            setRefreshKey(k => k + 1)
+          } else {
+            console.log('⚠️ Color or size attributes not found, cannot create default set')
+          }
+        } catch (error) {
+          console.error('❌ Error creating default attribute set:', error)
+        }
+      }
+    }
+    
+    if (attributes && attributes.length > 0) {
+      createDefaultAttributeSet()
+    }
+  }, [loading, attributeSets, attributes, refreshKey])
+
   useEffect(() => {
     loadData()
   }, [refreshKey])

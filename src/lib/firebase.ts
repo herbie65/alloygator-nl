@@ -849,13 +849,24 @@ export class FirebaseService {
   }
 
   static async getAttributeSets(): Promise<any[]> {
-    const q = query(
-      collection(db, 'attribute_sets'),
-      where('is_active', '==', true),
-      orderBy('sort_order', 'asc')
-    )
-    const snapshot = await getDocs(q)
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    try {
+      const q = query(
+        collection(db, 'attribute_sets'),
+        orderBy('created_at', 'desc')
+      )
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    } catch (error) {
+      console.error('Error getting attribute sets:', error)
+      // Fallback: get all without ordering
+      try {
+        const snapshot = await getDocs(collection(db, 'attribute_sets'))
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      } catch (fallbackError) {
+        console.error('Fallback error getting attribute sets:', fallbackError)
+        return []
+      }
+    }
   }
 
   static async updateAttributeSet(setId: string, updateData: any): Promise<void> {
@@ -905,22 +916,24 @@ export class FirebaseService {
   }
 
   // Configurable Product and Variant operations
-  static async getProductVariants(parentProductId: string) {
+  static async getProductVariants(parentProductId?: string): Promise<any[]> {
     try {
-      const database = getDb();
-      const variantsRef = collection(database, 'product_variants');
-      const q = query(variantsRef, where('parent_product_id', '==', parentProductId));
-      const querySnapshot = await getDocs(q);
-      
-      const variants: any[] = [];
-      querySnapshot.forEach((doc) => {
-        variants.push({ id: doc.id, ...doc.data() });
-      });
-      
-      return variants;
+      if (parentProductId) {
+        // Get variants for specific parent
+        const q = query(
+          collection(db, 'product_variants'),
+          where('parent_product_id', '==', parentProductId)
+        )
+        const snapshot = await getDocs(q)
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      } else {
+        // Get all variants without complex queries
+        const snapshot = await getDocs(collection(db, 'product_variants'))
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      }
     } catch (error) {
-      console.error('Error getting product variants:', error);
-      throw error;
+      console.error('Error getting product variants:', error)
+      return []
     }
   }
 
