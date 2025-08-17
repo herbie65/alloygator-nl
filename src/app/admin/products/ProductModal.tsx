@@ -170,11 +170,20 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('🔄 Loading product data...');
+        
         const [attributes, colors, supplierList] = await Promise.all([
           FirebaseService.getProductAttributes(),
           FirebaseService.getProductColors(),
           FirebaseService.getSuppliers()
         ])
+        
+        console.log('📊 Loaded data:', {
+          attributes: Array.isArray(attributes) ? attributes.length : 'not array',
+          colors: Array.isArray(colors) ? colors.length : 'not array',
+          suppliers: Array.isArray(supplierList) ? supplierList.length : 'not array'
+        });
+        
         const attrs: any[] = Array.isArray(attributes) ? attributes : []
         setProductAttributes(attrs)
         setProductColors(Array.isArray(colors) ? colors : [])
@@ -182,7 +191,10 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
         // If no colors exist, create some default ones
         if (!Array.isArray(colors) || colors.length === 0) {
+          console.log('🎨 No colors found, creating default colors...');
           await createDefaultColors();
+        } else {
+          console.log('✅ Colors already exist:', colors.length);
         }
 
         // Load existing dynamic values from product if editing
@@ -203,7 +215,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
           setExistingSlugs(slugs)
         } catch {}
       } catch (error) {
-        console.error('Error loading product data:', error)
+        console.error('❌ Error loading product data:', error)
       }
     }
 
@@ -215,6 +227,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   // Create default colors if none exist
   const createDefaultColors = async () => {
     try {
+      console.log('🎨 Starting to create default colors...');
+      
       const defaultColors = [
         { name: 'Rood', hex_code: '#FF0000' },
         { name: 'Blauw', hex_code: '#0000FF' },
@@ -228,17 +242,25 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
         { name: 'Bruin', hex_code: '#A52A2A' }
       ];
       
+      console.log('📝 Creating colors:', defaultColors.length);
+      
       for (const color of defaultColors) {
-        await FirebaseService.createProductColor(color);
+        console.log('➕ Creating color:', color.name);
+        const result = await FirebaseService.createProductColor(color);
+        console.log('✅ Color created:', result);
       }
+      
+      console.log('🔄 Reloading colors after creation...');
       
       // Reload colors after creating defaults
       const colors = await FirebaseService.getProductColors();
+      console.log('📊 Reloaded colors:', colors);
+      
       setProductColors(Array.isArray(colors) ? colors : []);
       
-      console.log('Default colors created successfully');
+      console.log('🎉 Default colors created successfully');
     } catch (error) {
-      console.error('Error creating default colors:', error);
+      console.error('❌ Error creating default colors:', error);
     }
   };
 
@@ -1060,6 +1082,9 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                         </a>
                       </p>
                     )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Debug: {productColors.length} kleuren geladen
+                    </p>
                   </div>
                 </div>
                 
