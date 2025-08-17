@@ -412,11 +412,6 @@ export default function CRMPage() {
     setShowCustomerModal(true)
   }
 
-  const handleCustomerClick = (customer: Customer) => {
-    setSelectedCustomer(customer)
-    setShowCustomerModal(true)
-  }
-
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer)
     setShowCustomerModal(true)
@@ -727,7 +722,7 @@ export default function CRMPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
-                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => handleCustomerClick(customer)}>
+                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => router.push(`/admin/crm/${customer.id}`)}>
                   {getVisibleColumns().map(([columnKey, config]) => (
                     <td 
                       key={columnKey} 
@@ -793,7 +788,7 @@ export default function CRMPage() {
                       {columnKey === 'actions' && (
                         <div className="text-sm font-medium">
                           <button
-                            onClick={() => handleCustomerClick(customer)}
+                            onClick={() => router.push(`/admin/crm/${customer.id}`)}
                            className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
                           >
                             CRM
