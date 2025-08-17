@@ -91,6 +91,7 @@ export class FirebaseService {
       case 'products': return `PROD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'orders': return `ORD-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_attributes': return `ATTR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      case 'attribute_sets': return `SET-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'product_colors': return this.generateColorId(data)
       case 'product_variants': return `VAR-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
       case 'categories': return `CAT-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
@@ -797,51 +798,77 @@ export class FirebaseService {
   }
 
   // Product Attributes
-  static async getProductAttributes() {
-    try {
-      const database = getDb();
-      const attributesRef = collection(database, 'product_attributes');
-      const q = query(attributesRef, where('is_active', '==', true), orderBy('sort_order'));
-      const querySnapshot = await getDocs(q);
-      
-      const attributes: any[] = [];
-      querySnapshot.forEach((doc) => {
-        attributes.push({ id: doc.id, ...doc.data() });
-      });
-      
-      return attributes;
-    } catch (error) {
-      console.error('Error getting product attributes:', error);
-      throw error;
+  static async createProductAttribute(attributeData: any): Promise<string> {
+    const id = this.generateLogicalId('product_attributes', attributeData)
+    const docRef = doc(db, 'product_attributes', id)
+    const data = {
+      ...attributeData,
+      id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
+    await setDoc(docRef, data)
+    return id
   }
 
-  static async createProductAttribute(attributeData: any) {
-    try {
-      const database = getDb();
-      const logicalId = this.generateLogicalId('product_attributes', attributeData)
-      const docRef = doc(database, 'product_attributes', logicalId)
-      
-      await setDoc(docRef, {
-        ...attributeData,
-        id: logicalId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-      
-      return { id: logicalId, ...attributeData };
-    } catch (error) {
-      console.error('Error creating product attribute:', error);
-      throw error;
+  static async getProductAttributes(): Promise<any[]> {
+    const q = query(
+      collection(db, 'product_attributes'),
+      where('is_active', '==', true),
+      orderBy('sort_order', 'asc')
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  }
+
+  static async updateProductAttribute(attributeId: string, updateData: any): Promise<void> {
+    const docRef = doc(db, 'product_attributes', attributeId)
+    await updateDoc(docRef, {
+      ...updateData,
+      updated_at: new Date().toISOString()
+    })
+  }
+
+  static async deleteProductAttribute(attributeId: string): Promise<void> {
+    const docRef = doc(db, 'product_attributes', attributeId)
+    await deleteDoc(docRef)
+  }
+
+  // Attribute Sets
+  static async createAttributeSet(setData: any): Promise<string> {
+    const id = this.generateLogicalId('attribute_sets', setData)
+    const docRef = doc(db, 'attribute_sets', id)
+    const data = {
+      ...setData,
+      id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
+    await setDoc(docRef, data)
+    return id
   }
 
-  static async updateProductAttribute(id: string, attributeData: any) {
-    return await this.updateDocument('product_attributes', id, attributeData);
+  static async getAttributeSets(): Promise<any[]> {
+    const q = query(
+      collection(db, 'attribute_sets'),
+      where('is_active', '==', true),
+      orderBy('sort_order', 'asc')
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
   }
 
-  static async deleteProductAttribute(id: string) {
-    return await this.deleteDocument('product_attributes', id);
+  static async updateAttributeSet(setId: string, updateData: any): Promise<void> {
+    const docRef = doc(db, 'attribute_sets', setId)
+    await updateDoc(docRef, {
+      ...updateData,
+      updated_at: new Date().toISOString()
+    })
+  }
+
+  static async deleteAttributeSet(setId: string): Promise<void> {
+    const docRef = doc(db, 'attribute_sets', setId)
+    await deleteDoc(docRef)
   }
 
   // Product Colors
