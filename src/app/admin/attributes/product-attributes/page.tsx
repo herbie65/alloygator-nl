@@ -32,10 +32,48 @@ export default function ProductAttributesPage() {
     name: '',
     label: '',
     type: 'dropdown',
-    is_used_for_configurable: false,
+    is_used_for_configurable: true, // Default to true for configurable products
     is_active: true,
     sort_order: 0
   })
+
+  // Create default attributes if none exist
+  useEffect(() => {
+    const createDefaultAttributes = async () => {
+      if (!loading && (!Array.isArray(attributes) || attributes.length === 0)) {
+        try {
+          console.log('🏷️ Creating default product attributes...')
+          
+          // Create "Kleur" attribute
+          await FirebaseService.createProductAttribute({
+            name: 'color',
+            label: 'Kleur',
+            type: 'dropdown',
+            is_used_for_configurable: true,
+            is_active: true,
+            sort_order: 1
+          })
+          
+          // Create "Maat" attribute
+          await FirebaseService.createProductAttribute({
+            name: 'size',
+            label: 'Maat',
+            type: 'dropdown',
+            is_used_for_configurable: true,
+            is_active: true,
+            sort_order: 2
+          })
+          
+          console.log('✅ Default attributes created successfully')
+          setRefreshKey(k => k + 1)
+        } catch (error) {
+          console.error('❌ Error creating default attributes:', error)
+        }
+      }
+    }
+    
+    createDefaultAttributes()
+  }, [loading, attributes, refreshKey])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,6 +152,13 @@ export default function ProductAttributesPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Product Attributen</h1>
           <p className="text-gray-600">Beheer product attributen voor configurable products</p>
+          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Hoe werkt het?</strong> Attributen bepalen welke eigenschappen klanten kunnen kiezen bij configurable products.
+              <br />
+              <strong>Voorbeeld:</strong> Een T-shirt met attributen "Kleur" en "Maat" kan klanten laten kiezen tussen "Rood + M", "Blauw + L", etc.
+            </p>
+          </div>
         </div>
         <div className="flex space-x-3">
           <button
@@ -140,6 +185,13 @@ export default function ProductAttributesPage() {
               <div className="text-4xl mb-4">🏷️</div>
               <p>Nog geen attributen toegevoegd</p>
               <p className="text-sm mt-2">Voeg je eerste attribuut toe om te beginnen</p>
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg max-w-md mx-auto">
+                <p className="text-xs text-gray-600">
+                  <strong>💡 Tip:</strong> Standaard worden "Kleur" en "Maat" attributen automatisch aangemaakt.
+                  <br />
+                  Deze verschijnen hier zodra ze zijn aangemaakt.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -245,6 +297,9 @@ export default function ProductAttributesPage() {
                     placeholder="bijv. color, size, material"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Interne naam voor het attribuut (Engels, geen spaties)
+                  </p>
                 </div>
 
                 <div>
@@ -259,6 +314,9 @@ export default function ProductAttributesPage() {
                     placeholder="bijv. Kleur, Maat, Materiaal"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Naam die klanten zien in de webshop
+                  </p>
                 </div>
 
                 <div>
@@ -277,6 +335,9 @@ export default function ProductAttributesPage() {
                     <option value="number">Number</option>
                     <option value="boolean">Boolean</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Hoe het attribuut wordt weergegeven in de webshop
+                  </p>
                 </div>
 
                 <div className="flex items-center">
