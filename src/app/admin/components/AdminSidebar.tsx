@@ -42,6 +42,14 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onNavigate }) =>
                   Creditfacturen
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('returns')}
+                  className={`block w-full text-left py-1 px-4 rounded ${activeTab === 'returns' ? 'bg-green-200 text-green-900' : 'hover:bg-gray-200'}`}
+                >
+                  Retouren (RMA)
+                </button>
+              </li>
             </ul>
           </li>
           <li>

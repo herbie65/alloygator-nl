@@ -201,6 +201,116 @@ export async function nextInvoiceNumber(): Promise<string> {
   return `${year}-${padded}`
 }
 
+// ===== CREDIT NOTE SUPPORT =====
+export async function nextCreditNumber(): Promise<string> {
+  const year = new Date().getFullYear()
+  const ref = doc(db as any, 'counters', 'credit')
+  const snap = await getDoc(ref)
+  const last = snap.exists() ? (snap.data() as any)[String(year)] || 0 : 0
+  const next = last + 1
+  await setDoc(ref, { [String(year)]: next }, { merge: true })
+  const padded = String(next).padStart(5, '0')
+  return `${year}-${padded}`
+}
+
+export async function generateCreditPdfBuffer(args: {
+  credit_number: string
+  orderNumber: string
+  customer: any
+  items: Array<{ name: string; quantity: number; unit_price: number; vat_rate: number }>
+  createdAt?: string
+}): Promise<Buffer> {
+  const pdfDoc = await PDFDocument.create()
+  const page = pdfDoc.addPage([595.28, 841.89])
+  // Optional background (same als facturen)
+  try {
+    const bg = await loadBackgroundImage()
+    if (bg.bytes) {
+      if (bg.type === 'png') {
+        const img = await pdfDoc.embedPng(bg.bytes)
+        page.drawImage(img, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() })
+      } else {
+        const img = await pdfDoc.embedJpg(bg.bytes)
+        page.drawImage(img, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() })
+      }
+    }
+  } catch (e) { console.error('[credit] background draw error', e) }
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const drawText = (text: string, x: number, y: number, size = 10) => {
+    page.drawText(text, { x, y, size, font, color: rgb(0, 0, 0) })
+  }
+  const drawRight = (text: string, rightX: number, y: number, size = 10) => {
+    const w = font.widthOfTextAtSize(text, size)
+    page.drawText(text, { x: rightX - w, y, size, font, color: rgb(0, 0, 0) })
+  }
+  const pw = page.getWidth()
+  const ph = page.getHeight()
+  const margin = 40
+  // Header
+  drawText('CREDITNOTA', pw / 2 - font.widthOfTextAtSize('CREDITNOTA', 16) / 2, ph - 60, 16)
+  let metaY = ph - 110
+  drawText(`Creditnr.: ${args.credit_number}`, margin, metaY); metaY -= 12
+  drawText(`Datum: ${new Date(args.createdAt || Date.now()).toLocaleDateString('nl-NL')}`, margin, metaY); metaY -= 12
+  if (args.orderNumber) { drawText(`Ordernr.: ${args.orderNumber}`, margin, metaY); metaY -= 16 }
+
+  // Customer block
+  const c = args.customer || {}
+  let addrY = ph - 210
+  drawText('Klant:', margin, addrY, 10); addrY -= 14
+  const nameLine = `${c.voornaam || ''} ${c.achternaam || ''}`.trim() || c.name || ''
+  if (nameLine) { drawText(String(nameLine), margin, addrY); addrY -= 12 }
+  if (c.adres) { drawText(String(c.adres), margin, addrY); addrY -= 12 }
+  const line2 = `${c.postcode || ''} ${c.plaats || ''}`.trim()
+  if (line2) { drawText(line2, margin, addrY); addrY -= 12 }
+  if (c.land) { drawText(String(c.land), margin, addrY); addrY -= 12 }
+
+  // Table
+  let y = addrY - 20
+  const labelX = pw - margin - 120
+  const amountRight = pw - margin
+  drawText('Product', margin, y); drawRight('Netto', labelX, y); drawRight('Aantal', amountRight, y); y -= 14
+  page.drawLine({ start: { x: margin, y }, end: { x: pw - margin, y }, thickness: 0.5 }); y -= 14
+
+  let netTotal = 0
+  let vatTotal = 0
+  for (const it of (args.items || [])) {
+    const qty = Number(it.quantity || 0)
+    const unit = Number(it.unit_price || 0)
+    const rate = Number(it.vat_rate || 0)
+    netTotal += unit * qty
+    vatTotal += unit * qty * (rate/100)
+    drawText(String(it.name || 'Item'), margin, y)
+    drawRight(`€${unit.toFixed(2)}`, labelX, y)
+    drawRight(`${qty}`, amountRight, y)
+    y -= 14
+  }
+  y -= 6
+  page.drawLine({ start: { x: margin, y }, end: { x: pw - margin, y }, thickness: 0.5 }); y -= 18
+  const addRow = (label: string, amount: number) => {
+    drawRight(label + ':', labelX, y)
+    drawRight(`€${amount.toFixed(2)}`, amountRight, y)
+    y -= 14
+  }
+  addRow('Netto te crediteren', netTotal * -1)
+  addRow('BTW', vatTotal * -1)
+  y -= 2
+  page.drawLine({ start: { x: pw - margin - 120, y }, end: { x: pw - margin, y }, thickness: 0.5 }); y -= 14
+  drawRight('Totaal credit:', labelX, y, 12)
+  drawRight(`€${(netTotal + vatTotal) * -1 .toFixed ? ((netTotal + vatTotal) * -1).toFixed(2) : (-(netTotal + vatTotal)).toFixed(2)}`, amountRight, y, 12)
+
+  const bytes = await pdfDoc.save()
+  return Buffer.from(bytes)
+}
+
+export async function saveCreditPdf(creditNumber: string, pdfBuffer: Buffer): Promise<string> {
+  const invoicesDir = path.join(process.cwd(), 'public', 'invoices')
+  await fs.mkdir(invoicesDir, { recursive: true })
+  const fileName = `credit-${creditNumber}.pdf`
+  const filePath = path.join(invoicesDir, fileName)
+  await fs.writeFile(filePath, pdfBuffer)
+  return `/invoices/${fileName}`
+}
+
 export async function saveInvoicePdf(order: OrderRecord, pdfBuffer: Buffer): Promise<string> {
   const invoicesDir = path.join(process.cwd(), 'public', 'invoices')
   await fs.mkdir(invoicesDir, { recursive: true })

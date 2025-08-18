@@ -165,6 +165,28 @@ export default function OrdersPage() {
     setShowOrderModal(true)
   }
 
+  const handleCreateRma = async (order: any) => {
+    try {
+      const customerName = `${order.customer?.voornaam || ''} ${order.customer?.achternaam || ''}`.trim() || order.customer?.name || 'Onbekend Klant'
+      const payload = {
+        orderNumber: order.order_number,
+        customerName,
+        email: order.customer?.email || 'onbekend@email.com'
+      }
+      const res = await fetch('/api/returns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (!res.ok) {
+        const data = await res.json().catch(()=>({}))
+        throw new Error(data?.error || 'RMA aanmaken mislukt')
+      }
+      // Refresh orders to reflect RMA badge
+      await fetchOrders()
+      // Optioneel: open RMA pagina in nieuwe tab
+      try { window.open('/admin/returns', '_blank') } catch {}
+    } catch (e:any) {
+      alert(e.message || 'RMA aanmaken mislukt')
+    }
+  }
+
   const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
       const order = orders.find(o => o.id === orderId)
@@ -729,11 +751,6 @@ export default function OrdersPage() {
                       <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold ${order.rma_number ? 'bg-orange-500' : 'bg-gradient-to-r from-green-400 to-green-600'}`}>🛒</div>
                       <div className="ml-4 text-sm font-semibold text-gray-900">
                         #{order.order_number}
-                        {order.rma_number && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
-                            RMA: {order.rma_number}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </td>
@@ -760,9 +777,16 @@ export default function OrdersPage() {
                     €{order.total.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                      {getStatusText(order.status)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                        {getStatusText(order.status)}
+                      </span>
+                      {order.rma_number && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
+                          RMA: {order.rma_number}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(order.payment_status)}`}>
@@ -780,80 +804,28 @@ export default function OrdersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {/* Vier hoofdknoppen: Bekijken, Verwerken, Verzenden, Annuleren */}
-                    <button
-                      onClick={() => handleViewOrder(order)}
-                      className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
+                    <select
+                      defaultValue=""
+                      className="border rounded px-3 py-1 text-sm"
+                      onChange={(e)=>{ const v = e.target.value; e.currentTarget.value = ''; 
+                        if (v === 'view') { handleViewOrder(order); return }
+                        if (v === 'process') { handleUpdateStatus(order.id, 'verwerken'); return }
+                        if (v === 'ship') { handleUpdateStatus(order.id, 'verzonden'); return }
+                        if (v === 'cancel') { handleUpdateStatus(order.id, 'annuleren'); return }
+                        if (v === 'mark-paid') { handleMarkAsPaid(order.id); return }
+                        if (v === 'rma') { handleCreateRma(order); return }
+                      }}
                     >
-                      Bekijken
-                    </button>
-                    {/* Betaald knop voor afhalen bestellingen met contant/pin betaling */}
-                    {order.status === 'nieuw' && 
-                     order.payment_status === 'open' && 
-                     (order.payment_method === 'cash' || order.payment_method === 'pin') &&
-                     (order.shipping_method?.toLowerCase().includes('afhalen') || 
-                      order.shipping_method?.toLowerCase().includes('pickup') ||
-                      order.shipping_method?.toLowerCase().includes('local')) && (
-                      <button
-                        onClick={() => handleMarkAsPaid(order.id)}
-                        className="text-blue-600 hover:text-blue-900 mr-4 transition-colors duration-200"
-                        title="Markeer als betaald (klant heeft contant/pin betaald bij afhalen)"
-                      >
-                        💰 Betaald
-                      </button>
-                    )}
-                    {order.status === 'nieuw' && (
-                      <button
-                        onClick={() => handleUpdateStatus(order.id, 'verwerken')}
-                        className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
-                      >
-                        Verwerken
-                      </button>
-                    )}
-                    {order.status === 'verwerken' && (
-                      <button
-                        onClick={() => handleUpdateStatus(order.id, 'verzonden')}
-                        className="text-purple-600 hover:text-purple-900 mr-4 transition-colors duration-200"
-                      >
-                        Verzenden
-                      </button>
-                    )}
-                    {order.status !== 'annuleren' && order.status !== 'afgerond' && (
-                      <button
-                        onClick={() => handleUpdateStatus(order.id, 'annuleren')}
-                        className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                      >
-                        Annuleren
-                      </button>
-                    )}
-                    {/* e-Boekhouden sync knop - alleen voor betaalde orders */}
-                    {order.payment_status === 'paid' && order.status !== 'annuleren' && (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleeBoekhoudenSync(order.id)}
-                          className="text-purple-600 hover:text-purple-900 transition-colors duration-200"
-                          title="Synchroniseer order met e-Boekhouden"
-                        >
-                          📊 e-Boekhouden
-                        </button>
-                        {/* Sync status indicator */}
-                        {order.eboekhouden_sync?.status === 'pending' && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                            ⏳ Synchroniseren...
-                          </span>
-                        )}
-                        {order.eboekhouden_sync?.status === 'success' && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                            ✅ Gesynchroniseerd
-                          </span>
-                        )}
-                        {order.eboekhouden_sync?.status === 'error' && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                            ❌ Fout: {order.eboekhouden_sync.error_message}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                      <option value="">Actie kiezen…</option>
+                      <option value="view">Bekijken</option>
+                      {order.status === 'nieuw' && (<option value="process">Verwerken</option>)}
+                      {order.status === 'verwerken' && (<option value="ship">Verzenden</option>)}
+                      {(order.status !== 'annuleren' && order.status !== 'afgerond') && (<option value="cancel">Annuleren</option>)}
+                      {(order.status === 'nieuw' && order.payment_status === 'open' && (order.payment_method === 'cash' || order.payment_method === 'pin') && ((order.shipping_method || '').toLowerCase().includes('afhalen') || (order.shipping_method || '').toLowerCase().includes('pickup') || (order.shipping_method || '').toLowerCase().includes('local'))) && (
+                        <option value="mark-paid">Markeer als betaald (afhalen)</option>
+                      )}
+                      <option value="rma">RMA starten</option>
+                    </select>
                   </td>
                 </tr>
               ))}

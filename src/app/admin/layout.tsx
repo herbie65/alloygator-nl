@@ -407,7 +407,9 @@ export default function AdminLayout({
       color: 'bg-orange-500',
       children: [
         { name: 'Bestellingen', href: '/admin/orders', icon: '🛒', color: 'bg-orange-400' },
-        { name: 'Facturen', href: '/admin/invoices', icon: '🧾', color: 'bg-orange-400' }
+        { name: 'Facturen', href: '/admin/invoices', icon: '🧾', color: 'bg-orange-400' },
+        { name: 'Creditfacturen', href: '/admin/credit-invoices', icon: '🧾', color: 'bg-orange-400' },
+        { name: 'Retouren (RMA)', href: '/admin/returns', icon: '↩️', color: 'bg-orange-400' }
       ]
     },
     ...(role === 'admin' ? [{ 
