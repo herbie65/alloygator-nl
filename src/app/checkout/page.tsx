@@ -216,16 +216,6 @@ export default function CheckoutPage() {
           shippingPlaats: prev.shippingPlaats || u.shipping_city || '',
           shippingLand: prev.shippingLand || u.shipping_country || 'NL',
         }))
-
-        // Map dealer group for discount UI (optional)
-        const raw = String(u.dealer_group || '').toLowerCase()
-        let mapped: string | null = null
-        const g = raw.replace(/dealers?|groep|group/g,'').trim()
-        if (g.includes('goud') || g === 'gold') mapped = 'gold'
-        else if (g.includes('zilver') || g === 'silver') mapped = 'silver'
-        else if (g.includes('brons') || g === 'bronze') mapped = 'bronze'
-        else if (g.includes('platina') || g === 'platinum') mapped = 'platinum'
-        setDealerGroup(u.is_dealer ? mapped : null)
       }
     } catch {}
 
@@ -245,6 +235,31 @@ export default function CheckoutPage() {
     // Calculate initial totals
     calculateTotals();
   }, []);
+
+  // When we have an email, fetch the latest customer record from DB and merge missing fields
+  useEffect(() => {
+    const mergeFromDb = async () => {
+      const email = (customer.email || '').trim().toLowerCase()
+      if (!email) return
+      try {
+        const res = await fetch(`/api/customers?email=${encodeURIComponent(email)}`)
+        if (!res.ok) return
+        const dbCustomer = await res.json()
+        if (!dbCustomer) return
+        setCustomer(prev => ({
+          ...prev,
+          voornaam: prev.voornaam || dbCustomer.contact_first_name || dbCustomer.first_name || '',
+          achternaam: prev.achternaam || dbCustomer.contact_last_name || dbCustomer.last_name || '',
+          telefoon: prev.telefoon || dbCustomer.phone || dbCustomer.telefoon || '',
+          adres: prev.adres || dbCustomer.address || dbCustomer.adres || '',
+          postcode: prev.postcode || dbCustomer.postal_code || dbCustomer.postcode || '',
+          plaats: prev.plaats || dbCustomer.city || dbCustomer.plaats || '',
+          land: prev.land || dbCustomer.country || dbCustomer.land || 'NL',
+        }))
+      } catch {}
+    }
+    mergeFromDb()
+  }, [customer.email])
 
   // Persist customer form as user types
   useEffect(() => {
@@ -481,6 +496,15 @@ export default function CheckoutPage() {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    if (field === 'separateShippingAddress' && value === false) {
+      setCustomer(prev => ({
+        ...prev,
+        shippingAdres: '',
+        shippingPostcode: '',
+        shippingPlaats: '',
+        shippingLand: 'NL'
+      }))
+    }
   };
 
   const handleQuantityChange = (id: string, quantity: number) => {
@@ -596,6 +620,13 @@ export default function CheckoutPage() {
       try {
         const email = (customer.email || '').trim().toLowerCase()
         if (email) {
+          // If shipping is not separate and shipping fields empty, default to billing
+          const shippingDefaults = customer.separateShippingAddress ? {} : {
+            shippingAdres: customer.shippingAdres || customer.adres,
+            shippingPostcode: customer.shippingPostcode || customer.postcode,
+            shippingPlaats: customer.shippingPlaats || customer.plaats,
+            shippingLand: customer.shippingLand || customer.land,
+          }
           await fetch('/api/customers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             email,
             voornaam: customer.voornaam,
@@ -605,6 +636,7 @@ export default function CheckoutPage() {
             postcode: customer.postcode,
             plaats: customer.plaats,
             land: customer.land,
+            ...shippingDefaults,
           }) })
           if (createAccount) {
             if (!accountPassword || accountPassword !== accountPassword2) throw new Error('Wachtwoorden komen niet overeen')
