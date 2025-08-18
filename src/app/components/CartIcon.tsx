@@ -31,6 +31,44 @@ export default function CartIcon() {
     localStorage.setItem('alloygator-cart', JSON.stringify(cartItems))
   }, [cartItems])
 
+  // Keep in sync with external cart changes and auto-open mini-cart when items are added
+  useEffect(() => {
+    let lastCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+    const syncFromStorage = () => {
+      try {
+        const raw = localStorage.getItem('alloygator-cart') || '[]'
+        const parsed: CartItem[] = JSON.parse(raw)
+        const newCount = Array.isArray(parsed) ? parsed.reduce((sum, item: any) => sum + Number(item.quantity || 0), 0) : 0
+        // Only update if content actually changed
+        const currentJson = JSON.stringify(cartItems)
+        const nextJson = JSON.stringify(parsed)
+        if (currentJson !== nextJson) {
+          const increased = newCount > lastCount
+          setCartItems(parsed)
+          lastCount = newCount
+          if (increased) {
+            setIsOpen(true)
+            // Auto-close after a short delay
+            window.setTimeout(() => setIsOpen(false), 3000)
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'alloygator-cart') {
+        syncFromStorage()
+      }
+    }
+    const interval = window.setInterval(syncFromStorage, 600)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [cartItems])
+
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 

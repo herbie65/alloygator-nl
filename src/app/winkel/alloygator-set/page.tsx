@@ -53,7 +53,8 @@ export default function AlloyGatorSetPage() {
     }
 
     localStorage.setItem('alloygator-cart', JSON.stringify(cart))
-    window.dispatchEvent(new Event('cartUpdated'))
+    try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(cart) })) } catch (_) {}
+    alert('Product toegevoegd aan winkelwagen!')
   }
 
   return (

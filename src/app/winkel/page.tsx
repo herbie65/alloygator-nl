@@ -160,6 +160,8 @@ export default function WinkelPage() {
       )
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
+      // Notify listeners
+      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
     } else {
       const newItem: CartItem = {
         id: product.id,
@@ -173,6 +175,8 @@ export default function WinkelPage() {
       const updatedCart = [...cart, newItem]
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
+      // Notify listeners
+      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
     }
   }
 

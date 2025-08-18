@@ -78,10 +78,40 @@ export default function Header() {
           else if (gl.includes('brons')||gl.includes('bronze')) setDealerGroupLabel('Brons')
           else if (gl.includes('platina')||gl.includes('platinum')) setDealerGroupLabel('Platina')
         }
-      } catch {}
+      } catch (err) {
+        // ignore
+      }
     })()
 
-    setLoading(false)
+    // Keep cart and wishlist counters in sync via storage and light polling
+    const syncCart = () => {
+      try {
+        const raw = localStorage.getItem('alloygator-cart') || '[]'
+        const parsed = JSON.parse(raw)
+        const count = Array.isArray(parsed) ? parsed.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0) : 0
+        setCartCount(count)
+      } catch (_) {}
+    }
+    const syncWishlist = () => {
+      try {
+        const raw = localStorage.getItem('alloygator-wishlist') || '[]'
+        const parsed = JSON.parse(raw)
+        const count = Array.isArray(parsed) ? parsed.length : 0
+        setWishlistCount(count)
+      } catch (_) {}
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'alloygator-cart') syncCart()
+      if (e.key === 'alloygator-wishlist') syncWishlist()
+    }
+    const interval = window.setInterval(() => {
+      syncCart(); syncWishlist()
+    }, 600)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('storage', onStorage)
+    }
   }, [])
 
   const handleLogout = () => {
