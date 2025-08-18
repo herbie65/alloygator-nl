@@ -61,14 +61,15 @@ export async function POST(request: NextRequest) {
         redirectUrl: redirectUrl
       })
 
-      const simulatedCheckoutUrl = `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}simulate=1`
+      const simulatedId = 'tr_test_simulated'
+      const simulatedCheckoutUrl = `${redirectUrl}${redirectUrl.includes('?') ? '&' : '?'}simulate=1&id=${encodeURIComponent(simulatedId)}&paymentId=${encodeURIComponent(simulatedId)}`
 
       // Simulate different payment statuses for testing
       const testStatuses = ['open', 'pending', 'paid', 'failed']
       const randomStatus = testStatuses[Math.floor(Math.random() * testStatuses.length)]
 
       return NextResponse.json({
-        id: 'tr_test_simulated',
+        id: simulatedId,
         status: randomStatus,
         checkoutUrl: simulatedCheckoutUrl,
         simulated: true,
