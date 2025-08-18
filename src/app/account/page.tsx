@@ -72,6 +72,16 @@ export default function AccountPage() {
   const [firstOrderDate, setFirstOrderDate] = useState<Date | null>(null)
   const [docPreview, setDocPreview] = useState<any | null>(null)
   const [showDocModal, setShowDocModal] = useState(false)
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [addrForm, setAddrForm] = useState({
+    voornaam: '',
+    achternaam: '',
+    telefoon: '',
+    adres: '',
+    postcode: '',
+    plaats: '',
+    land: 'NL'
+  })
 
   useEffect(() => {
     // Prefer live data over stored session for accurate dealerstatus
@@ -837,7 +847,21 @@ export default function AccountPage() {
                       {user.land}
                     </p>
                     <div className="mt-4 flex space-x-2">
-                      <button className="text-green-600 hover:text-green-700 text-sm font-medium">
+                      <button
+                        className="text-green-600 hover:text-green-700 text-sm font-medium"
+                        onClick={() => {
+                          setAddrForm({
+                            voornaam: user.voornaam || '',
+                            achternaam: user.achternaam || '',
+                            telefoon: user.telefoon || '',
+                            adres: user.adres || '',
+                            postcode: user.postcode || '',
+                            plaats: user.plaats || '',
+                            land: user.land || 'NL'
+                          })
+                          setShowAddressModal(true)
+                        }}
+                      >
                         Bewerken
                       </button>
                       <button className="text-gray-600 hover:text-gray-700 text-sm">
@@ -845,10 +869,89 @@ export default function AccountPage() {
                       </button>
                     </div>
                   </div>
-                  
-                  <button className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-gray-700 hover:border-gray-400 transition-colors">
+                    
+                  <button
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-gray-700 hover:border-gray-400 transition-colors"
+                    onClick={() => {
+                      setAddrForm({ voornaam: '', achternaam: '', telefoon: '', adres: '', postcode: '', plaats: '', land: 'NL' })
+                      setShowAddressModal(true)
+                    }}
+                  >
                     + Nieuw adres toevoegen
                   </button>
+                </div>
+              </div>
+            )}
+
+            {showAddressModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/50" onClick={()=>setShowAddressModal(false)} />
+                <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Adres opslaan</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Voornaam</label>
+                      <input value={addrForm.voornaam} onChange={e=>setAddrForm({...addrForm, voornaam: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Achternaam</label>
+                      <input value={addrForm.achternaam} onChange={e=>setAddrForm({...addrForm, achternaam: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm text-gray-700 mb-1">Adres</label>
+                      <input value={addrForm.adres} onChange={e=>setAddrForm({...addrForm, adres: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Postcode</label>
+                      <input value={addrForm.postcode} onChange={e=>setAddrForm({...addrForm, postcode: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Plaats</label>
+                      <input value={addrForm.plaats} onChange={e=>setAddrForm({...addrForm, plaats: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Land</label>
+                      <input value={addrForm.land} onChange={e=>setAddrForm({...addrForm, land: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Telefoon</label>
+                      <input value={addrForm.telefoon} onChange={e=>setAddrForm({...addrForm, telefoon: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button className="px-4 py-2 border rounded" onClick={()=>setShowAddressModal(false)}>Annuleren</button>
+                    <button
+                      className="px-4 py-2 bg-green-600 text-white rounded"
+                      onClick={async ()=>{
+                        try {
+                          await fetch('/api/customers', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              email: user.email,
+                              ...addrForm
+                            })
+                          })
+                          // Update local user state
+                          setUser({ ...user, ...{
+                            voornaam: addrForm.voornaam,
+                            achternaam: addrForm.achternaam,
+                            telefoon: addrForm.telefoon,
+                            adres: addrForm.adres,
+                            postcode: addrForm.postcode,
+                            plaats: addrForm.plaats,
+                            land: addrForm.land,
+                          }})
+                          setShowAddressModal(false)
+                        } catch (e) {
+                          console.error('Adres opslaan mislukt', e)
+                          alert('Adres opslaan mislukt')
+                        }
+                      }}
+                    >
+                      Opslaan
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
