@@ -1175,12 +1175,14 @@ export default function CheckoutPage() {
                           filteredMethods = filteredMethods.filter(pm => pm.mollie_id !== 'invoice');
                         }
                         
-                        // For pickup: show all methods including cash/pin
-                        // For delivery: only show online payment methods
-                        if (!isPickup) {
-                          filteredMethods = filteredMethods.filter(pm => 
-                            pm.mollie_id !== 'cash' && pm.mollie_id !== 'pin'
-                          );
+                        if (isPickup) {
+                          // For pickup: allow cash/pin; drop methods explicitly unavailable for pickup
+                          filteredMethods = filteredMethods.filter(pm => (pm as any).available_for_pickup !== false)
+                        } else {
+                          // For delivery: hide cash/pin and any method marked unavailable for delivery
+                          filteredMethods = filteredMethods
+                            .filter(pm => pm.mollie_id !== 'cash' && pm.mollie_id !== 'pin')
+                            .filter(pm => (pm as any).available_for_delivery !== false)
                         }
                         
                         return filteredMethods;
