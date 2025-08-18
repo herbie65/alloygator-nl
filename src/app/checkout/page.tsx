@@ -1169,7 +1169,7 @@ export default function CheckoutPage() {
                                         selectedMethod?.carrier === 'local';
                         
                         // Filter payment methods based on pickup/delivery and invoice allowance
-                        let filteredMethods = availablePaymentMethods;
+                        let filteredMethods = availablePaymentMethods.filter(pm => pm.is_active === true);
                         
                         if (!allowInvoicePayment) {
                           filteredMethods = filteredMethods.filter(pm => pm.mollie_id !== 'invoice');
