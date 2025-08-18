@@ -486,12 +486,14 @@ export default function CheckoutPage() {
       const updatedCart = cart.filter(item => item.id !== id);
       setCart(updatedCart);
       localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     } else {
       const updatedCart = cart.map(item =>
         item.id === id ? { ...item, quantity } : item
       );
       setCart(updatedCart);
       localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     }
     calculateTotals();
   };
@@ -500,6 +502,7 @@ export default function CheckoutPage() {
     const updatedCart = cart.filter(item => item.id !== id);
     setCart(updatedCart);
     localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     calculateTotals();
   };
 
@@ -635,6 +638,7 @@ export default function CheckoutPage() {
 
         localStorage.removeItem("alloygator-cart");
         setCart([]);
+        try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
         window.location.href = `/order-confirmation/${orderId}`;
         return
       }
@@ -655,6 +659,7 @@ export default function CheckoutPage() {
 
         localStorage.removeItem("alloygator-cart");
         setCart([]);
+        try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
         window.location.href = `/order-confirmation/${orderId}`;
         return
       }

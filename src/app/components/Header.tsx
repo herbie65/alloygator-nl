@@ -36,8 +36,11 @@ export default function Header() {
     // Load cart count
     const savedCart = localStorage.getItem('alloygator-cart')
     if (savedCart) {
-      const cart = JSON.parse(savedCart)
-      setCartCount(cart.length)
+      try {
+        const cart = JSON.parse(savedCart)
+        const count = Array.isArray(cart) ? cart.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0) : 0
+        setCartCount(count)
+      } catch {}
     }
 
     // Load wishlist count
@@ -104,13 +107,16 @@ export default function Header() {
       if (e.key === 'alloygator-cart') syncCart()
       if (e.key === 'alloygator-wishlist') syncWishlist()
     }
+    const onCartUpdated = () => syncCart()
     const interval = window.setInterval(() => {
       syncCart(); syncWishlist()
     }, 600)
     window.addEventListener('storage', onStorage)
+    window.addEventListener('cart-updated', onCartUpdated as EventListener)
     return () => {
       window.clearInterval(interval)
       window.removeEventListener('storage', onStorage)
+      window.removeEventListener('cart-updated', onCartUpdated as EventListener)
     }
   }, [])
 

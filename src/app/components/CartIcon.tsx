@@ -61,11 +61,14 @@ export default function CartIcon() {
         syncFromStorage()
       }
     }
+    const onCartUpdated = () => syncFromStorage()
     const interval = window.setInterval(syncFromStorage, 600)
     window.addEventListener('storage', onStorage)
+    window.addEventListener('cart-updated', onCartUpdated as EventListener)
     return () => {
       window.clearInterval(interval)
       window.removeEventListener('storage', onStorage)
+      window.removeEventListener('cart-updated', onCartUpdated as EventListener)
     }
   }, [cartItems])
 
