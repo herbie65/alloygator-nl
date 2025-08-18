@@ -106,7 +106,9 @@ export default function CheckoutPage() {
     shippingPlaats: "",
     shippingLand: "NL",
   });
-
+  const [createAccount, setCreateAccount] = useState(false)
+  const [accountPassword, setAccountPassword] = useState('')
+  const [accountPassword2, setAccountPassword2] = useState('')
   const [paymentMethod, setPaymentMethod] = useState("ideal");
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<{ id:string; name:string; mollie_id:string; is_active:boolean; fee_percent:number }[]>([])
   const [allowInvoicePayment, setAllowInvoicePayment] = useState(false)
@@ -590,6 +592,33 @@ export default function CheckoutPage() {
       const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
       setLoading(true)
 
+      // 0) Upsert customer address by email (if provided)
+      try {
+        const email = (customer.email || '').trim().toLowerCase()
+        if (email) {
+          await fetch('/api/customers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            email,
+            voornaam: customer.voornaam,
+            achternaam: customer.achternaam,
+            telefoon: customer.telefoon,
+            adres: customer.adres,
+            postcode: customer.postcode,
+            plaats: customer.plaats,
+            land: customer.land,
+          }) })
+          if (createAccount) {
+            if (!accountPassword || accountPassword !== accountPassword2) throw new Error('Wachtwoorden komen niet overeen')
+            await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+              email,
+              password: accountPassword,
+              name: `${customer.voornaam || ''} ${customer.achternaam || ''}`.trim()
+            }) })
+          }
+        }
+      } catch (e) {
+        console.warn('Adres/account opslaan mislukt (gaat verder met checkout):', e)
+      }
+
       // Prepare items with dealer discount applied for dealers
       const itemsForOrder = cart.map((item) => ({
         ...item,
@@ -982,6 +1011,25 @@ export default function CheckoutPage() {
                       <label htmlFor="separateShipping" className="text-sm text-gray-700">
                         Ander verzendadres gebruiken
                       </label>
+                    </div>
+
+                    <div className="mt-2">
+                      <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
+                        <input type="checkbox" checked={createAccount} onChange={(e)=>setCreateAccount(e.target.checked)} />
+                        <span>Maak ook een account aan</span>
+                      </label>
+                      {createAccount && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
+                            <input type="password" value={accountPassword} onChange={(e)=>setAccountPassword(e.target.value)} className="w-full px-3 py-2 border rounded-md" minLength={6} />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Herhaal wachtwoord</label>
+                            <input type="password" value={accountPassword2} onChange={(e)=>setAccountPassword2(e.target.value)} className="w-full px-3 py-2 border rounded-md" minLength={6} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
