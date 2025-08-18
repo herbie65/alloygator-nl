@@ -37,7 +37,6 @@ export default function CartToast() {
 			lastCount = nextCount
 			if (triggerOpen && increased) {
 				setVisible(true)
-				window.setTimeout(() => setVisible(false), 3000)
 			}
 		}
 
