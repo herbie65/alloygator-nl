@@ -221,14 +221,36 @@ export async function ensureInvoice(orderId: string) {
 
     // Get customer from Firebase (robust id resolution)
     const orderAny: any = order as any
-    const customerId: string | undefined =
-      orderAny.customer_id || orderAny.customerId || orderAny.customer?.id || orderAny.customer || undefined
-    if (!customerId) {
-      throw new Error('Customer ID missing on order')
+    // Idempotency: if invoice already exists and file is present, reuse it
+    try {
+      const existingNumber: string | undefined = orderAny.invoice_number || orderAny.invoiceNumber
+      if (existingNumber) {
+        const invoicesDir = path.join(process.cwd(), 'public', 'invoices')
+        const fileName = `factuur-${existingNumber}.pdf`
+        const filePath = path.join(invoicesDir, fileName)
+        if (existsSync(filePath)) {
+          return {
+            url: `/invoices/${fileName}`,
+            number: existingNumber
+          }
+        }
+      }
+    } catch (e) {
+      // continue to generate a new invoice if check fails
     }
-    const customer = await FirebaseService.getDocument('customers', customerId)
+    const customerId: string | undefined =
+      orderAny.customer_id || orderAny.customerId || orderAny.customer?.id || undefined
+    // Fallback: gebruik embedded klantgegevens wanneer er geen aparte customer-record is
+    let customer: any = null
+    if (customerId) {
+      customer = await FirebaseService.getDocument('customers', customerId)
+    }
     if (!customer) {
-      throw new Error('Customer not found')
+      customer = orderAny.customer || null
+    }
+    if (!customer) {
+      // Als er echt geen klantdata is, maak alsnog een factuur met minimale gegevens
+      customer = { name: 'Onbekende Klant', email: '' }
     }
 
     // Generate invoice number using counter
@@ -237,7 +259,7 @@ export async function ensureInvoice(orderId: string) {
     // Create invoice data
     const invoiceData = {
       order_id: orderId,
-      customer_id: customerId,
+      customer_id: customerId || (customer?.id || 'anonymous'),
       invoice_number: invoiceNumber,
       amount: orderAny.total_amount || orderAny.total || orderAny.amount || 0,
       status: 'pending',
@@ -267,8 +289,8 @@ export async function ensureInvoice(orderId: string) {
       await email.sendInvoiceEmail(
         {
           orderNumber: String(orderAny.orderNumber || orderId),
-          customerName: customer?.name || customer?.contact_first_name || 'Klant',
-          customerEmail: customer?.invoice_email || customer?.email
+          customerName: customer?.name || customer?.contact_first_name || `${customer?.voornaam || ''} ${customer?.achternaam || ''}`.trim() || 'Klant',
+          customerEmail: customer?.invoice_email || customer?.email || ''
         },
         pdfBuffer,
         invoiceNumber
@@ -282,6 +304,31 @@ export async function ensureInvoice(orderId: string) {
         updated_at: new Date().toISOString()
       })
     } catch (e) { console.error('failed to persist invoice_url on order', e) }
+
+    // Adjust product stock once per paid order (idempotent)
+    try {
+      if (!orderAny.stock_adjusted) {
+        const items: any[] = Array.isArray(orderAny.items) ? orderAny.items : []
+        for (const it of items) {
+          const productId = String(it.productId || it.id || '').trim()
+          const qty = Number(it.quantity || 0)
+          if (!productId || qty <= 0) continue
+          try {
+            const prod = await FirebaseService.getDocument('products', productId)
+            const current = Number((prod as any)?.stock_quantity ?? (prod as any)?.stock ?? 0)
+            const next = Math.max(0, current - qty)
+            await FirebaseService.updateDocument('products', productId, { stock_quantity: next, updated_at: new Date().toISOString() })
+          } catch (e) {
+            console.error(`[stock] update failed for product ${productId}`, e)
+          }
+        }
+        try {
+          await FirebaseService.updateDocument('orders', orderId, { stock_adjusted: true, stock_adjusted_at: new Date().toISOString() })
+        } catch (e) { console.error('failed to mark stock_adjusted on order', e) }
+      }
+    } catch (e) {
+      console.error('stock adjustment error', e)
+    }
 
     return {
       url,

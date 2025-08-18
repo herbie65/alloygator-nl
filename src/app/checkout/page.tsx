@@ -131,6 +131,7 @@ export default function CheckoutPage() {
     vat_exempt: false,
     vat_reason: ''
   });
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null)
@@ -234,6 +235,19 @@ export default function CheckoutPage() {
 
     // Calculate initial totals
     calculateTotals();
+
+    // Prevent accidental form submit by Enter on non-review steps
+    const handler = (e: KeyboardEvent) => {
+      const isEnter = e.key === 'Enter'
+      if (!isEnter) return
+      const steps: CheckoutStep[] = ['customer', 'shipping', 'payment', 'review']
+      const idx = steps.indexOf(currentStep)
+      if (idx >= 0 && steps[idx] !== 'review') {
+        e.preventDefault()
+      }
+    }
+    try { window.addEventListener('keydown', handler) } catch {}
+    return () => { try { window.removeEventListener('keydown', handler) } catch {} }
   }, []);
 
   // When we have an email, fetch the latest customer record from DB and merge missing fields
@@ -473,12 +487,11 @@ export default function CheckoutPage() {
   };
 
   const nextStep = () => {
-    if (validateStep(currentStep)) {
-      const steps: CheckoutStep[] = ['customer', 'shipping', 'payment', 'review'];
-      const currentIndex = steps.indexOf(currentStep);
-      if (currentIndex < steps.length - 1) {
-        setCurrentStep(steps[currentIndex + 1]);
-      }
+    if (!validateStep(currentStep)) return
+    const steps: CheckoutStep[] = ['customer', 'shipping', 'payment', 'review']
+    const currentIndex = steps.indexOf(currentStep)
+    if (currentIndex < steps.length - 1) {
+      setCurrentStep(steps[currentIndex + 1])
     }
   };
 
@@ -1411,6 +1424,20 @@ export default function CheckoutPage() {
                           })()}
                         </div>
                       </div>
+
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <label className="flex items-start space-x-3 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={termsAccepted}
+                            onChange={(e)=>setTermsAccepted(e.target.checked)}
+                            className="mt-1"
+                          />
+                          <span>
+                            Ik accepteer de <a className="text-green-700 underline" href="/algemene-voorwaarden" target="_blank" rel="noreferrer">algemene voorwaarden</a> en ga akkoord met de bestelling.
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1438,10 +1465,10 @@ export default function CheckoutPage() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || !termsAccepted}
                       className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {loading ? 'Bestelling plaatsen...' : 'Bestelling plaatsen'}
+                      {loading ? 'Bestelling plaatsen...' : (termsAccepted ? 'Bestelling plaatsen' : 'Accepteer voorwaarden om te bestellen')}
                     </button>
                   )}
                 </div>

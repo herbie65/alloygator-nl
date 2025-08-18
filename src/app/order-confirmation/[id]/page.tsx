@@ -50,7 +50,11 @@ export default function OrderConfirmationPage() {
       try {
         const fetched = await FirebaseClientService.getOrderById(orderId)
         if (fetched) {
-          setOrder(fetched as Order)
+          // Bugfix: ensure UI has orderNumber/createdAt even if DB lacked them historically
+          const safe: any = fetched
+          const orderNumber = safe.orderNumber || safe.order_number || safe.id
+          const createdAt = safe.createdAt || safe.created_at || new Date().toISOString()
+          setOrder({ ...(fetched as any), orderNumber, createdAt } as Order)
         } else {
           router.push('/winkel')
         }
@@ -157,7 +161,7 @@ export default function OrderConfirmationPage() {
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Besteldatum</h3>
                   <p className="text-lg font-semibold text-gray-900">
-                    {new Date(order.createdAt).toLocaleDateString('nl-NL')}
+                    {new Date(order.createdAt || new Date().toISOString()).toLocaleDateString('nl-NL')}
                   </p>
                 </div>
                 <div>

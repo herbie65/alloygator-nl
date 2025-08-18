@@ -45,19 +45,35 @@ function PaymentReturnContent() {
             const data = await res.json()
             if (data.status === 'paid') {
               setStatus('success')
+              try {
+                localStorage.removeItem('alloygator-cart')
+                window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } }))
+              } catch {}
             } else if (data.status === 'canceled') {
               setStatus('cancelled')
             } else if (data.status === 'failed' || data.status === 'expired') {
               setStatus('failed')
             } else {
               setStatus('success')
+              try {
+                localStorage.removeItem('alloygator-cart')
+                window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } }))
+              } catch {}
             }
           } else {
             // Fallback to success to avoid blocking the user
             setStatus('success')
+            try {
+              localStorage.removeItem('alloygator-cart')
+              window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } }))
+            } catch {}
           }
         } else {
           setStatus('success')
+          try {
+            localStorage.removeItem('alloygator-cart')
+            window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } }))
+          } catch {}
         }
 
         // 2) Optional: re-fetch order to ensure UI has latest status
