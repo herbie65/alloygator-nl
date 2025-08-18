@@ -65,8 +65,6 @@ export default function Header() {
             else if (g.includes('zilver') || g.includes('silver')) setDealerGroupLabel('Zilver')
             else if (g.includes('brons') || g.includes('bronze')) setDealerGroupLabel('Brons')
             else if (g.includes('platina') || g.includes('platinum')) setDealerGroupLabel('Platina')
-            else setDealerGroupLabel(null)
-            setLoading(false)
             return
           }
         }
@@ -83,7 +81,7 @@ export default function Header() {
         }
       } catch (err) {
         // ignore
-      }
+      } finally { setLoading(false) }
     })()
 
     // Keep cart and wishlist counters in sync via storage and light polling
