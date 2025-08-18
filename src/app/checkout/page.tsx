@@ -686,7 +686,10 @@ export default function CheckoutPage() {
         body: JSON.stringify(order),
       })
       if (!orderRes.ok) throw new Error('Failed to create order')
-      const { orderId, orderNumber } = await orderRes.json()
+      const created = await orderRes.json()
+      const orderId: string = created?.id || created?.orderId
+      const orderNumber: string = created?.orderNumber || created?.order_number || created?.id
+      if (!orderId) throw new Error('Order ID ontbreekt na aanmaken')
 
       // 2) If paymentMethod is invoice (op rekening), skip Mollie and mark as pending
       if (paymentMethod === 'invoice') {
@@ -727,7 +730,7 @@ export default function CheckoutPage() {
 
       // 2) Create Mollie payment for the order
       const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      const returnUrl = `${window.location.origin}/payment/return?orderId=${orderId}${isLocalhost ? '&simulate=1' : ''}`
+      const returnUrl = `${window.location.origin}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
       const webhookUrl = `${window.location.origin}/api/payment/mollie/webhook`
 
       const paymentRes = await fetch('/api/payment/mollie', {
