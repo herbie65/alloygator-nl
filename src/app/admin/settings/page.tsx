@@ -78,6 +78,10 @@ export default function SettingsPage() {
     adminEmail: '',
     emailNotifications: false
   })
+  // Google Calendar settings (persisted in Firestore settings doc)
+  const [gcalEmail, setGcalEmail] = useState('')
+  const [gcalKey, setGcalKey] = useState('')
+  const [gcalCalendarId, setGcalCalendarId] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
@@ -158,6 +162,10 @@ export default function SettingsPage() {
           mollieApiKey: savedSettings.mollieApiKey || savedSettings.mollie_api_key || prev.mollieApiKey,
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode
         }));
+        // Load Google Calendar config if present
+        setGcalEmail(savedSettings.gcal_service_account_email || savedSettings.gcalServiceAccountEmail || '')
+        setGcalKey(savedSettings.gcal_service_account_key || savedSettings.gcalServiceAccountKey || '')
+        setGcalCalendarId(savedSettings.gcal_calendar_id || savedSettings.gcalCalendarId || '')
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -293,7 +301,10 @@ export default function SettingsPage() {
       // Prepare settings for database (map component field names to database field names)
       const settingsForDatabase = {
         ...settings,
-        google_maps_api_key: settings.googleMapsApiKey
+        google_maps_api_key: settings.googleMapsApiKey,
+        gcal_service_account_email: gcalEmail,
+        gcal_service_account_key: gcalKey,
+        gcal_calendar_id: gcalCalendarId
       }
       
       const response = await fetch('/api/settings', {
@@ -789,6 +800,40 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-600">Configureer bezoek types en contact moment types</p>
           </div>
           <div className="p-6 space-y-8">
+            {/* Koppeling agenda */}
+            <div className="bg-gray-50 border border-gray-200 rounded p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Agenda koppelen</h3>
+              <p className="text-sm text-gray-600">We schakelen over naar Google Calendar voor 2‑wegs synchronisatie met Apple (via Google‑account in Apple Calendar).</p>
+              <p className="text-xs text-gray-500 mt-1">Note: ICS‑knop is verwijderd op verzoek.</p>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Service account email</label>
+                  <input value={gcalEmail} onChange={(e)=> setGcalEmail(e.target.value)} placeholder="service-account@project.iam.gserviceaccount.com" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Calendar ID</label>
+                  <input value={gcalCalendarId} onChange={(e)=> setGcalCalendarId(e.target.value)} placeholder="jouw@gmail.com of agenda-id" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Private key (exact overnemen, met echte enters of \n)</label>
+                  <textarea value={gcalKey} onChange={(e)=> setGcalKey(e.target.value)} placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n" rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={async ()=>{
+                    const id = prompt('Voer een afspraak ID in om te syncen (test):')
+                    if (!id) return
+                    const res = await fetch('/api/crm/appointments/sync', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) })
+                    alert(res.ok ? 'Sync gestart/voltooid' : 'Fout bij sync')
+                  }}
+                  className="px-3 py-1 bg-green-600 text-white rounded text-sm"
+                >
+                  Test sync met Google Calendar
+                </button>
+                <span className="text-xs text-gray-500">Zorg dat env vars zijn gezet: GCAL_SERVICE_ACCOUNT_EMAIL, GCAL_SERVICE_ACCOUNT_KEY, GCAL_CALENDAR_ID</span>
+              </div>
+            </div>
             {/* Visit Types ... bestaande sectie blijft ongewijzigd */}
           </div>
         </div>

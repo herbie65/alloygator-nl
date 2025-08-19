@@ -28,6 +28,10 @@ export default function CustomerDashboardPage() {
   const [showDocumentModal, setShowDocumentModal] = useState(false)
   const [docCategories, setDocCategories] = useState<any[]>([])
   const [docPermissions, setDocPermissions] = useState<any[]>([])
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false)
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
+  const [appointmentPrefill, setAppointmentPrefill] = useState<any>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -186,6 +190,25 @@ setTargets({
       } finally { setLoading(false) }
     }
     load()
+  }, [decodedId])
+
+  // Load appointments (separate effect – robust tegen andere laadtaken)
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        setAppointmentsLoading(true)
+        const from = new Date(2000, 0, 1).toISOString()
+        const res = await fetch(`/api/crm/appointments?customer_id=${encodeURIComponent(decodedId)}&from=${encodeURIComponent(from)}`)
+        const list = res.ok ? await res.json() : []
+        setAppointments(Array.isArray(list) ? list : [])
+      } catch (e) {
+        console.log('⚠️ Error loading appointments', (e as any)?.message)
+        setAppointments([])
+      } finally {
+        setAppointmentsLoading(false)
+      }
+    }
+    if (decodedId) loadAppointments()
   }, [decodedId])
 
   // Delete functions
@@ -507,8 +530,85 @@ setTargets({
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 min-h-[180px]">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Afspraken</h2>
-            <p className="text-sm text-gray-500">Agenda integratie (later).</p>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Afspraken</h2>
+              <button
+                onClick={() => setShowAppointmentModal(true)}
+                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+              >
+                + Nieuw
+              </button>
+            </div>
+            <div className="space-y-3 max-h-48 overflow-y-auto">
+              {appointments.length > 0 ? (
+                appointments.map((a) => (
+                  <div key={a.id} className="border-l-4 border-green-500 pl-3 py-2 bg-green-50">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0 cursor-pointer" onClick={()=>{ setAppointmentPrefill({ title:a.title, start_at:a.start_at, end_at:a.end_at, location:a.location, notes:a.notes }); setShowAppointmentModal(true); }}>
+                        <p className="font-medium text-sm truncate">{a.title || 'Afspraak'}</p>
+                        <p className="text-xs text-gray-600">
+                          {(a.type || 'call')} • {a.start_at ? new Date(a.start_at).toLocaleString('nl-NL') : '-'}
+                          {a.end_at ? ` – ${new Date(a.end_at).toLocaleString('nl-NL')}` : ''}
+                        </p>
+                        {(a.location || a.meeting_url) && (
+                          <p className="text-xs text-gray-500 truncate" title={a.location || a.meeting_url}>
+                            {a.location || a.meeting_url}
+                          </p>
+                        )}
+                        {a.notes && (
+                          <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{a.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="px-2 py-0.5 text-xs rounded bg-white border text-gray-700">{a.status || 'gepland'}</span>
+                        <select
+                          className="border rounded px-2 py-1 text-xs"
+                          defaultValue=""
+                          onChange={async (e) => {
+                            const v = e.target.value
+                            e.currentTarget.value = ''
+                            if (!v) return
+                            if (v === 'sync-google') {
+                              await fetch('/api/crm/appointments/sync', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: a.id }) })
+                            } else {
+                              await fetch('/api/crm/appointments', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: a.id, status: v })
+                              })
+                            }
+                            const res = await fetch(`/api/crm/appointments?customer_id=${encodeURIComponent(decodedId)}`)
+                            const list = res.ok ? await res.json() : []
+                            setAppointments(Array.isArray(list) ? list : appointments)
+                          }}
+                        >
+                          <option value="">Actie…</option>
+                          <option value="bevestigd">Bevestigen</option>
+                          <option value="volbracht">Volbracht</option>
+                          <option value="no-show">No-show</option>
+                          <option value="geannuleerd">Annuleren</option>
+                          <option value="sync-google">Synchroniseer met Google</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  {appointmentsLoading ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                      <p className="text-sm text-gray-500">Afspraken laden...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-500">Nog geen afspraken geregistreerd</p>
+                      <p className="text-xs text-gray-400 mt-1">Klik op + Nieuw om een afspraak toe te voegen</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
@@ -570,6 +670,11 @@ setTargets({
               setVisits(prev => [visit, ...prev])
               setShowVisitModal(false)
             }}
+            onRequestAppointment={(prefill) => {
+              setShowVisitModal(false)
+              setAppointmentPrefill(prefill)
+              setShowAppointmentModal(true)
+            }}
           />
         )}
 
@@ -582,6 +687,11 @@ setTargets({
           onSave={(contact) => {
             setContactMoments(prev => [contact, ...prev])
             setShowContactModal(false)
+          }}
+          onRequestAppointment={(prefill) => {
+            setShowContactModal(false)
+            setAppointmentPrefill(prefill)
+            setShowAppointmentModal(true)
           }}
         />
       )}
@@ -600,6 +710,206 @@ setTargets({
           }}
         />
       )}
+
+      {showAppointmentModal && (
+        <AppointmentModal
+          customerId={decodedId}
+          onClose={() => setShowAppointmentModal(false)}
+          onSaved={async () => {
+            setShowAppointmentModal(false)
+            const res = await fetch(`/api/crm/appointments?customer_id=${encodeURIComponent(decodedId)}`)
+            const list = res.ok ? await res.json() : []
+            setAppointments(Array.isArray(list) ? list : appointments)
+            setAppointmentPrefill(null)
+          }}
+          prefill={appointmentPrefill || undefined}
+        />
+      )}
+    </div>
+  )
+}
+
+// Appointment Modal Component
+interface AppointmentModalProps {
+  customerId: string
+  onClose: () => void
+  onSaved: () => void
+  prefill?: {
+    title?: string
+    start_at?: string
+    end_at?: string
+    location?: string
+    notes?: string
+  }
+}
+
+function AppointmentModal({ customerId, onClose, onSaved, prefill }: AppointmentModalProps) {
+  const initialDuration = (() => {
+    if (prefill?.start_at && prefill?.end_at) {
+      try {
+        const s = new Date(prefill.start_at).getTime()
+        const e = new Date(prefill.end_at).getTime()
+        const diffMin = Math.max(5, Math.round((e - s) / 60000))
+        return diffMin
+      } catch { return 15 }
+    }
+    return 15
+  })()
+  const [formData, setFormData] = useState({
+    title: prefill?.title || '',
+    type: 'call',
+    start_at: prefill?.start_at || '',
+    duration_minutes: initialDuration,
+    location: prefill?.location || '',
+    meeting_url: '',
+    notes: prefill?.notes || ''
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      // Compute start_at/end_at using duration (supports hele dag)
+      let startIso = formData.start_at
+      let endIso: string
+      const start = new Date(formData.start_at)
+      if (Number(formData.duration_minutes) === 1440) {
+        const s = new Date(start)
+        s.setHours(0,0,0,0)
+        const e = new Date(s)
+        e.setHours(23,59,59,999)
+        startIso = s.toISOString()
+        endIso = e.toISOString()
+      } else {
+        const end = new Date(start.getTime() + (Number(formData.duration_minutes || 0) * 60000))
+        endIso = end.toISOString()
+      }
+      const payload = {
+        customer_id: customerId,
+        title: formData.title || 'Afspraak',
+        type: formData.type,
+        start_at: startIso,
+        end_at: endIso,
+        location: formData.location,
+        meeting_url: formData.meeting_url,
+        notes: formData.notes
+      }
+      const res = await fetch('/api/crm/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('Fout bij opslaan afspraak')
+      onSaved()
+    } catch (error) {
+      console.error('Error saving appointment:', error)
+      alert('Fout bij het opslaan van afspraak')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold mb-4">Nieuwe Afspraak</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titel</label>
+            <input
+              value={formData.title}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Bijv. Belafspraak"
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={formData.type}
+                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="call">Telefoon</option>
+                <option value="online">Online</option>
+                <option value="onsite">Op locatie</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duur</label>
+              <select
+                value={formData.duration_minutes}
+                onChange={(e) => setFormData(prev => ({ ...prev, duration_minutes: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                {Array.from({ length: 36 }).map((_, idx) => {
+                  const minutes = (idx + 1) * 5 // 5..180
+                  return <option key={minutes} value={minutes}>{minutes} min</option>
+                })}
+                <option value={1440}>hele dag</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
+              <input
+                type="datetime-local"
+                value={formData.start_at}
+                onChange={(e) => setFormData(prev => ({ ...prev, start_at: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div></div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Locatie</label>
+            <input
+              value={formData.location}
+              onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Adres of omschrijving"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Meeting URL</label>
+            <input
+              value={formData.meeting_url}
+              onChange={(e) => setFormData(prev => ({ ...prev, meeting_url: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="https://…"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notities</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              rows={3}
+              placeholder="Extra informatie…"
+            />
+          </div>
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            >
+              Annuleren
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
+            >
+              {saving ? 'Opslaan...' : 'Opslaan'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -610,13 +920,15 @@ interface VisitModalProps {
   visitTypes: any[]
   onClose: () => void
   onSave: (visit: any) => void
+  onRequestAppointment: (prefill: any) => void
 }
 
-function VisitModal({ customerId, visitTypes, onClose, onSave }: VisitModalProps) {
+function VisitModal({ customerId, visitTypes, onClose, onSave, onRequestAppointment }: VisitModalProps) {
   const [formData, setFormData] = useState({
     visit_date: new Date().toISOString().split('T')[0],
     visit_type: '',
-    notes: ''
+    notes: '',
+    add_appointment: false
   })
 
   // Update visit_type when visitTypes change
@@ -638,6 +950,18 @@ function VisitModal({ customerId, visitTypes, onClose, onSave }: VisitModalProps
         notes: formData.notes
       })
       onSave(visit)
+      if (formData.add_appointment) {
+        const start = new Date(formData.visit_date)
+        const startIso = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 9, 0, 0).toISOString().slice(0,16)
+        const endIso = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 9, 30, 0).toISOString().slice(0,16)
+        onRequestAppointment({
+          title: 'Bezoek ingepland',
+          start_at: startIso,
+          end_at: endIso,
+          location: '',
+          notes: formData.notes || ''
+        })
+      }
     } catch (error) {
       console.error('Error saving visit:', error)
       alert('Fout bij het opslaan van bezoek')
@@ -693,6 +1017,10 @@ function VisitModal({ customerId, visitTypes, onClose, onSave }: VisitModalProps
               placeholder="Beschrijf het bezoek of gesprek..."
             />
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={formData.add_appointment} onChange={(e)=> setFormData(prev=>({...prev, add_appointment: e.target.checked}))} />
+            <span>Agendapunt toevoegen</span>
+          </label>
           <div className="flex space-x-3">
             <button
               type="button"
@@ -825,13 +1153,15 @@ interface ContactModalProps {
   contactMomentTypes: any[]
   onClose: () => void
   onSave: (contact: any) => void
+  onRequestAppointment: (prefill: any) => void
 }
 
-function ContactModal({ customerId, contactMomentTypes, onClose, onSave }: ContactModalProps) {
+function ContactModal({ customerId, contactMomentTypes, onClose, onSave, onRequestAppointment }: ContactModalProps) {
   const [formData, setFormData] = useState({
     contact_date: new Date().toISOString().split('T')[0],
     contact_type: '',
-    notes: ''
+    notes: '',
+    add_appointment: false
   })
 
   // Update contact_type when contactMomentTypes change
@@ -853,6 +1183,18 @@ function ContactModal({ customerId, contactMomentTypes, onClose, onSave }: Conta
         notes: formData.notes
       })
       onSave(contact)
+      if (formData.add_appointment) {
+        const start = new Date(formData.contact_date)
+        const startIso = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 9, 0, 0).toISOString().slice(0,16)
+        const endIso = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 9, 30, 0).toISOString().slice(0,16)
+        onRequestAppointment({
+          title: 'Contactmoment ingepland',
+          start_at: startIso,
+          end_at: endIso,
+          location: '',
+          notes: formData.notes || ''
+        })
+      }
     } catch (error) {
       console.error('Error saving contact moment:', error)
       alert('Fout bij het opslaan van contactmoment')
@@ -909,6 +1251,10 @@ function ContactModal({ customerId, contactMomentTypes, onClose, onSave }: Conta
               placeholder="Beschrijf het contactmoment..."
             />
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={formData.add_appointment} onChange={(e)=> setFormData(prev=>({...prev, add_appointment: e.target.checked}))} />
+            <span>Agendapunt toevoegen</span>
+          </label>
           <div className="flex space-x-3">
             <button
               type="button"
