@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminFirestore } from '@/lib/firebase-admin'
+import { FirebaseService } from '@/lib/firebase'
 import { upsertEvent } from '@/lib/google-calendar'
 
 async function getConfigFromSettingsOrEnv() {
   try {
-    const snapshot = await adminFirestore.collection('settings').get()
-    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    const docs = await FirebaseService.getDocuments('settings')
     const s = Array.isArray(docs) && docs.length > 0 ? docs[0] : null
     const emailS = (s as any)?.gcal_service_account_email || (s as any)?.gcalServiceAccountEmail || ''
     const keyS = (s as any)?.gcal_service_account_key || (s as any)?.gcalServiceAccountKey || ''
@@ -31,8 +30,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { id } = body || {}
     if (!id) return NextResponse.json({ ok: false, error: 'appointment id required' }, { status: 400 })
-    const aSnapshot = await adminFirestore.collection('appointments').doc(String(id)).get()
-    const a = aSnapshot.data()
+    const a = await FirebaseService.getDocument('appointments', String(id))
     if (!a) return NextResponse.json({ ok: false, error: 'appointment not found' }, { status: 404 })
     const start_at = (a as any).start_at || (a as any).startAt
     const end_at = (a as any).end_at || (a as any).endAt || new Date(new Date(start_at).getTime() + 30*60000).toISOString()
