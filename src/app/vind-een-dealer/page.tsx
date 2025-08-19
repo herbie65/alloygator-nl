@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { FirebaseService } from '@/lib/firebase'
+import SEO from '../components/SEO'
+import { generateWebPageData } from '../lib/structured-data'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./MapComponent'), {
@@ -343,14 +345,64 @@ export default function VindEenDealerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
+    <>
+      <SEO 
+        title="Vind een Dealer - AlloyGator Montagepartners in Nederland en België"
+        description="Altijd een AlloyGator dealer bij jou in de buurt. Professioneel netwerk van erkende dealers en montagepunten door heel Nederland en België."
+        keywords="alloygator dealer, velgbescherming monteren, montagepartner nederland, belgie dealer netwerk, professionele montage velgbescherming"
+        canonical="/vind-een-dealer"
+        structuredData={generateWebPageData({
+          name: "Vind een Dealer - AlloyGator Montagepartners",
+          description: "Zoek een erkende AlloyGator dealer bij jou in de buurt",
+          url: "/vind-een-dealer",
+          breadcrumb: {
+            items: [
+              { name: "Home", url: "/" },
+              { name: "Vind een Dealer", url: "/vind-een-dealer" }
+            ]
+          }
+        })}
+      />
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Vind een AlloyGator Dealer</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Zoek een erkende AlloyGator dealer bij jou in de buurt voor professionele montage en service
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Vind een Dealer</h1>
+          <h2 className="text-2xl font-semibold text-green-600 mb-4">AlloyGator Montagepartners in Nederland en België</h2>
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+            Altijd een AlloyGator dealer bij jou in de buurt
           </p>
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+            <p className="text-gray-700 mb-4">
+              Wij werken met een professioneel netwerk van erkende dealers en montagepunten door heel Nederland en België. 
+              Deze partners zijn speciaal getraind in de juiste installatie van AlloyGator velgbeschermers en garanderen een perfecte pasvorm en veilige montage.
+            </p>
+            <p className="text-gray-700 mb-4">
+              Gebruik onze online dealerzoeker om eenvoudig een montagepartner te vinden op basis van je postcode of woonplaats. 
+              Laat je velgen professioneel beschermen door een expert bij jou in de buurt.
+            </p>
+            <div className="mt-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Waarom kiezen voor een erkende dealer?</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">Vakkundige montage</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">Advies over kleuren en maatvoering</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">Directe levering uit voorraad</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-gray-700">Garantie op installatie</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Data Source Info */}
@@ -570,5 +622,6 @@ export default function VindEenDealerPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }

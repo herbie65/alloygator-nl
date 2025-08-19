@@ -21,42 +21,49 @@ export default function KoppelingenPage() {
     const keys: ApiKey[] = [
       {
         name: 'Google Maps API Key',
-        key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-        description: 'API key voor Google Maps integratie (dealer locator)',
+        key: '',
+        description: 'API key voor Google Maps integratie (dealer locator). Wordt opgeslagen in instellingen.',
         category: 'maps',
-        isConfigured: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        isConfigured: false
       },
+
+
       {
-        name: 'Mollie API Key',
-        key: process.env.NEXT_PUBLIC_MOLLIE_API_KEY || '',
-        description: 'Live API key voor Mollie betalingen',
-        category: 'payment',
-        isConfigured: !!process.env.NEXT_PUBLIC_MOLLIE_API_KEY
-      },
-      {
-        name: 'Mollie Test API Key',
-        key: process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY || '',
-        description: 'Test API key voor Mollie betalingen (ontwikkeling)',
-        category: 'payment',
-        isConfigured: !!process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY
-      },
-      {
-        name: 'DHL API Key',
-        key: process.env.NEXT_PUBLIC_DHL_API_KEY || '',
-        description: 'API key voor DHL verzendingen',
+        name: 'DHL API',
+        key: '',
+        description: 'DHL eCommerce instellingen worden beheerd onder Instellingen → DHL.',
         category: 'shipping',
-        isConfigured: !!process.env.NEXT_PUBLIC_DHL_API_KEY
+        isConfigured: false
       },
+
       {
-        name: 'SendGrid API Key',
-        key: process.env.NEXT_PUBLIC_SENDGRID_API_KEY || '',
-        description: 'API key voor SendGrid e-mail service',
-        category: 'email',
-        isConfigured: !!process.env.NEXT_PUBLIC_SENDGRID_API_KEY
+        name: 'Mollie',
+        key: '',
+        description: 'Mollie betalingen – beheer live en test API keys en modus.',
+        category: 'payment',
+        isConfigured: false
       }
     ]
 
-    setApiKeys(keys)
+    // Haal actuele settings op om Google Maps status te tonen
+    const load = async () => {
+      try {
+        const res = await fetch('/api/settings', { cache: 'no-store' })
+        const data = await res.json()
+        const s = Array.isArray(data) ? data[0] : data
+        const google = String(s?.googleMapsApiKey || s?.google_maps_api_key || '')
+        keys[0] = { ...keys[0], key: google, isConfigured: !!google }
+        // DHL status: geconfigureerd indien alle kernvelden aanwezig zijn
+        const dhlOk = !!(s?.dhlApiUserId || s?.dhl_api_user_id) && !!(s?.dhlApiKey || s?.dhl_api_key) && !!(s?.dhlAccountId || s?.dhl_account_id)
+        keys[1] = { ...keys[1], isConfigured: dhlOk }
+        const mollieLive = String(s?.mollieApiKey || s?.mollie_api_key || '')
+        const mollieTest = String(s?.mollieTestApiKey || s?.mollie_test_api_key || '')
+        const mollieMode = !!(s?.mollieTestMode ?? s?.mollie_test_mode)
+        keys[keys.length-1] = { ...keys[keys.length-1], key: mollieMode ? mollieTest : mollieLive, isConfigured: !!(mollieLive || mollieTest) }
+      } catch {}
+      setApiKeys(keys)
+    }
+    load()
     
     // Initialize test results
     const initialTestResults: Record<string, { status: 'idle' | 'testing' | 'success' | 'error', message: string }> = {}
@@ -217,12 +224,20 @@ export default function KoppelingenPage() {
                 </div>
               )}
               
-              {showKeys && (
-                <div className="mt-3 p-2 bg-gray-100 rounded-md">
-                  <p className="text-xs text-gray-600 font-mono break-all">
-                    {apiKey.key || 'Niet ingesteld'}
-                  </p>
+              {/* Google Maps key inline editor */}
+              {apiKey.name === 'Google Maps API Key' && (
+                <GoogleMapsEditor initialKey={apiKey.key} onSaved={(k)=> setApiKeys(prev=> prev.map(p=> p.name===apiKey.name? {...p, key:k, isConfigured: !!k}: p))} />
+              )}
+              {/* DHL status-only met link naar instellingen */}
+              {apiKey.name === 'DHL API' && (
+                <div className="mt-4 flex items-center gap-2">
+                  <a href="/admin/settings?tab=dhl" className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Open instellingen</a>
+                  <span className="text-xs text-gray-500">Configureer UserId, API Key en Account ID in Instellingen.</span>
                 </div>
+              )}
+              {/* Mollie editor */}
+              {apiKey.name === 'Mollie' && (
+                <MollieEditor onSaved={()=>{ /* trigger reload */ location.reload() }} />
               )}
             </div>
           ))}
@@ -236,6 +251,98 @@ export default function KoppelingenPage() {
             <p className="text-gray-600">Voeg environment variabelen toe om API integraties te configureren.</p>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function GoogleMapsEditor({ initialKey, onSaved }: { initialKey: string; onSaved: (key:string)=>void }){
+  const [value, setValue] = useState<string>(initialKey || '')
+  const [saving, setSaving] = useState<boolean>(false)
+  const [note, setNote] = useState<string>('')
+
+  useEffect(()=>{ setValue(initialKey || '') }, [initialKey])
+
+  const save = async ()=>{
+    try{
+      setSaving(true)
+      setNote('')
+      const res = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ googleMapsApiKey: value }) })
+      if (!res.ok) throw new Error('Opslaan mislukt')
+      onSaved(value)
+      setNote('Opgeslagen')
+      setTimeout(()=> setNote(''), 2000)
+    }catch(e:any){ setNote(e.message || 'Fout bij opslaan') }
+    finally{ setSaving(false) }
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      <label className="block text-xs text-gray-600">Google Maps API Key</label>
+      <input type="password" value={value} onChange={(e)=> setValue(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Voer API key in" />
+      <div className="flex items-center gap-2">
+        <button onClick={save} disabled={saving} className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm">{saving? 'Opslaan…':'Opslaan'}</button>
+        {note && <span className="text-xs text-gray-600">{note}</span>}
+        <a href="/admin/settings?tab=taxmap" className="ml-auto text-sm text-blue-600 hover:underline">Open kaartinstellingen</a>
+      </div>
+      <p className="text-xs text-gray-500">Zorg dat de Geocoding API is geactiveerd in Google Cloud Console.</p>
+    </div>
+  )
+}
+
+function MollieEditor({ onSaved }: { onSaved: ()=>void }){
+  const [liveKey, setLiveKey] = useState('')
+  const [testKey, setTestKey] = useState('')
+  const [testMode, setTestMode] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [note, setNote] = useState('')
+
+  useEffect(()=>{
+    (async ()=>{
+      try{
+        const res = await fetch('/api/settings', { cache:'no-store' })
+        const data = await res.json(); const s = Array.isArray(data)? data[0]: data
+        setLiveKey(String(s?.mollieApiKey || s?.mollie_api_key || ''))
+        setTestKey(String(s?.mollieTestApiKey || s?.mollie_test_api_key || ''))
+        setTestMode(!!(s?.mollieTestMode ?? s?.mollie_test_mode))
+      } finally { setLoading(false) }
+    })()
+  }, [])
+
+  const save = async ()=>{
+    try{
+      setSaving(true); setNote('')
+      const body:any = { mollieApiKey: liveKey, mollieTestApiKey: testKey, mollieTestMode: testMode }
+      const res = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      if (!res.ok) throw new Error('Opslaan mislukt')
+      setNote('Opgeslagen')
+      setTimeout(()=> setNote(''), 2000)
+      onSaved()
+    }catch(e:any){ setNote(e.message || 'Fout bij opslaan') }
+    finally{ setSaving(false) }
+  }
+
+  if (loading) return <div className="text-sm text-gray-600 mt-4">Laden…</div>
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div>
+        <label className="block text-xs text-gray-600">Live API key</label>
+        <input type="password" value={liveKey} onChange={(e)=> setLiveKey(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="live_xxx" />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-600">Test API key</label>
+        <input type="password" value={testKey} onChange={(e)=> setTestKey(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="test_xxx" />
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={testMode} onChange={(e)=> setTestMode(e.target.checked)} />
+        Testmodus gebruiken
+      </label>
+      <div className="flex items-center gap-2">
+        <button onClick={save} disabled={saving} className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm">{saving? 'Opslaan…':'Opslaan'}</button>
+        {note && <span className="text-xs text-gray-600">{note}</span>}
+        <span className="ml-auto text-xs text-gray-500">Webhook: /api/payment/mollie/webhook</span>
       </div>
     </div>
   )

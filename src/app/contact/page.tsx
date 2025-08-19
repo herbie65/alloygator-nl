@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import SEO from '../components/SEO'
+import { generateLocalBusinessData } from '../lib/structured-data'
 
 interface ContactForm {
   naam: string
@@ -102,14 +104,40 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
+    <>
+      <SEO 
+        title="Contact - AlloyGator Nederland | Neem Contact Op"
+        description="Neem contact op met AlloyGator Nederland. Bezoekadres in Almere, klantenservice 08:30-17:00. Telefoon: 085-3033400, Email: info@alloygator.nl"
+        keywords="contact alloygator, velgbescherming contact, alloygator nederland adres, klantenservice velgbescherming, almere velgbescherming"
+        canonical="/contact"
+        structuredData={generateLocalBusinessData({
+          name: "AlloyGator Nederland",
+          description: "Contact en klantenservice voor velgbescherming",
+          url: "/contact",
+          telephone: "+31853033400",
+          email: "info@alloygator.nl",
+          address: {
+            streetAddress: "Kweekgrasstraat 36",
+            addressLocality: "Almere",
+            postalCode: "1335 WL",
+            addressCountry: "NL"
+          },
+          geo: {
+            latitude: 52.3508,
+            longitude: 5.2647
+          },
+          openingHours: "Mo-Fr 08:30-17:00",
+          sameAs: ["https://alloygator.nl"]
+        })}
+      />
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Contact</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Heeft u vragen over onze producten of service? Neem gerust contact met ons op. 
-            We helpen u graag verder!
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+            Heb je vragen over onze producten, wil je advies of zoek je een dealer bij jou in de buurt? 
+            Neem gerust contact met ons op. Wij helpen je graag verder!
           </p>
         </div>
 
@@ -330,11 +358,10 @@ export default function ContactPage() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Openingstijden</h3>
+                    <h3 className="text-lg font-medium text-gray-900">Openingstijden klantenservice</h3>
                     <p className="text-gray-600">
-                      Maandag - Vrijdag: 09:00 - 17:00<br />
-                      Zaterdag: 09:00 - 15:00<br />
-                      Zondag: Gesloten
+                      Maandag t/m Vrijdag: 08:30 – 17:00<br />
+                      Zaterdag en Zondag: gesloten
                     </p>
                   </div>
                 </div>
@@ -387,5 +414,6 @@ export default function ContactPage() {
         </div>
       </div>
     </div>
+    </>
   )
 } 

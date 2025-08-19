@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 
 export default function SettingsPage() {
   const params = useSearchParams()
-  const currentTab = (params.get('tab') || 'general') as 'general'|'shipping'|'payments'|'email'|'dhl'|'taxmap'|'social'|'crm'
+  const currentTab = (params.get('tab') || 'general') as 'general'|'shipping'|'payments'|'email'|'dhl'|'taxmap'|'social'|'crm'|'data'
   const [settings, setSettings] = useState({
     siteName: '',
     siteDescription: '',
@@ -63,6 +63,33 @@ export default function SettingsPage() {
         delivery_type: 'pickup_local',
         price: 0,
         enabled: true
+      },
+      {
+        id: 'dhl-standard',
+        name: 'DHL Standaard',
+        description: 'Levering binnen 1-2 werkdagen',
+        carrier: 'dhl',
+        delivery_type: 'standard',
+        price: 9.95,
+        enabled: false
+      },
+      {
+        id: 'dhl-express',
+        name: 'DHL Express',
+        description: 'Levering de volgende werkdag',
+        carrier: 'dhl',
+        delivery_type: 'express',
+        price: 14.95,
+        enabled: false
+      },
+      {
+        id: 'dhl-pickup',
+        name: 'DHL Afhaalpunt',
+        description: 'Ophalen bij DHL afhaalpunt',
+        carrier: 'dhl',
+        delivery_type: 'pickup',
+        price: 6.95,
+        enabled: false
       }
     ],
     dhlApiUserId: '',
@@ -690,12 +717,125 @@ export default function SettingsPage() {
             {id:'dhl',label:'DHL'},
             {id:'social',label:'Social media'},
             {id:'taxmap',label:'BTW/Map'},
-            {id:'crm',label:'CRM'}
+            {id:'crm',label:'CRM'},
+            {id:'data',label:'Data (Import/Export)'}
           ].map(t=> (
             <a key={t.id} href={`/admin/settings?tab=${t.id}`} className={`px-3 py-1 rounded border ${currentTab===t.id ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>{t.label}</a>
           ))}
         </div>
       </div>
+      {currentTab==='data' && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Data import/export</h2>
+            <p className="text-sm text-gray-600">Exporteer of importeer klanten en producten.</p>
+          </div>
+          <div className="p-6 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="border rounded p-4">
+                <h3 className="font-semibold mb-2">Exporteer klanten</h3>
+                <p className="text-sm text-gray-600 mb-3">Download een CSV met alle klantenvelden.</p>
+                <button onClick={async()=>{
+                  try{
+                    const list = await FirebaseClientService.getCustomers()
+                    const link = document.createElement('a')
+                    const header = ['id','name','email','phone','company_name','address','city','postal_code','country','is_dealer','dealer_group','total_orders','total_spent','created_at']
+                    const rows = [header.join(',')]
+                    for(const c of (list||[]) as any[]){
+                      const vals = header.map(k=>{
+                        let v = (c as any)[k]
+                        if (k==='is_dealer') v = v? 'ja':'nee'
+                        if (v===null||v===undefined) v=''
+                        if (typeof v==='string' && (v.includes(',')||v.includes('"'))) v = '"'+v.replace(/\"/g,'""')+'"'
+                        return v
+                      })
+                      rows.push(vals.join(','))
+                    }
+                    const blob = new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'})
+                    const url = URL.createObjectURL(blob)
+                    link.href = url
+                    link.download = `klanten_export_${new Date().toISOString().slice(0,10)}.csv`
+                    link.click()
+                    URL.revokeObjectURL(url)
+                  }catch(e){ alert('Fout bij exporteren klanten') }
+                }} className="bg-green-600 text-white px-4 py-2 rounded">Export Klanten (CSV)</button>
+              </div>
+              <div className="border rounded p-4">
+                <h3 className="font-semibold mb-2">Importeer klanten</h3>
+                <p className="text-sm text-gray-600 mb-3">Upload een CSV en voeg klanten toe.</p>
+                <input type="file" accept=".csv" onChange={async(e)=>{
+                  const f = e.target.files?.[0]; if(!f) return
+                  const text = await f.text()
+                  const lines = text.split('\n').filter(Boolean)
+                  const headers = lines[0].split(',').map(h=>h.trim().replace(/"/g,''))
+                  const find = (k:string)=> headers.findIndex(h=> h.toLowerCase()===k.toLowerCase())
+                  const idx = { email: find('email'), name: find('name'), phone: find('phone'), company_name: find('company_name'), address: find('address'), city: find('city'), postal_code: find('postal_code'), country: find('country') }
+                  let ok=0, fail=0
+                  for(let i=1;i<lines.length;i++){
+                    const cols = lines[i].split(',')
+                    const payload:any = { created_at: new Date().toISOString(), updated_at: new Date().toISOString(), status:'active' }
+                    Object.entries(idx).forEach(([k,ix])=>{ if(ix>=0) payload[k]= (cols[ix]||'').replace(/"/g,'') })
+                    if(!payload.email) { fail++; continue }
+                    try { await FirebaseClientService.addCustomer(payload as any); ok++ } catch { fail++ }
+                  }
+                  alert(`Import voltooid: ${ok} toegevoegd, ${fail} fouten`)
+                  e.currentTarget.value=''
+                }} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="border rounded p-4">
+                <h3 className="font-semibold mb-2">Exporteer producten</h3>
+                <p className="text-sm text-gray-600 mb-3">Download een CSV met productvelden.</p>
+                <button onClick={async()=>{
+                  try{
+                    const list = await FirebaseClientService.getProducts()
+                    const header = ['id','name','price','sku','stock','category']
+                    const rows = [header.join(',')]
+                    for(const p of (list||[]) as any[]){
+                      const vals = header.map(k=>{
+                        let v = (p as any)[k]
+                        if (v===null||v===undefined) v=''
+                        if (typeof v==='string' && (v.includes(',')||v.includes('"'))) v = '"'+v.replace(/\"/g,'""')+'"'
+                        return v
+                      })
+                      rows.push(vals.join(','))
+                    }
+                    const blob = new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'})
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a'); a.href = url; a.download = `producten_export_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url)
+                  }catch{ alert('Fout bij exporteren producten') }
+                }} className="bg-green-600 text-white px-4 py-2 rounded">Export Producten (CSV)</button>
+              </div>
+              <div className="border rounded p-4">
+                <h3 className="font-semibold mb-2">Importeer producten</h3>
+                <p className="text-sm text-gray-600 mb-3">Upload een CSV en voeg producten toe.</p>
+                <input type="file" accept=".csv" onChange={async(e)=>{
+                  const f=e.target.files?.[0]; if(!f) return
+                  const text = await f.text()
+                  const lines = text.split('\n').filter(Boolean)
+                  const headers = lines[0].split(',').map(h=>h.trim().replace(/"/g,''))
+                  const get = (row:string[], key:string)=>{ const i = headers.findIndex(h=> h.toLowerCase()===key.toLowerCase()); return i>=0? row[i]:'' }
+                  let ok=0, fail=0
+                  for(let i=1;i<lines.length;i++){
+                    const cols = lines[i].split(',')
+                    const payload:any = {
+                      name: get(cols,'name'),
+                      price: parseFloat(get(cols,'price')||'0'),
+                      sku: get(cols,'sku'),
+                      stock: parseInt(get(cols,'stock')||'0',10),
+                      category: get(cols,'category')
+                    }
+                    try { await FirebaseClientService.addDocument('products', payload); ok++ } catch { fail++ }
+                  }
+                  alert(`Import voltooid: ${ok} toegevoegd, ${fail} fouten`)
+                  e.currentTarget.value=''
+                }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {currentTab==='general' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Algemene Instellingen</h2>
@@ -775,21 +915,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Google Maps API Key
-            </label>
-            <input
-              type="password"
-              value={settings.googleMapsApiKey}
-              onChange={(e) => setSettings({...settings, googleMapsApiKey: e.target.value})}
-              placeholder="Voer je Google Maps API key in"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              API key voor Google Maps en Geocoding. Zorg ervoor dat de Geocoding API is geactiveerd in de Google Cloud Console.
-            </p>
-          </div>
+          {/* Google Maps API key verplaatst naar Externe Koppelingen */}
         </div>
       </div>)}
 
@@ -917,42 +1043,8 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Mollie Instellingen</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mollie API Key
-              </label>
-              <input
-                type="password"
-                value={settings.mollieApiKey}
-                onChange={(e) => setSettings({ ...settings, mollieApiKey: e.target.value })}
-                placeholder="test_xxxxxxxxxxxxxxxxxxxxxxx"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Gebruik je test- of live API key van Mollie.
-              </p>
-            </div>
-            <div className="flex items-center">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="mollieTestMode"
-                  checked={settings.mollieTestMode}
-                  onChange={(e) => setSettings({ ...settings, mollieTestMode: e.target.checked })}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-                <label htmlFor="mollieTestMode" className="text-sm font-medium text-gray-700">
-                  Test modus
-                </label>
-              </div>
-            </div>
-          </div>
-        <div className="bg-green-50 border border-green-200 rounded-md p-4">
-          <h3 className="font-semibold text-green-900 mb-2">ℹ️ Mollie Webhook</h3>
-          <p className="text-sm text-green-700">
-            Stel in je Mollie Dashboard de webhook URL in op: <code className="bg-green-100 px-1 py-0.5 rounded">/api/payment/mollie/webhook</code> (gebruik volledige domein in productie).
-            </p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-900">
+            Mollie API keys en testmodus beheer je nu onder <a href="/admin/settings/koppelingen" className="underline">Externe Koppelingen</a>. Betaalmethodes blijven hieronder staan.
           </div>
         </div>
       </div>)}
@@ -1011,88 +1103,75 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900">DHL eCommerce API Instellingen</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              DHL API UserId
-            </label>
-            <input
-              type="text"
-              value={settings.dhlApiUserId}
-              onChange={(e) => setSettings({...settings, dhlApiUserId: e.target.value})}
-              placeholder="Voer je DHL API UserId in"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Je DHL eCommerce API UserId
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                DHL API User ID
+              </label>
+              <input
+                type="text"
+                value={settings.dhlApiUserId}
+                onChange={(e) => setSettings({...settings, dhlApiUserId: e.target.value})}
+                placeholder="DHL API User ID"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                DHL API Key
+              </label>
+              <input
+                type="password"
+                value={settings.dhlApiKey}
+                onChange={(e) => setSettings({...settings, dhlApiKey: e.target.value})}
+                placeholder="DHL API Key"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              DHL API Key
-            </label>
-            <input
-              type="password"
-              value={settings.dhlApiKey}
-              onChange={(e) => setSettings({...settings, dhlApiKey: e.target.value})}
-              placeholder="Voer je DHL API key in"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Je DHL eCommerce API key
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              DHL Account ID
-            </label>
-            <input
-              type="text"
-              value={settings.dhlAccountId}
-              onChange={(e) => setSettings({...settings, dhlAccountId: e.target.value})}
-              placeholder="Voer je DHL Account ID in"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Je DHL eCommerce Account ID
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="dhlTestMode"
-              checked={settings.dhlTestMode}
-              onChange={(e) => setSettings({...settings, dhlTestMode: e.target.checked})}
-              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-            />
-            <label htmlFor="dhlTestMode" className="text-sm font-medium text-gray-700">
-              Test modus gebruiken
-            </label>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                DHL Account ID
+              </label>
+              <input
+                type="text"
+                value={settings.dhlAccountId}
+                onChange={(e) => setSettings({...settings, dhlAccountId: e.target.value})}
+                placeholder="DHL Account ID"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={settings.dhlTestMode}
+                  onChange={(e) => setSettings({...settings, dhlTestMode: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">Testmodus gebruiken</span>
+              </label>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4">
             <button
               onClick={handleDhlTest}
-              disabled={!settings.dhlApiUserId || !settings.dhlApiKey || dhlTestStatus === 'testing'}
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={dhlTestStatus === 'testing'}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md transition-colors"
             >
-              {dhlTestStatus === 'testing' ? 'Testen...' : 'Test DHL Authenticatie'}
+              {dhlTestStatus === 'testing' ? 'Testen...' : 'Test DHL Verbinding'}
             </button>
-            {dhlTestMessage && (
-              <span className={`text-sm ${dhlTestStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {dhlTestStatus !== 'idle' && (
+              <div className={`text-sm ${
+                dhlTestStatus === 'success' ? 'text-green-600' : 
+                dhlTestStatus === 'error' ? 'text-red-600' : 'text-yellow-600'
+              }`}>
                 {dhlTestMessage}
-              </span>
+              </div>
             )}
-          </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-md p-4">
-          <h3 className="font-semibold text-green-900 mb-2">ℹ️ DHL eCommerce Integratie</h3>
-          <p className="text-sm text-green-700">
-              Met DHL eCommerce kun je automatisch verzendlabels genereren en tracking informatie ontvangen. 
-              Zorg ervoor dat je een geldige API UserId en API Key hebt en test eerst in test modus.
-            </p>
           </div>
         </div>
       </div>)}
@@ -1364,10 +1443,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Zoekradius (km)</label>
                   <input type="number" value={settings.searchRadius} onChange={(e)=> setSettings(prev=>({...prev, searchRadius: parseInt(e.target.value||'25',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Google Maps API Key</label>
-                  <input type="password" value={settings.googleMapsApiKey} onChange={(e)=> setSettings(prev=>({...prev, googleMapsApiKey: e.target.value}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
+                {/* Google Maps API key verplaatst naar Externe Koppelingen */}
               </div>
               <p className="text-xs text-gray-500 mt-2">Tip: De kaartinstellingen worden gebruikt in de pagina `vind-een-dealer`.</p>
             </div>

@@ -49,6 +49,21 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Creating DHL shipment for order:', orderId)
+    console.log('Order data:', order)
+    console.log('DHL settings:', dhlSettings)
+
+    // Store DHL API call details for debugging
+    const dhlApiCallDetails = {
+      url: 'https://api-gw.dhlparcel.nl/labels',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer [REDACTED]',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: 'Wordt opgehaald van DHL service...',
+      timestamp: new Date().toISOString()
+    }
 
     // Create shipment with DHL
     const shipmentResult = await DHLService.createShipment(order, dhlSettings)
@@ -71,6 +86,9 @@ export async function POST(request: NextRequest) {
         tracking_number: shipmentResult.tracking_number,
         shipment_id: shipmentResult.shipment_id,
         label_url: shipmentResult.label_url
+      },
+      debug: {
+        dhlApiCall: dhlApiCallDetails
       }
     })
   } catch (error: any) {

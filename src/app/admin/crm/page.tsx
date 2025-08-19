@@ -83,6 +83,7 @@ export default function CRMPage() {
   const [saving, setSaving] = useState(false)
   const [year, setYear] = useState<number>(new Date().getFullYear())
   const [groupTargets, setGroupTargets] = useState<Record<string, number>>({})
+  const normalizeGroupName = (v: any) => String(v || '').toLowerCase().trim()
   const [lastContactByCustomer, setLastContactByCustomer] = useState<Record<string, string>>({})
   const [lastVisitByCustomer, setLastVisitByCustomer] = useState<Record<string, string>>({})
 
@@ -280,91 +281,22 @@ export default function CRMPage() {
     loadData()
   }, [])
 
-  const filteredCustomers = (customers || [])
-    .filter(customer => {
-      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customer.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesStatus = filterStatus === 'all' || customer.status === filterStatus
-      // Support matching by group id or by group name
-      const normalize = (v: any) => String(v || '').toLowerCase().trim()
-      const selectedGroupName = customerGroups.find(g => g.id === filterGroup)?.name
-      const matchesGroup = (
-        filterGroup === 'all' ||
-        normalize(customer.dealer_group) === normalize(filterGroup) ||
-        normalize(customer.dealer_group) === normalize(selectedGroupName)
-      )
-      
-      return matchesSearch && matchesStatus && matchesGroup
-    })
-    .sort((a, b) => {
-      let comparison = 0
-      
-      switch (sortBy) {
-        case 'id':
-          comparison = (a.id || '').localeCompare(b.id || '')
-          break
-        case 'company_name':
-          comparison = (a.company_name || '').localeCompare(b.company_name || '')
-          break
-        case 'contact_person':
-          const contactA = `${a.contact_first_name || ''} ${a.contact_last_name || ''}`.trim()
-          const contactB = `${b.contact_first_name || ''} ${b.contact_last_name || ''}`.trim()
-          comparison = contactA.localeCompare(contactB)
-          break
-        case 'postal_code':
-          comparison = (a.postal_code || '').localeCompare(b.postal_code || '')
-          break
-        case 'city':
-          comparison = (a.city || '').localeCompare(b.city || '')
-          break
-        case 'address':
-          comparison = (a.address || '').localeCompare(b.address || '')
-          break
-        case 'email':
-          comparison = a.email.localeCompare(b.email)
-          break
-        case 'total_spent':
-          comparison = a.total_spent - b.total_spent
-          break
-        case 'total_orders':
-          comparison = a.total_orders - b.total_orders
-          break
-        case 'last_contact':
-          const dateA = (lastContactByCustomer[a.id] ? new Date(lastContactByCustomer[a.id]).getTime() : (a.last_contact ? new Date(a.last_contact).getTime() : 0))
-          const dateB = (lastContactByCustomer[b.id] ? new Date(lastContactByCustomer[b.id]).getTime() : (b.last_contact ? new Date(b.last_contact).getTime() : 0))
-          comparison = dateA - dateB
-          break
-        case 'last_visit':
-          const visitA = (lastVisitByCustomer[a.id] ? new Date(lastVisitByCustomer[a.id]).getTime() : (a.last_visit ? new Date(a.last_visit).getTime() : 0))
-          const visitB = (lastVisitByCustomer[b.id] ? new Date(lastVisitByCustomer[b.id]).getTime() : (b.last_visit ? new Date(b.last_visit).getTime() : 0))
-          comparison = visitA - visitB
-          break
-        case 'target':
-          comparison = (a.target || 0) - (b.target || 0)
-          break
-        case 'status':
-          comparison = a.status.localeCompare(b.status)
-          break
-        default:
-          comparison = 0
-      }
-      
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
+  // Build groupTargets map from loaded customer groups (prefers 'annual_target_sets', fallback 'target')
+  useEffect(() => {
+    const map: Record<string, number> = {}
+    for (const g of customerGroups || []) {
+      const rawName = (g as any).name || (g as any).group_name || (g as any).title || (g as any).label
+      const key = normalizeGroupName(rawName)
+      const t = Number((g as any).annual_target_sets ?? (g as any).target ?? 0)
+      if (key) map[key] = t
+    }
+    setGroupTargets(map)
+  }, [customerGroups])
 
-  const getCustomerStats = () => {
-    const total = (customers || []).length
-    const active = (customers || []).filter(c => c.status === 'active').length
-    const dealers = (customers || []).filter(c => c.is_dealer).length
-    const totalRevenue = (customers || []).reduce((sum, c) => sum + (c.total_spent || 0), 0)
-    
-    return { total, active, dealers, totalRevenue }
-  }
-
-  // Calculate sets sold per customer for selected year (category = 'alloygator-set')
-  // Note: this uses client Firestore read; for large datasets use server aggregation.
   const [salesByCustomer, setSalesByCustomer] = useState<Record<string, number>>({})
+  const [customerTotalsYear, setCustomerTotalsYear] = useState<Record<string, { orders: number; revenue: number }>>({})
+  const [customerTotalsAll, setCustomerTotalsAll] = useState<Record<string, { orders: number; revenue: number }>>({})
+  const [totalsMode, setTotalsMode] = useState<'year' | 'all'>('year')
   useEffect(() => {
     const load = async () => {
       try {
@@ -372,22 +304,100 @@ export default function CRMPage() {
         const start = new Date(year, 0, 1).getTime()
         const end = new Date(year + 1, 0, 1).getTime()
         const map: Record<string, number> = {}
+        const totalsYear: Record<string, { orders: number; revenue: number }> = {}
+        const totalsAll: Record<string, { orders: number; revenue: number }> = {}
         for (const o of orders as any[]) {
           const ts = new Date(o.createdAt || o.created_at || new Date()).getTime()
+          const cid = o.customer?.email || o.customer?.id || 'unknown'
+          const sets = (o.items || []).filter((it: any) => (it.category || it.cat || '') === 'alloygator-set')
+          const qty = sets.reduce((s: number, it: any) => s + Number(it.quantity || 0), 0)
           if (ts >= start && ts < end) {
-            const cid = o.customer?.email || o.customer?.id || 'unknown'
-            const sets = (o.items || []).filter((it: any) => (it.category || it.cat || '') === 'alloygator-set')
-            const qty = sets.reduce((s: number, it: any) => s + Number(it.quantity || 0), 0)
             map[cid] = (map[cid] || 0) + qty
+            if (!totalsYear[cid]) totalsYear[cid] = { orders: 0, revenue: 0 }
+            totalsYear[cid].orders += 1
+            totalsYear[cid].revenue += Number(o.total || 0)
           }
+          if (!totalsAll[cid]) totalsAll[cid] = { orders: 0, revenue: 0 }
+          totalsAll[cid].orders += 1
+          totalsAll[cid].revenue += Number(o.total || 0)
         }
         setSalesByCustomer(map)
+        setCustomerTotalsYear(totalsYear)
+        setCustomerTotalsAll(totalsAll)
       } catch (e) {
         setSalesByCustomer({})
+        setCustomerTotalsYear({})
+        setCustomerTotalsAll({})
       }
     }
     load()
   }, [year, customers])
+
+  // Enrich customers with computed totals and target for current year
+  const enrichedCustomers = (customers || []).map((customer) => {
+    const key = customer.email || (customer as any).id
+    const totals = (totalsMode === 'year' ? customerTotalsYear : customerTotalsAll)[key || ''] || { orders: 0, revenue: 0 }
+    const groupKey = normalizeGroupName((customer as any).dealer_group || '')
+    const targetVal = Number((groupTargets as any)[groupKey] || 0)
+    return {
+      ...customer,
+      total_orders: totals.orders || (customer as any).total_orders || 0,
+      total_spent: totals.revenue || (customer as any).total_spent || 0,
+      target: targetVal,
+    } as any
+  })
+
+  // Apply filtering and sorting to enriched list (restores previous behavior)
+  const filteredCustomers = enrichedCustomers
+    .filter(customer => {
+      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          customer.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesStatus = filterStatus === 'all' || customer.status === filterStatus
+      const normalize = (v: any) => String(v || '').toLowerCase().trim()
+      const selectedGroupName = customerGroups.find(g => g.id === filterGroup)?.name
+      const matchesGroup = (
+        filterGroup === 'all' ||
+        normalize((customer as any).dealer_group) === normalize(filterGroup) ||
+        normalize((customer as any).dealer_group) === normalize(selectedGroupName)
+      )
+      return matchesSearch && matchesStatus && matchesGroup
+    })
+    .sort((a, b) => {
+      let comparison = 0
+      switch (sortBy) {
+        case 'id': comparison = (a.id || '').localeCompare(b.id || ''); break
+        case 'company_name': comparison = (a.company_name || '').localeCompare(b.company_name || ''); break
+        case 'contact_person': {
+          const contactA = `${(a as any).contact_first_name || ''} ${(a as any).contact_last_name || ''}`.trim()
+          const contactB = `${(b as any).contact_first_name || ''} ${(b as any).contact_last_name || ''}`.trim()
+          comparison = contactA.localeCompare(contactB)
+          break
+        }
+        case 'postal_code': comparison = (a.postal_code || '').localeCompare(b.postal_code || ''); break
+        case 'city': comparison = (a.city || '').localeCompare(b.city || ''); break
+        case 'address': comparison = (a.address || '').localeCompare(b.address || ''); break
+        case 'email': comparison = a.email.localeCompare(b.email); break
+        case 'total_spent': comparison = (a as any).total_spent - (b as any).total_spent; break
+        case 'total_orders': comparison = (a as any).total_orders - (b as any).total_orders; break
+        case 'last_contact': {
+          const dateA = (lastContactByCustomer[a.id] ? new Date(lastContactByCustomer[a.id]).getTime() : (a as any).last_contact ? new Date((a as any).last_contact).getTime() : 0)
+          const dateB = (lastContactByCustomer[b.id] ? new Date(lastContactByCustomer[b.id]).getTime() : (b as any).last_contact ? new Date((b as any).last_contact).getTime() : 0)
+          comparison = dateA - dateB
+          break
+        }
+        case 'last_visit': {
+          const visitA = (lastVisitByCustomer[a.id] ? new Date(lastVisitByCustomer[a.id]).getTime() : (a as any).last_visit ? new Date((a as any).last_visit).getTime() : 0)
+          const visitB = (lastVisitByCustomer[b.id] ? new Date(lastVisitByCustomer[b.id]).getTime() : (b as any).last_visit ? new Date((b as any).last_visit).getTime() : 0)
+          comparison = visitA - visitB
+          break
+        }
+        case 'target': comparison = ((a as any).target || 0) - ((b as any).target || 0); break
+        case 'status': comparison = a.status.localeCompare(b.status); break
+        default: comparison = 0
+      }
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
   // Load latest visits and contact moments per customer
   useEffect(() => {
@@ -516,7 +526,13 @@ export default function CRMPage() {
     }
   }
 
-  const stats = getCustomerStats()
+  const stats = (() => {
+    const total = (customers || []).length
+    const active = (customers || []).filter(c => c.status === 'active').length
+    const dealers = (customers || []).filter(c => c.is_dealer).length
+    const totalRevenue = (customers || []).reduce((sum, c) => sum + (c.total_spent || 0), 0)
+    return { total, active, dealers, totalRevenue }
+  })()
 
   if (loading) {
     return (
@@ -537,6 +553,13 @@ export default function CRMPage() {
           <p className="text-gray-600">Beheer zakelijke relaties, sales activiteiten en targets</p>
         </div>
         <div className="flex space-x-4 items-center">
+          <div className="flex items-center space-x-2 bg-white border rounded px-3 py-2">
+            <span className="text-sm text-gray-600">Weergave</span>
+            <select value={totalsMode} onChange={(e)=> setTotalsMode(e.target.value as 'year'|'all')} className="text-sm border rounded px-2 py-1">
+              <option value="year">Jaar {year}</option>
+              <option value="all">All‑time</option>
+            </select>
+          </div>
           <div className="flex items-center space-x-2 bg-white border rounded px-3 py-2">
             <span className="text-sm text-gray-600">Jaar</span>
             <select value={year} onChange={(e)=>setYear(parseInt(e.target.value,10))} className="text-sm border rounded px-2 py-1">
@@ -814,9 +837,7 @@ export default function CRMPage() {
                         </div>
                       )}
                       {columnKey === 'target' && (
-                        <div className="text-sm font-semibold text-green-600">
-                          {customer.target ? `€${customer.target.toFixed(2)}` : '-'}
-                        </div>
+                        <div className="text-sm font-semibold text-green-600">{Number((customer as any).target || 0)}</div>
                       )}
                       {columnKey === 'status' && (
                         <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
@@ -859,18 +880,8 @@ export default function CRMPage() {
                   {(() => {
                     const id = customer.email || customer.id
                     const sold = salesByCustomer[id] || 0
-                    const groupKey = String(customer.dealer_group || '').toLowerCase()
-                    let target = groupTargets[groupKey] || 0
-                    if (!target) {
-                      const fuzzy = Object.entries(groupTargets).find(([k,v]) => Number(v)>0 && (groupKey.includes(k) || k.includes(groupKey)))
-                      if (fuzzy) target = Number(fuzzy[1])
-                    }
-                    if (!target) {
-                      const gk = groupKey ? groupKey.toLowerCase().replace(/dealers?|groep|group/g,'').trim() : ''
-                      if (gk.includes('goud')||gk.includes('gold')) target = 30
-                      else if (gk.includes('zilver')||gk.includes('silver')) target = 20
-                      else if (gk.includes('brons')||gk.includes('bronze')) target = 10
-                    }
+                    const groupKey = normalizeGroupName(customer.dealer_group || '')
+                    const target = Number(groupTargets[groupKey] || 0)
                     const pct = target > 0 ? Math.min(100, Math.round((sold / target) * 100)) : 0
                     const badge = pct >= 100 ? 'bg-green-100 text-green-800' : pct >= 50 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                     return (

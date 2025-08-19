@@ -6,6 +6,8 @@ import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils'
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
 import { FirebaseService } from '@/lib/firebase'
 import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
+import SEO from '../components/SEO'
+import { generateWebPageData } from '../lib/structured-data'
 
 interface Product {
   id: string
@@ -241,8 +243,26 @@ export default function WinkelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <>
+      <SEO 
+        title="Winkel - Velgen Bescherming Producten"
+        description="Ontdek AlloyGator's complete assortiment velgen bescherming producten. Van complete sets tot accessoires en montagehulpmiddelen. Bescherm je velgen tegen stoeprandschade."
+        keywords="velgen bescherming winkel, alloygator producten, velgbeschermers kopen, montagehulpmiddelen, velg accessoires, professionele velgen bescherming"
+        canonical="/winkel"
+        structuredData={generateWebPageData({
+          name: "Winkel - Velgen Bescherming Producten",
+          description: "Complete assortiment velgen bescherming producten van AlloyGator",
+          url: "/winkel",
+          breadcrumb: {
+            items: [
+              { name: "Home", url: "/" },
+              { name: "Winkel", url: "/winkel" }
+            ]
+          }
+        })}
+      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">AlloyGator Winkel</h1>
@@ -667,5 +687,6 @@ export default function WinkelPage() {
         )}
       </div>
     </div>
+    </>
   )
 } 

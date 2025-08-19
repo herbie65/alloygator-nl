@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import SEO from '../components/SEO'
+import { generateLocalBusinessData } from '../lib/structured-data'
 
 interface CMSPage {
   id: string
@@ -164,41 +166,59 @@ export default function HomePage() {
   if (cmsHtml) {
     console.log('🎨 Rendering CMS content met lengte:', cmsHtml.length)
     return (
-      <div id="cms-home" className="min-h-screen bg-white" dangerouslySetInnerHTML={{ __html: cmsHtml }} />
+      <>
+        <SEO 
+          title="Velgen Bescherming - AlloyGator"
+          description="Bescherm én verfraai je velgen met AlloyGator velgbeschermers. Voorkom kostbare schade aan je lichtmetalen velgen. Effectieve bescherming tegen stoeprandschade in subtiele én opvallende kleuren."
+          keywords="velgen bescherming, alloygator, velgbeschermers, stoeprandschade voorkomen, lichtmetalen velgen, polymeer velgbescherming, professionele montage, velg accessoires"
+          canonical="/"
+          structuredData={generateLocalBusinessData()}
+        />
+        <div id="cms-home" className="min-h-screen bg-white" dangerouslySetInnerHTML={{ __html: cmsHtml }} />
+      </>
     )
   }
 
   // Geen content beschikbaar - toon fallback
   console.log('❌ Geen CMS content gevonden, toon fallback')
   return (
-    <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-4 py-16 text-center">
-        <div className="text-4xl mb-4">🏠</div>
-        <h1 className="text-2xl md:text-5xl font-bebas uppercase tracking-wide text-gray-900 mb-4">Uw ultieme lichtmetalen schild</h1>
-        <h2 className="text-xl md:text-3xl font-bebas uppercase tracking-wide text-gray-700 mb-6">tegen kostbare stoeprandschade</h2>
-        <p className="text-gray-600 mb-6">
-          Er is geen home pagina content gevonden in het CMS.
-        </p>
-        <div className="space-y-2">
-          <p className="text-sm text-gray-500">
-            • Controleer of er een home pagina bestaat in het CMS
+    <>
+              <SEO 
+          title="Velgen Bescherming - AlloyGator"
+          description="Bescherm én verfraai je velgen met AlloyGator velgbeschermers. Voorkom kostbare schade aan je lichtmetalen velgen. Effectieve bescherming tegen stoeprandschade in subtiele én opvallende kleuren."
+          keywords="velgen bescherming, alloygator, velgbeschermers, stoeprandschade voorkomen, lichtmetalen velgen, polymeer velgbescherming, professionele montage, velg accessoires"
+          canonical="/"
+          structuredData={generateLocalBusinessData()}
+        />
+      <div className="min-h-screen bg-white">
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="text-4xl mb-4">🏠</div>
+          <h1 className="text-2xl md:text-5xl font-bebas uppercase tracking-wide text-gray-900 mb-4">Uw ultieme lichtmetalen schild</h1>
+          <h2 className="text-xl md:text-3xl font-bebas uppercase tracking-wide text-gray-700 mb-6">tegen kostbare stoeprandschade</h2>
+          <p className="text-gray-600 mb-6">
+            Er is geen home pagina content gevonden in het CMS.
           </p>
-          <p className="text-sm text-gray-500">
-            • Zorg ervoor dat de status op "Gepubliceerd" staat
-          </p>
-          <p className="text-sm text-gray-500">
-            • De slug moet exact "home" zijn
-          </p>
-        </div>
-        <div className="mt-6">
-          <a 
-            href="/admin/cms" 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            CMS Beheren
-          </a>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">
+              • Controleer of er een home pagina bestaat in het CMS
+            </p>
+            <p className="text-sm text-gray-500">
+              • Zorg ervoor dat de status op "Gepubliceerd" staat
+            </p>
+            <p className="text-sm text-gray-500">
+              • De slug moet exact "home" zijn
+            </p>
+          </div>
+          <div className="mt-6">
+            <a 
+              href="/admin/cms" 
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            >
+              CMS Beheren
+            </a>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

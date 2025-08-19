@@ -573,9 +573,17 @@ export default function CheckoutPage() {
 
       console.log(`Loading pickup locations for ${selectedMethod.carrier} in ${postalCode}`);
 
-      const response = await fetch(
-        `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
-      );
+      let response;
+      if (selectedMethod.carrier === 'dhl') {
+        response = await fetch(
+          `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
+        );
+      } else {
+        // Voor andere carriers (PostNL, etc.) kunnen we hier later andere endpoints toevoegen
+        alert(`${selectedMethod.carrier.toUpperCase()} afhaalpunten worden nog niet ondersteund. Kies een andere verzendmethode.`);
+        setShowPickupLocations(false);
+        return;
+      }
       
       if (response.ok) {
         const data = await response.json();

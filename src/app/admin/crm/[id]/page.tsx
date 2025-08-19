@@ -14,6 +14,7 @@ export default function CustomerDashboardPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [year, setYear] = useState<number>(new Date().getFullYear())
   const [targets, setTargets] = useState<{gold:number; silver:number; bronze:number}>({ gold: 30, silver: 20, bronze: 10 })
+  const [groupTargets, setGroupTargets] = useState<Record<string, number>>({})
   
   // CRM state
   const [visits, setVisits] = useState<any[]>([])
@@ -32,6 +33,8 @@ export default function CustomerDashboardPage() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(false)
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   const [appointmentPrefill, setAppointmentPrefill] = useState<any>(null)
+  const normalize = (v:any)=> String(v||'').toLowerCase().trim()
+  const [resolvedTarget, setResolvedTarget] = useState<number>(0)
 
   useEffect(() => {
     const load = async () => {
@@ -181,16 +184,67 @@ export default function CustomerDashboardPage() {
           console.log('⚠️ No contact moment types found, using defaults')
           setContactMomentTypes([])
         }
-        const st = (s as { targetGold?: number; targetSilver?: number; targetBronze?: number }) || null
+        const st = (s as { targetGold?: number; targetSilver?: number; targetBronze?: number; customerGroups?: any[] }) || null
 setTargets({
   gold: Number(st?.targetGold ?? 30),
   silver: Number(st?.targetSilver ?? 20),
   bronze: Number(st?.targetBronze ?? 10),
 })
+        // Build group targets map if available in settings
+        try {
+          const groups = Array.isArray((s as any)?.customerGroups) ? (s as any).customerGroups : []
+          const map: Record<string, number> = {}
+          for (const g of groups) {
+            const rawName = (g as any)?.name || (g as any)?.group_name || (g as any)?.title || (g as any)?.label
+            const key = normalize(rawName)
+            const t = Number((g as any)?.annual_target_sets ?? (g as any)?.target ?? 0)
+            if (key) map[key] = t
+          }
+          setGroupTargets(map)
+        } catch {}
       } finally { setLoading(false) }
     }
     load()
   }, [decodedId])
+
+  // Also load direct customer_groups collection to ensure latest targets
+  useEffect(() => {
+    const loadGroups = async () => {
+      try {
+        const groups = await FirebaseClientService.getCustomerGroups()
+        const map: Record<string, number> = {}
+        for (const g of (groups || []) as any[]) {
+          const rawName = (g as any)?.name || (g as any)?.group_name || (g as any)?.title || (g as any)?.label
+          const key = normalize(rawName)
+          const t = Number((g as any)?.annual_target_sets ?? (g as any)?.target ?? 0)
+          if (key) map[key] = t
+        }
+        if (Object.keys(map).length > 0) setGroupTargets(map)
+      } catch {}
+    }
+    loadGroups()
+  }, [])
+
+  // Resolve target directly from groups for this customer
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!customer) { setResolvedTarget(0); return }
+        const groups = await FirebaseClientService.getCustomerGroups()
+        const key = normalize(customer.dealer_group)
+        let val = 0
+        for (const g of (groups || []) as any[]) {
+          const name = normalize((g as any)?.name || (g as any)?.group_name || (g as any)?.title || (g as any)?.label)
+          if (name === key) {
+            val = Number((g as any)?.annual_target_sets ?? (g as any)?.target ?? 0)
+            break
+          }
+        }
+        setResolvedTarget(Number(val || 0))
+      } catch { setResolvedTarget(0) }
+    }
+    run()
+  }, [customer])
 
   // Load appointments (separate effect – robust tegen andere laadtaken)
   useEffect(() => {
@@ -267,12 +321,16 @@ setTargets({
         return !cat && name.includes('alloygator') && name.includes('set')
       })
       .reduce((s: number, it: any) => s + Number(it.quantity || 0), 0)
-    const g = (customer.dealer_group || '').toLowerCase()
-  const clean = g.replace(/dealers?|groep|group/g,'').trim()
-  const targetVal = clean.includes('gold') || clean.includes('goud') ? targets.gold : clean.includes('silver') || clean.includes('zilver') ? targets.silver : clean.includes('bronze') || clean.includes('brons') ? targets.bronze : 0
+    const clean = normalize(customer.dealer_group)
+    const fromMap = Number(groupTargets[clean] || 0)
+    const targetVal = Number(resolvedTarget || fromMap || 0)
+    if (process.env.NODE_ENV !== 'production') {
+      // Basic debug in dev to verify mapping
+      console.log('CRM detail target mapping', { clean, groupTargets })
+    }
     const pct = targetVal > 0 ? Math.min(100, Math.round((qty / targetVal) * 100)) : 0
     return { setsSold: qty, target: targetVal, progressPct: pct }
-  }, [customer, orders, targets, year])
+  }, [customer, orders, groupTargets, resolvedTarget, year])
 
   const lastOrderDate = useMemo(() => {
     if (!customer) return null

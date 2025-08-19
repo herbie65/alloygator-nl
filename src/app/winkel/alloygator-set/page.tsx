@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
+import SEO from '../../components/SEO'
+import { generateWebPageData } from '../../lib/structured-data'
 
 interface Product {
   id: string
@@ -58,8 +60,27 @@ export default function AlloyGatorSetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <>
+      <SEO 
+        title="AlloyGator Sets - Complete Velgen Bescherming"
+        description="Complete AlloyGator sets voor verschillende velgmaten. Elke set bevat alle benodigde onderdelen voor professionele velgbescherming tegen stoeprandschade."
+        keywords="alloygator set, complete velgen bescherming, velgbeschermers set, professionele montage, verschillende velgmaten, stoeprandschade voorkomen"
+        canonical="/winkel/alloygator-set"
+        structuredData={generateWebPageData({
+          name: "AlloyGator Sets - Complete Velgen Bescherming",
+          description: "Complete sets voor verschillende velgmaten en voertuigtypes",
+          url: "/winkel/alloygator-set",
+          breadcrumb: {
+            items: [
+              { name: "Home", url: "/" },
+              { name: "Winkel", url: "/winkel" },
+              { name: "AlloyGator Sets", url: "/winkel/alloygator-set" }
+            ]
+          }
+        })}
+      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-8">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
@@ -74,10 +95,31 @@ export default function AlloyGatorSetPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">AlloyGator Sets</h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Complete sets voor verschillende velgmaten en voertuigtypes. 
-            Elke set bevat alle benodigde onderdelen voor professionele velgbescherming.
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+            AlloyGator velgbeschermers zijn de ultieme bescherming voor je lichtmetalen velgen. 
+            Gemaakt van hoogwaardig en flexibel nylon, beschermen ze effectief tegen stoeprandschade en andere alledaagse gevaren.
           </p>
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Waarom kiezen voor AlloyGator?</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Flexibiliteit & Maatwerk</h3>
+                <p className="text-gray-600">Geschikt voor vrijwel alle velgen van 12" tot 24". Tijdens montage worden ze op maat gemaakt voor jouw specifieke velg.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Stijlkeuze</h3>
+                <p className="text-gray-600">Kies voor een onzichtbare look met zwarte, zilveren of grijze uitvoeringen, of juist opvallen met een opvallende kleur.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Kwaliteit & Veiligheid</h3>
+                <p className="text-gray-600">Uitvoerig getest op duurzaamheid en veiligheid. Hoogwaardig nylon materiaal dat bestand is tegen dagelijks gebruik.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Professionele Montage</h3>
+                <p className="text-gray-600">Laat je AlloyGators monteren door een erkende dealer voor het beste resultaat, of monteer ze zelf met onze montage tools.</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Products Grid */}
@@ -159,5 +201,6 @@ export default function AlloyGatorSetPage() {
         </div>
       </div>
     </div>
+    </>
   )
 } 

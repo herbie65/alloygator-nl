@@ -348,46 +348,6 @@ export default function CustomersPage() {
         </div>
         <div className="flex space-x-3">
           <button 
-            onClick={async () => {
-              if (confirm('Weet je zeker dat je alle klanten wilt migreren naar numerieke IDs? Dit kan niet ongedaan worden gemaakt.')) {
-                try {
-                  setSaving(true)
-                  const result = await FirebaseService.migrateCustomersToNumericIds()
-                  alert(`Migratie voltooid! ${result?.length || 0} klanten gemigreerd.`)
-                  // Refresh the page to show updated customer IDs
-                  window.location.reload()
-                } catch (error) {
-                  alert('Fout bij migreren: ' + error)
-                } finally {
-                  setSaving(false)
-                }
-              }
-            }}
-            disabled={saving}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? 'Bezig...' : '🔄 Migreer naar Numerieke IDs'}
-          </button>
-          <button 
-            onClick={() => {
-              // Export current customers to CSV
-              if (customers && customers.length > 0) {
-                exportCustomersToCSV(customers)
-              } else {
-                alert('Geen klanten gevonden om te exporteren.')
-              }
-            }}
-            className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors"
-          >
-            📤 Export Klanten
-          </button>
-          <button 
-            onClick={() => setShowCSVImport(true)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
-          >
-            📁 CSV Import
-          </button>
-          <button 
             onClick={() => {
               setSelectedCustomer(null)
               setEditingCustomer(null)
@@ -458,6 +418,8 @@ export default function CustomersPage() {
           </div>
         </div>
       </div>
+
+      {/* Export/Import knoppen verwijderd; verplaatst naar Instellingen → Data (Import/Export) */}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow">

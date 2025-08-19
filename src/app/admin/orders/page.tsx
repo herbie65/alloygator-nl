@@ -36,6 +36,9 @@ interface Order {
   dealer_group?: string
   due_at?: string
   payment_terms_days?: number
+  dhl_tracking_number?: string
+  dhl_shipment_id?: string
+  shipping_label_url?: string
   eboekhouden_sync?: {
     status: 'pending' | 'success' | 'error'
     verkoop_mutatie_id?: string
@@ -77,6 +80,33 @@ export default function OrdersPage() {
         return 'annuleren'
       default:
         return 'nieuw'
+    }
+  }
+
+  const createDhlShipment = async (orderId: string) => {
+    try {
+      setError('')
+      const response = await fetch('/api/dhl/create-shipment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        // Refresh orders to show updated tracking info
+        fetchOrders()
+        // Close modal to show updated order
+        setShowOrderModal(false)
+        setSelectedOrder(null)
+      } else {
+        setError(`Fout bij aanmaken DHL verzending: ${result.error}`)
+      }
+    } catch (error: any) {
+      setError(`Fout bij aanmaken DHL verzending: ${error.message}`)
     }
   }
 
@@ -1010,6 +1040,62 @@ function OrderDetailModal({ order, onClose, onUpdateStatus }: OrderDetailModalPr
               </div>
             </div>
           </div>
+
+          {/* DHL Shipment Section */}
+          {order.shipping_method?.includes('dhl') && (
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">DHL Verzending</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                {order.dhl_tracking_number ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Tracking Nummer</p>
+                        <p className="text-lg font-bold text-blue-600">{order.dhl_tracking_number}</p>
+                      </div>
+                      <a
+                        href={`https://www.dhl.com/nl-nl/home/tracking/tracking-express.html?submit=1&tracking-id=${order.dhl_tracking_number}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+                      >
+                        Track Pakket
+                      </a>
+                    </div>
+                    {order.dhl_shipment_id && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Shipment ID</p>
+                        <p className="text-sm text-gray-900">{order.dhl_shipment_id}</p>
+                      </div>
+                    )}
+                    {order.shipping_label_url && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Verzendlabel</p>
+                        <a
+                          href={order.shipping_label_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Download Label
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-600 mb-4">Nog geen DHL verzending aangemaakt</p>
+                    <button
+                      onClick={() => createDhlShipment(order.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+                    >
+                      Maak DHL Verzending
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-4 pt-6">
             <button
