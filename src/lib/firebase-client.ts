@@ -451,6 +451,24 @@ getCompanyInfo
     } catch (e) { console.error('Error adding document:', e); throw e }
   }
 
+  // Add new customer
+  static async addCustomer(customerData: any) {
+    try {
+      const logicalId = this.generateLogicalId('customers', customerData)
+      const docRef = doc(db, 'customers', logicalId)
+      await setDoc(docRef, {
+        ...customerData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      return { id: logicalId, ...customerData };
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      throw error;
+    }
+  }
+
   static async deleteCustomerDocument(id: string) {
     try { await deleteDoc(doc(db, 'customer_documents', id)); return true } catch (e) { console.error('Error deleting document:', e); throw e }
   }

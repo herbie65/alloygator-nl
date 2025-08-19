@@ -110,25 +110,7 @@ export default function ContactPage() {
         description="Neem contact op met AlloyGator Nederland. Bezoekadres in Almere, klantenservice 08:30-17:00. Telefoon: 085-3033400, Email: info@alloygator.nl"
         keywords="contact alloygator, velgbescherming contact, alloygator nederland adres, klantenservice velgbescherming, almere velgbescherming"
         canonical="/contact"
-        structuredData={generateLocalBusinessData({
-          name: "AlloyGator Nederland",
-          description: "Contact en klantenservice voor velgbescherming",
-          url: "/contact",
-          telephone: "+31853033400",
-          email: "info@alloygator.nl",
-          address: {
-            streetAddress: "Kweekgrasstraat 36",
-            addressLocality: "Almere",
-            postalCode: "1335 WL",
-            addressCountry: "NL"
-          },
-          geo: {
-            latitude: 52.3508,
-            longitude: 5.2647
-          },
-          openingHours: "Mo-Fr 08:30-17:00",
-          sameAs: ["https://alloygator.nl"]
-        })}
+        structuredData={generateLocalBusinessData()}
       />
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4">

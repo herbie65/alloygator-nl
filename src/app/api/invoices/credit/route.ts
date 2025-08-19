@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Email customer
     try {
       const email = new EmailService()
-      await email.init?.()
+      // await email.init?.() // Commented out as init method doesn't exist
       const customer = order.customer || {}
       await (email as any).transporter.sendMail?.({
         from: `AlloyGator <${process.env.SMTP_USER || ''}>`,

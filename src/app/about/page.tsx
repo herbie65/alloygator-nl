@@ -79,25 +79,7 @@ export default function AboutPage() {
           description="AlloyGator Nederland is exclusief importeur van originele velgbeschermers. Meer dan 10 jaar ervaring in de Benelux. Bescherm je lichtmetalen velgen tegen stoeprandschade."
           keywords="alloygator nederland, velgbescherming specialist, lichtmetalen velgen beschermen, stoeprandschade voorkomen, benelux importeur, autovelgen bescherming"
           canonical="/about"
-          structuredData={generateLocalBusinessData({
-            name: "AlloyGator Nederland",
-            description: "Dé specialist in velgbescherming voor de Benelux",
-            url: "/about",
-            telephone: "+31853033400",
-            email: "info@alloygator.nl",
-            address: {
-              streetAddress: "Kweekgrasstraat 36",
-              addressLocality: "Almere",
-              postalCode: "1335 WL",
-              addressCountry: "NL"
-            },
-            geo: {
-              latitude: 52.3508,
-              longitude: 5.2647
-            },
-            openingHours: "Mo-Fr 08:30-17:00",
-            sameAs: ["https://alloygator.nl"]
-          })}
+          structuredData={generateLocalBusinessData()}
         />
         <div 
           className="min-h-screen bg-white"
@@ -115,25 +97,7 @@ export default function AboutPage() {
         description="AlloyGator Nederland is exclusief importeur van originele velgbeschermers. Meer dan 10 jaar ervaring in de Benelux. Bescherm je lichtmetalen velgen tegen stoeprandschade."
         keywords="alloygator nederland, velgbescherming specialist, lichtmetalen velgen beschermen, stoeprandschade voorkomen, benelux importeur, autovelgen bescherming"
         canonical="/about"
-        structuredData={generateLocalBusinessData({
-          name: "AlloyGator Nederland",
-          description: "Dé specialist in velgbescherming voor de Benelux",
-          url: "/about",
-          telephone: "+31853033400",
-          email: "info@alloygator.nl",
-          address: {
-            streetAddress: "Kweekgrasstraat 36",
-            addressLocality: "Almere",
-            postalCode: "1335 WL",
-            addressCountry: "NL"
-          },
-          geo: {
-            latitude: 52.3508,
-            longitude: 5.2647
-          },
-          openingHours: "Mo-Fr 08:30-17:00",
-          sameAs: ["https://alloygator.nl"]
-        })}
+                  structuredData={generateLocalBusinessData()}
       />
       <div className="min-h-screen bg-white">
         <div className="container mx-auto px-4 py-16">

@@ -84,10 +84,10 @@ export async function PUT(request: NextRequest) {
       const cfg = await resolveGCalConfig()
       if (cfg) {
         const doc = await FirebaseService.getDocument('appointments', String(id))
-        if (doc) {
-          const start = doc.start_at || doc.startAt
-          const end = doc.end_at || new Date(new Date(start).getTime() + 30*60000).toISOString()
-          await upsertEvent(cfg, { id: doc.id, title: doc.title || 'Afspraak', start_at: start, end_at: end, location: doc.location, notes: doc.notes })
+        if (doc && typeof doc === 'object') {
+          const start = (doc as any).start_at || (doc as any).startAt
+          const end = (doc as any).end_at || new Date(new Date(start).getTime() + 30*60000).toISOString()
+          await upsertEvent(cfg, { id: (doc as any).id, title: (doc as any).title || 'Afspraak', start_at: start, end_at: end, location: (doc as any).location, notes: (doc as any).notes })
         }
       }
     } catch (e) { console.log('gcal upsert (PUT) best-effort error', (e as any)?.message) }

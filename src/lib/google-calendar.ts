@@ -32,7 +32,7 @@ export async function upsertEvent(config: GCalConfig, appt: { id: string; title:
     // Zoek event op crmId (private extended property)
     const list = await calendar.events.list({
       calendarId: config.calendarId,
-      privateExtendedProperty: `crmId=${String(appt.id)}`,
+      privateExtendedProperty: [`crmId=${String(appt.id)}`],
       maxResults: 1,
       singleEvents: true,
       showDeleted: false,

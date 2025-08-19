@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     if (!id) return NextResponse.json({ ok: false, error: 'appointment id required' }, { status: 400 })
     const a = await FirebaseService.getDocument('appointments', String(id))
     if (!a) return NextResponse.json({ ok: false, error: 'appointment not found' }, { status: 404 })
-    const start_at = a.start_at || a.startAt
-    const end_at = a.end_at || a.endAt || new Date(new Date(start_at).getTime() + 30*60000).toISOString()
-    const result = await upsertEvent(config, { id: a.id, title: a.title || 'Afspraak', start_at, end_at, location: a.location, notes: a.notes })
+    const start_at = (a as any).start_at || (a as any).startAt
+    const end_at = (a as any).end_at || (a as any).endAt || new Date(new Date(start_at).getTime() + 30*60000).toISOString()
+    const result = await upsertEvent(config, { id: (a as any).id, title: (a as any).title || 'Afspraak', start_at, end_at, location: (a as any).location, notes: (a as any).notes })
     return NextResponse.json({ ok: true, result })
   } catch (e) {
     const msg = (e as any)?.message || 'Serverfout'
