@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FirebaseService } from '@/lib/firebase'
+import { adminFirestore } from '@/lib/firebase-admin'
 import { resolveGCalConfig, upsertEvent } from '@/lib/google-calendar'
 
 // GET /api/crm/appointments?customer_id=&from=&to=&status=&limit=
@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     if (customerId) conditions.push({ field: 'customer_id', operator: '==', value: customerId })
     if (status) conditions.push({ field: 'status', operator: '==', value: status })
     // Tijd filtering doen we client-side als index ontbreekt
-    const list: any[] = await FirebaseService.getDocuments('appointments', conditions)
+    const snapshot = await adminFirestore.collection('appointments').get()
+    const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
     const filtered = list.filter((a:any) => {
       const t = new Date(a.start_at || a.startAt || 0).getTime()
       const fromOk = from ? t >= new Date(from).getTime() : true
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
-    const rec = await FirebaseService.addDocument('appointments', payload)
+    const rec = await adminFirestore.collection('appointments').add(payload)
     // Trigger Google Calendar sync (best-effort)
     try {
       const cfg = await resolveGCalConfig()
@@ -78,12 +79,13 @@ export async function PUT(request: NextRequest) {
     const { id, ...update } = body || {}
     if (!id) return NextResponse.json({ ok: false, error: 'id is verplicht' }, { status: 400 })
     update.updated_at = new Date().toISOString()
-    await FirebaseService.updateDocument('appointments', id, update)
+    await adminFirestore.collection('appointments').doc(id).update(update)
     // Trigger Google Calendar sync (best-effort)
     try {
       const cfg = await resolveGCalConfig()
       if (cfg) {
-        const doc = await FirebaseService.getDocument('appointments', String(id))
+        const docSnapshot = await adminFirestore.collection('appointments').doc(String(id)).get()
+        const doc = docSnapshot.data()
         if (doc && typeof doc === 'object') {
           const start = (doc as any).start_at || (doc as any).startAt
           const end = (doc as any).end_at || new Date(new Date(start).getTime() + 30*60000).toISOString()
