@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import SEO from '../components/SEO'
+import { generateWebPageData } from '../lib/structured-data'
 
 type FormState = {
   orderNumber: string
@@ -61,10 +63,85 @@ export default function ReturnsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <>
+      <SEO 
+        title="Retourbeleid - Veilig & Eenvoudig Retourneren | AlloyGator"
+        description="Bij AlloyGator Nederland staan klanttevredenheid en service centraal. Herroepingsrecht 14 dagen, eenvoudig retourneren en volledige terugbetaling."
+        keywords="retourbeleid alloygator, velgbescherming retourneren, herroepingsrecht 14 dagen, retourvoorwaarden, klanttevredenheid"
+        canonical="/returns"
+        structuredData={generateWebPageData({
+          name: "Retourbeleid - Veilig & Eenvoudig Retourneren",
+          description: "Retourvoorwaarden en herroepingsrecht voor AlloyGator producten",
+          url: "/returns",
+          breadcrumb: {
+            items: [
+              { name: "Home", url: "/" },
+              { name: "Retourbeleid", url: "/returns" }
+            ]
+          }
+        })}
+      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Retourbeleid</h1>
+          <h2 className="text-2xl font-semibold text-green-600 mb-4">Veilig & Eenvoudig Retourneren</h2>
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+            Bij AlloyGator Nederland staan klanttevredenheid en service centraal. 
+            Mocht je onverhoopt niet tevreden zijn met je aankoop, dan kun je je bestelling eenvoudig retourneren.
+          </p>
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Herroepingsrecht (14 dagen)</h3>
+                <p className="text-gray-700 mb-4">
+                  Je hebt het recht je bestelling tot 14 dagen na ontvangst zonder opgave van reden te annuleren. 
+                  Na annulering heb je nogmaals 14 dagen om het product retour te sturen.
+                </p>
+                <p className="text-sm text-gray-600">
+                  Meer info op <a href="/wat-zijn-onze-retourvoorwaarden" className="text-green-600 hover:text-green-700 underline">alligator.nl/wat-zijn-onze-retourvoorwaarden</a>
+                </p>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Voorwaarden retourzending</h3>
+                <ul className="text-gray-700 space-y-2">
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-600 mt-1">•</span>
+                    <span>Product moet ongebruikt zijn</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-600 mt-1">•</span>
+                    <span>In originele, onbeschadigde verpakking</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-600 mt-1">•</span>
+                    <span>Bewaar je verzendbewijs als retourbewijs</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-6 p-4 bg-green-50 rounded-lg">
+              <p className="text-green-800">
+                <strong>Na ontvangst en controle</strong> van het geretourneerde product krijg je het volledige aankoopbedrag 
+                inclusief eventuele standaard verzendkosten teruggestort via dezelfde betaalmethode.
+              </p>
+            </div>
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">Retouradres</h4>
+              <p className="text-gray-700">
+                AlloyGator Nederland<br />
+                Kweekgrasstraat 36<br />
+                1335 WL Almere
+              </p>
+              <p className="text-gray-600 text-sm mt-2">
+                Voor retouraanmelding of vragen neem contact op via <a href="mailto:info@alloygator.nl" className="text-green-600 hover:text-green-700">info@alloygator.nl</a>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Retouraanvraag</h1>
+          <h3 className="text-2xl font-bold text-gray-900">Retouraanvraag</h3>
           <a href="/wysiwyg/forms/Retourformulier_AG.pdf" className="text-green-700 hover:text-green-800 underline" target="_blank" rel="noopener noreferrer">Download PDF-formulier</a>
         </div>
 
@@ -182,6 +259,7 @@ export default function ReturnsPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
+import SEO from '../../components/SEO'
+import { generateWebPageData } from '../../lib/structured-data'
 
 interface Product {
   id: string
@@ -56,8 +58,27 @@ export default function AccessoiresPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <>
+      <SEO 
+        title="Accessoires - AlloyGator Vervangingsonderdelen"
+        description="AlloyGator accessoires en vervangingsonderdelen. Bevestigingsclips, reinigingsmiddelen en losse velgbeschermers voor onderhoud en reparatie."
+        keywords="alloygator accessoires, vervangingsonderdelen, bevestigingsclips, reinigingsmiddelen, losse velgbeschermers, velg onderhoud"
+        canonical="/winkel/accessoires"
+        structuredData={generateWebPageData({
+          name: "Accessoires - AlloyGator Vervangingsonderdelen",
+          description: "Extra onderdelen en accessoires voor AlloyGator velgbescherming",
+          url: "/winkel/accessoires",
+          breadcrumb: {
+            items: [
+              { name: "Home", url: "/" },
+              { name: "Winkel", url: "/winkel" },
+              { name: "Accessoires", url: "/winkel/accessoires" }
+            ]
+          }
+        })}
+      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-8">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
@@ -72,10 +93,31 @@ export default function AccessoiresPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Accessoires</h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
             Extra onderdelen en accessoires voor uw AlloyGator velgbescherming. 
             Van vervangingsonderdelen tot extra bevestigingsmateriaal.
           </p>
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">AlloyGator Accessoires Assortiment</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Bevestigingsclips</h3>
+                <p className="text-gray-600">Zorgen voor extra stevigheid bij de installatie van de velgbeschermers. Hierdoor zitten ze superkrachtig klemvast tussen de opgepompte band en de velg.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Reinigingsmiddelen</h3>
+                <p className="text-gray-600">Speciaal ontwikkelde schoonmaakmiddelen houden je wielen en AlloyGators in topconditie zonder de kleur aan te tasten.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Losse AlloyGators</h3>
+                <p className="text-gray-600">Handig bij het onvermijdelijke. Is er een te veel beschadigd, dan kun je een losse AlloyGator kopen om er eentje te vervangen – je hoeft niet een complete set te kopen.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Onderhoud & Verzorging</h3>
+                <p className="text-gray-600">Reinig de AlloyGators regelmatig met een zachte doek en niet-bijtende autoshampoo. Bij schade komt er geen vervelende kleur naar voren omdat ze door en door gekleurd zijn.</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Products Grid */}
@@ -157,5 +199,6 @@ export default function AccessoiresPage() {
         </div>
       </div>
     </div>
+    </>
   )
 } 

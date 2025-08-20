@@ -191,6 +191,118 @@ export default function CustomersPage() {
     }
   }
 
+  const exportCustomersToCSV = (customersToExport: Customer[]) => {
+    // Define all available fields in the correct order
+    const allFields = [
+      'id', 'name', 'email', 'phone', 'company_name', 'address', 'city', 'postal_code', 'country',
+      'is_dealer', 'dealer_group', 'total_orders', 'total_spent', 'last_order_date', 'created_at', 'updated_at',
+      'notes', 'status', 'invoice_email', 'vat_number', 'vat_verified', 'vat_reverse_charge',
+      'latitude', 'longitude', 'website', 'contact_person', 'payment_terms', 'credit_limit',
+      'invoice_payment_terms_days', 'tax_exempt', 'tax_exemption_reason',
+      'contact_first_name', 'contact_last_name', 'separate_shipping_address',
+      'shipping_address', 'shipping_city', 'shipping_postal_code', 'shipping_country',
+      'kvk_number', 'separate_invoice_email', 'show_on_map', 'allow_invoice_payment'
+    ]
+
+    // Create CSV header
+    const headers = allFields.map(field => {
+      // Map field names to user-friendly labels
+      const fieldLabels: Record<string, string> = {
+        'id': 'Klant_ID',
+        'name': 'Naam',
+        'email': 'Email',
+        'phone': 'Telefoon',
+        'company_name': 'Bedrijfsnaam',
+        'address': 'Adres',
+        'city': 'Woonplaats',
+        'postal_code': 'Postcode',
+        'country': 'Land',
+        'is_dealer': 'Is_Dealer',
+        'dealer_group': 'Dealer_Groep',
+        'total_orders': 'Totaal_Bestellingen',
+        'total_spent': 'Totaal_Uitgegeven',
+        'last_order_date': 'Laatste_Bestelling',
+        'created_at': 'Aangemaakt_Op',
+        'updated_at': 'Bijgewerkt_Op',
+        'notes': 'Notities',
+        'status': 'Status',
+        'invoice_email': 'Factuur_Email',
+        'vat_number': 'BTW_Nummer',
+        'vat_verified': 'BTW_Geverifieerd',
+        'vat_reverse_charge': 'BTW_Reverse_Charge',
+        'latitude': 'Latitude',
+        'longitude': 'Longitude',
+        'website': 'Website',
+        'contact_person': 'Contactpersoon',
+        'payment_terms': 'Betaaltermijn',
+        'credit_limit': 'Kredietlimiet',
+        'invoice_payment_terms_days': 'Betaaltermijn_Dagen',
+        'tax_exempt': 'BTW_Vrijgesteld',
+        'tax_exemption_reason': 'BTW_Vrijstelling_Reden',
+        'contact_first_name': 'Contact_Voornaam',
+        'contact_last_name': 'Contact_Achternaam',
+        'separate_shipping_address': 'Apart_Verzendadres',
+        'shipping_address': 'Verzendadres',
+        'shipping_city': 'Verzendplaats',
+        'shipping_postal_code': 'Verzendpostcode',
+        'shipping_country': 'Verzendland',
+        'kvk_number': 'KVK_Nummer',
+        'separate_invoice_email': 'Apart_Factuur_Email',
+        'show_on_map': 'Toon_Op_Kaart',
+        'allow_invoice_payment': 'Op_Rekening_Toegestaan'
+      }
+      return fieldLabels[field] || field
+    })
+
+    // Create CSV rows
+    const csvRows = [headers.join(',')]
+    
+    customersToExport.forEach(customer => {
+      const row = allFields.map(field => {
+        let value = customer[field as keyof Customer]
+        
+        // Handle special field types
+        if (field === 'is_dealer') {
+          value = value ? 'ja' : 'nee'
+        } else if (field === 'vat_verified' || field === 'vat_reverse_charge' || 
+                   field === 'separate_shipping_address' || field === 'separate_invoice_email' ||
+                   field === 'show_on_map' || field === 'allow_invoice_payment') {
+          value = value ? 'ja' : 'nee'
+        } else if (field === 'tax_exempt') {
+          value = value ? 'ja' : 'nee'
+        } else if (field === 'created_at' || field === 'updated_at' || field === 'last_order_date') {
+          if (value && typeof value === 'string') {
+            value = new Date(value).toLocaleDateString('nl-NL')
+          } else {
+            value = ''
+          }
+        } else if (value === null || value === undefined) {
+          value = ''
+        }
+        
+        // Escape commas and quotes in string values
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          value = `"${value.replace(/"/g, '""')}"`
+        }
+        
+        return value
+      })
+      csvRows.push(row.join(','))
+    })
+
+    // Create and download CSV file
+    const csvContent = csvRows.join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `klanten_export_${new Date().toISOString().slice(0, 10)}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const getCustomerStats = () => {
     if (!customers || !Array.isArray(customers)) {
       return {
@@ -235,33 +347,6 @@ export default function CustomersPage() {
           <p className="text-gray-600">Beheer uw klantdatabase</p>
         </div>
         <div className="flex space-x-3">
-          <button 
-            onClick={async () => {
-              if (confirm('Weet je zeker dat je alle klanten wilt migreren naar numerieke IDs? Dit kan niet ongedaan worden gemaakt.')) {
-                try {
-                  setSaving(true)
-                  const result = await FirebaseService.migrateCustomersToNumericIds()
-                  alert(`Migratie voltooid! ${result?.length || 0} klanten gemigreerd.`)
-                  // Refresh the page to show updated customer IDs
-                  window.location.reload()
-                } catch (error) {
-                  alert('Fout bij migreren: ' + error)
-                } finally {
-                  setSaving(false)
-                }
-              }
-            }}
-            disabled={saving}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? 'Bezig...' : '🔄 Migreer naar Numerieke IDs'}
-          </button>
-          <button 
-            onClick={() => setShowCSVImport(true)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
-          >
-            📁 CSV Import
-          </button>
           <button 
             onClick={() => {
               setSelectedCustomer(null)
@@ -333,6 +418,8 @@ export default function CustomersPage() {
           </div>
         </div>
       </div>
+
+      {/* Export/Import knoppen verwijderd; verplaatst naar Instellingen → Data (Import/Export) */}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow">
@@ -1274,7 +1361,7 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
 
   // Available customer fields for mapping
   const customerFields = [
-    { key: 'name', label: 'Naam *', required: true },
+    { key: 'name', label: 'Naam', required: false },
     { key: 'email', label: 'Email *', required: true },
     { key: 'phone', label: 'Telefoon', required: false },
     { key: 'company_name', label: 'Bedrijfsnaam', required: false },
@@ -1303,6 +1390,17 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
     { key: 'notes', label: 'Notities', required: false }
   ]
 
+  // Special field splitting rules
+  const fieldSplittingRules = [
+    {
+      name: 'Adres Splitsen',
+      description: 'Split één kolom met adres, postcode en plaats in aparte velden',
+      fields: ['address', 'postal_code', 'city'],
+      pattern: /^(.+?)\s+(\d{4}\s*[A-Z]{2})\s+(.+)$/i, // Adres Postcode Plaats
+      example: 'Hoofdstraat 123 1234 AB Amsterdam'
+    }
+  ]
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
@@ -1322,29 +1420,8 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
       const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
       setHeaders(headers)
       
-      // Auto-map common fields
-      const autoMapping: Record<string, string> = {}
-      headers.forEach(header => {
-        const lowerHeader = header.toLowerCase()
-        if (lowerHeader.includes('naam') || lowerHeader.includes('name')) autoMapping[header] = 'name'
-        else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail')) autoMapping[header] = 'email'
-        else if (lowerHeader.includes('telefoon') || lowerHeader.includes('phone') || lowerHeader.includes('tel')) autoMapping[header] = 'phone'
-        else if (lowerHeader.includes('bedrijf') || lowerHeader.includes('company') || lowerHeader.includes('firma')) autoMapping[header] = 'company_name'
-        else if (lowerHeader.includes('adres') || lowerHeader.includes('address') || lowerHeader.includes('straat')) autoMapping[header] = 'address'
-        else if (lowerHeader.includes('woonplaats') || lowerHeader.includes('city') || lowerHeader.includes('plaats')) autoMapping[header] = 'city'
-        else if (lowerHeader.includes('postcode') || lowerHeader.includes('zip') || lowerHeader.includes('pc')) autoMapping[header] = 'postal_code'
-        else if (lowerHeader.includes('land') || lowerHeader.includes('country')) autoMapping[header] = 'country'
-        else if (lowerHeader.includes('dealer') || lowerHeader.includes('handelaar')) autoMapping[header] = 'is_dealer'
-        else if (lowerHeader.includes('status')) autoMapping[header] = 'status'
-        else if (lowerHeader.includes('voornaam') || lowerHeader.includes('first')) autoMapping[header] = 'contact_first_name'
-        else if (lowerHeader.includes('achternaam') || lowerHeader.includes('last')) autoMapping[header] = 'contact_last_name'
-        else if (lowerHeader.includes('kvk')) autoMapping[header] = 'kvk_number'
-        else if (lowerHeader.includes('btw') || lowerHeader.includes('vat')) autoMapping[header] = 'vat_number'
-        else if (lowerHeader.includes('website') || lowerHeader.includes('site')) autoMapping[header] = 'website'
-        else if (lowerHeader.includes('contactpersoon') || lowerHeader.includes('contact')) autoMapping[header] = 'contact_person'
-        else if (lowerHeader.includes('notities') || lowerHeader.includes('notes')) autoMapping[header] = 'notes'
-      })
-      setMapping(autoMapping)
+      // Clear existing mapping when new CSV is loaded
+      setMapping({})
       
       // Generate preview
       if (lines.length > 1) {
@@ -1433,8 +1510,67 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
         }
       })
       
+      // Handle address splitting after normal mapping
+      Object.keys(mapping).forEach(header => {
+        if (header.includes(' (address)') || header.includes(' (postal_code)') || header.includes(' (city)')) {
+          const baseColumn = header.split(' (')[0]
+          const splitField = header.split(' (')[1].replace(')', '')
+          const originalValue = values[headers.indexOf(baseColumn)]
+          
+          if (originalValue) {
+            // Try multiple regex patterns for Dutch addresses
+            let addressMatch = null
+            
+            // Pattern 1: "Straat 123 1234 AB Stad" (most common)
+            addressMatch = originalValue.match(/^(.+?)\s+(\d{4}\s*[A-Z]{2})\s+(.+)$/i)
+            
+            // Pattern 2: "Straat 123 1234AB Stad" (no space in postcode)
+            if (!addressMatch) {
+              addressMatch = originalValue.match(/^(.+?)\s+(\d{4}[A-Z]{2})\s+(.+)$/i)
+            }
+            
+            // Pattern 3: "Straat 123 Stad 1234 AB" (city before postcode)
+            if (!addressMatch) {
+              addressMatch = originalValue.match(/^(.+?)\s+(.+?)\s+(\d{4}\s*[A-Z]{2})$/i)
+              if (addressMatch) {
+                // Reorder groups: address, postcode, city
+                const temp = addressMatch[2]
+                addressMatch[2] = addressMatch[3]
+                addressMatch[3] = temp
+              }
+            }
+            
+            if (addressMatch) {
+              if (splitField === 'address') {
+                customerData.address = addressMatch[1].trim()
+              } else if (splitField === 'postal_code') {
+                customerData.postal_code = addressMatch[2].trim()
+              } else if (splitField === 'city') {
+                customerData.city = addressMatch[3].trim()
+              }
+            } else {
+              // Fallback: try to split by common patterns
+              const parts = originalValue.split(/\s+/)
+              if (parts.length >= 3) {
+                // Look for postcode pattern (4 digits + 2 letters)
+                const postcodeIndex = parts.findIndex(part => /^\d{4}[A-Z]{2}$/i.test(part))
+                if (postcodeIndex > 0 && postcodeIndex < parts.length - 1) {
+                  if (splitField === 'address') {
+                    customerData.address = parts.slice(0, postcodeIndex).join(' ')
+                  } else if (splitField === 'postal_code') {
+                    customerData.postal_code = parts[postcodeIndex]
+                  } else if (splitField === 'city') {
+                    customerData.city = parts.slice(postcodeIndex + 1).join(' ')
+                  }
+                }
+              }
+            }
+          }
+        }
+      })
+      
       // Validate required fields
-      if (customerData.name && customerData.email) {
+      if (customerData.email) {
         importedCustomers.push(customerData as Customer)
       }
     }
@@ -1461,6 +1597,108 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Upload CSV Bestand
               </label>
+              <div className="flex space-x-3 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Create example CSV content with ALL available fields
+                    const csvContent = `Klant_ID,Naam,Email,Telefoon,Bedrijfsnaam,Adres,Woonplaats,Postcode,Land,Is_Dealer,Dealer_Groep,Totaal_Bestellingen,Totaal_Uitgegeven,Laatste_Bestelling,Aangemaakt_Op,Bijgewerkt_Op,Notities,Status,Factuur_Email,BTW_Nummer,BTW_Geverifieerd,BTW_Reverse_Charge,Latitude,Longitude,Website,Contactpersoon,Betaaltermijn,Kredietlimiet,Betaaltermijn_Dagen,BTW_Vrijgesteld,BTW_Vrijstelling_Reden,Contact_Voornaam,Contact_Achternaam,Apart_Verzendadres,Verzendadres,Verzendplaats,Verzendpostcode,Verzendland,KVK_Nummer,Apart_Factuur_Email,Toon_Op_Kaart,Op_Rekening_Toegestaan
+"#2000","Jan Jansen","jan@example.com","0612345678","Jansen B.V.","Hoofdstraat 123 1234 AB Amsterdam","Amsterdam","1234 AB","Nederland","ja","Premium","15","1250.50","2024-01-15","2023-01-15","2024-01-20","Klant sinds 2020","active","jan@jansen.nl","NL123456789B01","ja","nee","52.3676","4.9041","www.jansen.nl","Jan Jansen","30 dagen","5000","30","nee","","Jan","Jansen","nee","","","","","12345678","nee","ja","ja"
+"#2001","Piet Pietersen","piet@bedrijf.nl","0201234567","Pietersen & Co","Kerkstraat 45 5678 CD Rotterdam","Rotterdam","5678 CD","Nederland","nee","","8","750.25","2024-01-10","2023-03-20","2024-01-18","","active","piet@bedrijf.nl","NL876543210B02","nee","nee","51.9225","4.4792","www.pietersen.nl","Piet Pietersen","14 dagen","2500","14","nee","","Piet","Pietersen","nee","","","","","87654321","nee","nee","nee"
+"#2002","Maria de Vries","maria@firma.com","0309876543","De Vries Groothandel","Industrieweg 78 9012 EF Utrecht","Utrecht","9012 EF","Nederland","ja","Gold","25","2100.75","2024-01-12","2023-02-10","2024-01-19","Belangrijke klant","active","maria@firma.com","NL112233445B03","ja","nee","52.0907","5.1214","www.devries.nl","Maria de Vries","60 dagen","10000","60","nee","","Maria","de Vries","ja","Industrieweg 78","Utrecht","9012 EF","Nederland","11223344","ja","ja","ja"`
+                    
+                    // Create and download CSV file
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                    const link = document.createElement('a')
+                    const url = URL.createObjectURL(blob)
+                    link.setAttribute('href', url)
+                    link.setAttribute('download', 'voorbeeld_klanten_compleet.csv')
+                    link.style.visibility = 'hidden'
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+                >
+                  📥 Download Voorbeeld CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Show CSV format instructions
+                    alert(`CSV Formaat Instructies - ALLE Beschikbare Velden:
+
+Basis Informatie:
+- Klant_ID: Unieke klant ID (wordt automatisch gegenereerd)
+- Naam: Voornaam en achternaam
+- Email: Email adres (VERPLICHT)
+- Telefoon: Telefoonnummer
+- Bedrijfsnaam: Naam van het bedrijf
+- Adres: Straat en huisnummer
+- Woonplaats: Stad/dorp
+- Postcode: Postcode
+- Land: Land (standaard: Nederland)
+
+Dealer Informatie:
+- Is_Dealer: "ja" of "nee"
+- Dealer_Groep: Groep/type dealer
+
+Bestellingen:
+- Totaal_Bestellingen: Aantal bestellingen
+- Totaal_Uitgegeven: Totaalbedrag besteed
+- Laatste_Bestelling: Datum laatste bestelling (YYYY-MM-DD)
+
+Timestamps:
+- Aangemaakt_Op: Aanmaakdatum (YYYY-MM-DD)
+- Bijgewerkt_Op: Laatste wijziging (YYYY-MM-DD)
+
+Status & Notities:
+- Status: "active", "inactive" of "pending"
+- Notities: Extra informatie
+
+Facturering:
+- Factuur_Email: Email voor facturen
+- BTW_Nummer: BTW nummer
+- BTW_Geverifieerd: "ja" of "nee"
+- BTW_Reverse_Charge: "ja" of "nee"
+- BTW_Vrijgesteld: "ja" of "nee"
+- BTW_Vrijstelling_Reden: Reden voor vrijstelling
+
+Locatie:
+- Latitude: Breedtegraad
+- Longitude: Lengtegraad
+- Toon_Op_Kaart: "ja" of "nee"
+
+Contact & Website:
+- Website: Website URL
+- Contactpersoon: Naam contactpersoon
+- Contact_Voornaam: Voornaam contact
+- Contact_Achternaam: Achternaam contact
+
+Financiële Instellingen:
+- Betaaltermijn: Tekst beschrijving
+- Kredietlimiet: Bedrag
+- Betaaltermijn_Dagen: Aantal dagen
+- Op_Rekening_Toegestaan: "ja" of "nee"
+
+Verzendadres (indien anders):
+- Apart_Verzendadres: "ja" of "nee"
+- Verzendadres: Verzendadres
+- Verzendplaats: Verzendplaats
+- Verzendpostcode: Verzendpostcode
+- Verzendland: Verzendland
+
+Bedrijfsinformatie:
+- KVK_Nummer: KVK nummer
+- Apart_Factuur_Email: "ja" of "nee"
+
+Download het voorbeeld bestand en vul het in met je eigen data!`)
+                  }}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors text-sm"
+                >
+                  ℹ️ CSV Formaat Uitleg
+                </button>
+              </div>
               <input
                 type="file"
                 accept=".csv"
@@ -1475,27 +1713,151 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
             {/* Field Mapping */}
             {headers.length > 0 && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Kolom Mapping</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {headers.map(header => (
-                    <div key={header} className="flex items-center space-x-3">
-                      <label className="text-sm font-medium text-gray-700 min-w-[120px]">
-                        {header}:
-                      </label>
-                      <select
-                        value={mapping[header] || ''}
-                        onChange={(e) => setMapping(prev => ({ ...prev, [header]: e.target.value }))}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="">Niet mappen</option>
-                        {customerFields.map(field => (
-                          <option key={field.key} value={field.key}>
-                            {field.label}
-                          </option>
-                        ))}
-                      </select>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Veld Mapping</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Kies voor elk veld in je site welke CSV kolom daarbij hoort:
+                </p>
+                
+                {/* Address Splitting Section */}
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-2">🔧 Adres Splitsen</h4>
+                  <p className="text-sm text-yellow-700 mb-3">
+                    Als je CSV één kolom heeft met adres, postcode en plaats, kun je deze automatisch splitsen:
+                  </p>
+                  {fieldSplittingRules.map(rule => (
+                    <div key={rule.name} className="mb-3">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id={`split-${rule.fields.join('-')}`}
+                          checked={Object.values(mapping).some(value => rule.fields.includes(value))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              // Find a column that might contain address data
+                              const addressColumn = headers.find(header => 
+                                header.toLowerCase().includes('adres') || 
+                                header.toLowerCase().includes('address') ||
+                                header.toLowerCase().includes('straat') ||
+                                header.toLowerCase().includes('woonplaats') ||
+                                header.toLowerCase().includes('postcode') ||
+                                header.toLowerCase().includes('plaats')
+                              )
+                              if (addressColumn) {
+                                const newMapping = { ...mapping }
+                                // Remove any existing mappings for these fields
+                                Object.keys(newMapping).forEach(key => {
+                                  if (rule.fields.includes(newMapping[key])) {
+                                    delete newMapping[key]
+                                  }
+                                })
+                                // Add split field mappings
+                                rule.fields.forEach(field => {
+                                  newMapping[`${addressColumn} (${field})`] = field
+                                })
+                                setMapping(newMapping)
+                              }
+                            } else {
+                              // Remove all split field mappings
+                              const newMapping = { ...mapping }
+                              Object.keys(newMapping).forEach(key => {
+                                if (rule.fields.includes(newMapping[key])) {
+                                  delete newMapping[key]
+                                }
+                              })
+                              setMapping(newMapping)
+                            }
+                          }}
+                          className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-yellow-300 rounded"
+                        />
+                        <label htmlFor={`split-${rule.fields.join('-')}`} className="text-sm font-medium text-yellow-800">
+                          {rule.name}
+                        </label>
+                      </div>
+                      <p className="text-xs text-yellow-600 ml-7 mt-1">
+                        {rule.description} - Voorbeeld: "{rule.example}"
+                      </p>
                     </div>
                   ))}
+                </div>
+                
+                <div className="space-y-4">
+                  {customerFields.map(field => (
+                    <div key={field.key} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="min-w-[200px]">
+                        <label className="text-sm font-medium text-gray-700">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {field.key}
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <select
+                          value={Object.keys(mapping).find(key => mapping[key] === field.key) || ''}
+                          onChange={(e) => {
+                            const selectedColumn = e.target.value
+                            if (selectedColumn) {
+                              // Remove any existing mapping for this field
+                              const newMapping = { ...mapping }
+                              Object.keys(newMapping).forEach(key => {
+                                if (newMapping[key] === field.key) {
+                                  delete newMapping[key]
+                                }
+                              })
+                              // Add new mapping
+                              newMapping[selectedColumn] = field.key
+                              setMapping(newMapping)
+                            } else {
+                              // Remove mapping for this field
+                              const newMapping = { ...mapping }
+                              Object.keys(newMapping).forEach(key => {
+                                if (newMapping[key] === field.key) {
+                                  delete newMapping[key]
+                                }
+                              })
+                              setMapping(newMapping)
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="">-- Kies CSV kolom --</option>
+                          {headers.map(header => (
+                            <option 
+                              key={header} 
+                              value={header}
+                              disabled={Object.values(mapping).includes(field.key) && mapping[header] !== field.key}
+                            >
+                              {header} {Object.values(mapping).includes(field.key) && mapping[header] === field.key ? '(✓)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="min-w-[100px] text-xs text-gray-500">
+                        {field.required ? 'Verplicht' : 'Optioneel'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Mapping Summary */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Mapping Overzicht:</h4>
+                  <div className="text-sm text-blue-800">
+                    {customerFields.filter(field => field.required).map(field => {
+                      const mappedColumn = Object.keys(mapping).find(key => mapping[key] === field.key)
+                      return (
+                        <div key={field.key} className="flex items-center space-x-2">
+                          <span className="font-medium">{field.label}:</span>
+                          {mappedColumn ? (
+                            <span className="text-green-600">✓ {mappedColumn}</span>
+                          ) : (
+                            <span className="text-red-600">✗ Niet gemapt</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -1513,6 +1875,20 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
                             {header}
                           </th>
                         ))}
+                        {/* Show split fields if any */}
+                        {Object.keys(mapping).some(key => key.includes(' (')) && (
+                          <>
+                            {customerFields.filter(field => 
+                              Object.values(mapping).some(mappedKey => 
+                                mappedKey === field.key && mappedKey.includes(' (')
+                              )
+                            ).map(field => (
+                              <th key={`split-${field.key}`} className="px-3 py-2 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                {field.label} (gesplitst)
+                              </th>
+                            ))}
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1523,6 +1899,73 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
                               {row[header] || ''}
                             </td>
                           ))}
+                          {/* Show split field values */}
+                          {Object.keys(mapping).some(key => key.includes(' (')) && (
+                            <>
+                              {customerFields.filter(field => 
+                                Object.values(mapping).some(mappedKey => 
+                                  mappedKey === field.key && mappedKey.includes(' (')
+                                )
+                              ).map(field => {
+                                const splitHeader = Object.keys(mapping).find(key => mapping[key] === field.key)
+                                if (splitHeader) {
+                                  const baseColumn = splitHeader.split(' (')[0]
+                                  const splitField = splitHeader.split(' (')[1].replace(')', '')
+                                  const originalValue = row[baseColumn]
+                                  
+                                  let splitValue = ''
+                                  if (originalValue) {
+                                    // Try multiple regex patterns for Dutch addresses
+                                    let addressMatch = null
+                                    
+                                    // Pattern 1: "Straat 123 1234 AB Stad" (most common)
+                                    addressMatch = originalValue.match(/^(.+?)\s+(\d{4}\s*[A-Z]{2})\s+(.+)$/i)
+                                    
+                                    // Pattern 2: "Straat 123 1234AB Stad" (no space in postcode)
+                                    if (!addressMatch) {
+                                      addressMatch = originalValue.match(/^(.+?)\s+(\d{4}[A-Z]{2})\s+(.+)$/i)
+                                    }
+                                    
+                                    // Pattern 3: "Straat 123 Stad 1234 AB" (city before postcode)
+                                    if (!addressMatch) {
+                                      addressMatch = originalValue.match(/^(.+?)\s+(.+?)\s+(\d{4}\s*[A-Z]{2})$/i)
+                                      if (addressMatch) {
+                                        // Reorder groups: address, postcode, city
+                                        const temp = addressMatch[2]
+                                        addressMatch[2] = addressMatch[3]
+                                        addressMatch[3] = temp
+                                      }
+                                    }
+                                    
+                                    if (addressMatch) {
+                                      if (splitField === 'address') splitValue = addressMatch[1].trim()
+                                      else if (splitField === 'postal_code') splitValue = addressMatch[2].trim()
+                                      else if (splitField === 'city') splitValue = addressMatch[3].trim()
+                                    } else {
+                                      // Fallback: try to split by common patterns
+                                      const parts = originalValue.split(/\s+/)
+                                      if (parts.length >= 3) {
+                                        // Look for postcode pattern (4 digits + 2 letters)
+                                        const postcodeIndex = parts.findIndex(part => /^\d{4}[A-Z]{2}$/i.test(part))
+                                        if (postcodeIndex > 0 && postcodeIndex < parts.length - 1) {
+                                          if (splitField === 'address') splitValue = parts.slice(0, postcodeIndex).join(' ')
+                                          else if (splitField === 'postal_code') splitValue = parts[postcodeIndex]
+                                          else if (splitField === 'city') splitValue = parts.slice(postcodeIndex + 1).join(' ')
+                                        }
+                                      }
+                                    }
+                                  }
+                                  
+                                  return (
+                                    <td key={`split-${field.key}`} className="px-3 py-2 text-sm text-blue-600 font-medium">
+                                      {splitValue || '-'}
+                                    </td>
+                                  )
+                                }
+                                return null
+                              })}
+                            </>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -1543,8 +1986,17 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={importing}
+                  disabled={importing || !customerFields.filter(field => field.required).every(field => 
+                    Object.values(mapping).includes(field.key)
+                  )}
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  title={
+                    !customerFields.filter(field => field.required).every(field => 
+                      Object.values(mapping).includes(field.key)
+                    ) 
+                      ? 'Email moet gemapt worden om te kunnen importeren' 
+                      : 'Klik om te importeren'
+                  }
                 >
                   {importing ? 'Importeren...' : 'Importeren'}
                 </button>

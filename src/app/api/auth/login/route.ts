@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FirebaseService } from '@/lib/firebase'
+import { adminFirestore } from '@/lib/firebase-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,9 +11,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'E-mail en wachtwoord verplicht' }, { status: 400 })
     }
 
-    // Get user from Firebase
-    const users = await FirebaseService.getDocuments('users')
-    const user = users.find((u: any) => u.email?.toLowerCase().trim() === email.toLowerCase().trim())
+    // Get user from Firebase using Admin SDK
+    const usersRef = adminFirestore.collection('users')
+    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).get()
+    const user = snapshot.docs[0]?.data()
     
     if (!user) {
       return NextResponse.json({ error: 'Gebruiker niet gevonden' }, { status: 401 })

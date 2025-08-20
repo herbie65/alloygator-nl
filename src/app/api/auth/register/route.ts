@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FirebaseService } from '@/lib/firebase'
+import { adminFirestore } from '@/lib/firebase-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,11 +11,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'E-mail en wachtwoord zijn verplicht' }, { status: 400 })
     }
 
-    // Check if user already exists
-    const existingUsers = await FirebaseService.getDocuments('users')
-    const existingUser = existingUsers.find((u: any) => u.email?.toLowerCase().trim() === userData.email.toLowerCase().trim())
+    // Check if user already exists using Admin SDK
+    const usersRef = adminFirestore.collection('users')
+    const snapshot = await usersRef.where('email', '==', userData.email.toLowerCase().trim()).get()
     
-    if (existingUser) {
+    if (!snapshot.empty) {
       return NextResponse.json({ error: 'Gebruiker met dit e-mailadres bestaat al' }, { status: 409 })
     }
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Remove password from response
     const { password: _, ...userResponse } = newUser
 
-    const savedUser = await FirebaseService.addDocument('users', newUser)
+    const savedUser = await usersRef.add(newUser)
 
     return NextResponse.json({
       success: true,

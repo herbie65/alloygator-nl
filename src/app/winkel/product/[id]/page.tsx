@@ -274,6 +274,7 @@ export default function ProductDetailPage() {
     }
 
     localStorage.setItem('alloygator-cart', JSON.stringify(existingCart))
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: existingCart } })) } catch {}
     alert('Product toegevoegd aan winkelwagen!')
   }
 

@@ -36,6 +36,9 @@ interface Order {
   dealer_group?: string
   due_at?: string
   payment_terms_days?: number
+  dhl_tracking_number?: string
+  dhl_shipment_id?: string
+  shipping_label_url?: string
   eboekhouden_sync?: {
     status: 'pending' | 'success' | 'error'
     verkoop_mutatie_id?: string
@@ -77,6 +80,33 @@ export default function OrdersPage() {
         return 'annuleren'
       default:
         return 'nieuw'
+    }
+  }
+
+  const createDhlShipment = async (orderId: string) => {
+    try {
+      setError('')
+      const response = await fetch('/api/dhl/create-shipment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        // Refresh orders to show updated tracking info
+        fetchOrders()
+        // Close modal to show updated order
+        setShowOrderModal(false)
+        setSelectedOrder(null)
+      } else {
+        setError(`Fout bij aanmaken DHL verzending: ${result.error}`)
+      }
+    } catch (error: any) {
+      setError(`Fout bij aanmaken DHL verzending: ${error.message}`)
     }
   }
 
@@ -163,6 +193,28 @@ export default function OrdersPage() {
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order)
     setShowOrderModal(true)
+  }
+
+  const handleCreateRma = async (order: any) => {
+    try {
+      const customerName = `${order.customer?.voornaam || ''} ${order.customer?.achternaam || ''}`.trim() || order.customer?.name || 'Onbekend Klant'
+      const payload = {
+        orderNumber: order.order_number,
+        customerName,
+        email: order.customer?.email || 'onbekend@email.com'
+      }
+      const res = await fetch('/api/returns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (!res.ok) {
+        const data = await res.json().catch(()=>({}))
+        throw new Error(data?.error || 'RMA aanmaken mislukt')
+      }
+      // Refresh orders to reflect RMA badge
+      await fetchOrders()
+      // Optioneel: open RMA pagina in nieuwe tab
+      try { window.open('/admin/returns', '_blank') } catch {}
+    } catch (e:any) {
+      alert(e.message || 'RMA aanmaken mislukt')
+    }
   }
 
   const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
@@ -729,11 +781,6 @@ export default function OrdersPage() {
                       <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold ${order.rma_number ? 'bg-orange-500' : 'bg-gradient-to-r from-green-400 to-green-600'}`}>🛒</div>
                       <div className="ml-4 text-sm font-semibold text-gray-900">
                         #{order.order_number}
-                        {order.rma_number && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
-                            RMA: {order.rma_number}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </td>
@@ -760,9 +807,16 @@ export default function OrdersPage() {
                     €{order.total.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                      {getStatusText(order.status)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                        {getStatusText(order.status)}
+                      </span>
+                      {order.rma_number && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
+                          RMA: {order.rma_number}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(order.payment_status)}`}>
@@ -780,80 +834,28 @@ export default function OrdersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {/* Vier hoofdknoppen: Bekijken, Verwerken, Verzenden, Annuleren */}
-                    <button
-                      onClick={() => handleViewOrder(order)}
-                      className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
+                    <select
+                      defaultValue=""
+                      className="border rounded px-3 py-1 text-sm"
+                      onChange={(e)=>{ const v = e.target.value; e.currentTarget.value = ''; 
+                        if (v === 'view') { handleViewOrder(order); return }
+                        if (v === 'process') { handleUpdateStatus(order.id, 'verwerken'); return }
+                        if (v === 'ship') { handleUpdateStatus(order.id, 'verzonden'); return }
+                        if (v === 'cancel') { handleUpdateStatus(order.id, 'annuleren'); return }
+                        if (v === 'mark-paid') { handleMarkAsPaid(order.id); return }
+                        if (v === 'rma') { handleCreateRma(order); return }
+                      }}
                     >
-                      Bekijken
-                    </button>
-                    {/* Betaald knop voor afhalen bestellingen met contant/pin betaling */}
-                    {order.status === 'nieuw' && 
-                     order.payment_status === 'open' && 
-                     (order.payment_method === 'cash' || order.payment_method === 'pin') &&
-                     (order.shipping_method?.toLowerCase().includes('afhalen') || 
-                      order.shipping_method?.toLowerCase().includes('pickup') ||
-                      order.shipping_method?.toLowerCase().includes('local')) && (
-                      <button
-                        onClick={() => handleMarkAsPaid(order.id)}
-                        className="text-blue-600 hover:text-blue-900 mr-4 transition-colors duration-200"
-                        title="Markeer als betaald (klant heeft contant/pin betaald bij afhalen)"
-                      >
-                        💰 Betaald
-                      </button>
-                    )}
-                    {order.status === 'nieuw' && (
-                      <button
-                        onClick={() => handleUpdateStatus(order.id, 'verwerken')}
-                        className="text-green-600 hover:text-green-900 mr-4 transition-colors duration-200"
-                      >
-                        Verwerken
-                      </button>
-                    )}
-                    {order.status === 'verwerken' && (
-                      <button
-                        onClick={() => handleUpdateStatus(order.id, 'verzonden')}
-                        className="text-purple-600 hover:text-purple-900 mr-4 transition-colors duration-200"
-                      >
-                        Verzenden
-                      </button>
-                    )}
-                    {order.status !== 'annuleren' && order.status !== 'afgerond' && (
-                      <button
-                        onClick={() => handleUpdateStatus(order.id, 'annuleren')}
-                        className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                      >
-                        Annuleren
-                      </button>
-                    )}
-                    {/* e-Boekhouden sync knop - alleen voor betaalde orders */}
-                    {order.payment_status === 'paid' && order.status !== 'annuleren' && (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleeBoekhoudenSync(order.id)}
-                          className="text-purple-600 hover:text-purple-900 transition-colors duration-200"
-                          title="Synchroniseer order met e-Boekhouden"
-                        >
-                          📊 e-Boekhouden
-                        </button>
-                        {/* Sync status indicator */}
-                        {order.eboekhouden_sync?.status === 'pending' && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                            ⏳ Synchroniseren...
-                          </span>
-                        )}
-                        {order.eboekhouden_sync?.status === 'success' && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                            ✅ Gesynchroniseerd
-                          </span>
-                        )}
-                        {order.eboekhouden_sync?.status === 'error' && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                            ❌ Fout: {order.eboekhouden_sync.error_message}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                      <option value="">Actie kiezen…</option>
+                      <option value="view">Bekijken</option>
+                      {order.status === 'nieuw' && (<option value="process">Verwerken</option>)}
+                      {order.status === 'verwerken' && (<option value="ship">Verzenden</option>)}
+                      {(order.status !== 'annuleren' && order.status !== 'afgerond') && (<option value="cancel">Annuleren</option>)}
+                      {(order.status === 'nieuw' && order.payment_status === 'open' && (order.payment_method === 'cash' || order.payment_method === 'pin') && ((order.shipping_method || '').toLowerCase().includes('afhalen') || (order.shipping_method || '').toLowerCase().includes('pickup') || (order.shipping_method || '').toLowerCase().includes('local'))) && (
+                        <option value="mark-paid">Markeer als betaald (afhalen)</option>
+                      )}
+                      <option value="rma">RMA starten</option>
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -871,6 +873,7 @@ export default function OrdersPage() {
             setSelectedOrder(null)
           }}
           onUpdateStatus={handleUpdateStatus}
+          createDhlShipment={createDhlShipment}
         />
       )}
       {showCreateModal && (
@@ -888,9 +891,10 @@ interface OrderDetailModalProps {
   order: Order
   onClose: () => void
   onUpdateStatus: (orderId: string, status: Order['status']) => void
+  createDhlShipment: (orderId: string) => Promise<void>
 }
 
-function OrderDetailModal({ order, onClose, onUpdateStatus }: OrderDetailModalProps) {
+function OrderDetailModal({ order, onClose, onUpdateStatus, createDhlShipment }: OrderDetailModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -1038,6 +1042,62 @@ function OrderDetailModal({ order, onClose, onUpdateStatus }: OrderDetailModalPr
               </div>
             </div>
           </div>
+
+          {/* DHL Shipment Section */}
+          {order.shipping_method?.includes('dhl') && (
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">DHL Verzending</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                {order.dhl_tracking_number ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Tracking Nummer</p>
+                        <p className="text-lg font-bold text-blue-600">{order.dhl_tracking_number}</p>
+                      </div>
+                      <a
+                        href={`https://www.dhl.com/nl-nl/home/tracking/tracking-express.html?submit=1&tracking-id=${order.dhl_tracking_number}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+                      >
+                        Track Pakket
+                      </a>
+                    </div>
+                    {order.dhl_shipment_id && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Shipment ID</p>
+                        <p className="text-sm text-gray-900">{order.dhl_shipment_id}</p>
+                      </div>
+                    )}
+                    {order.shipping_label_url && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Verzendlabel</p>
+                        <a
+                          href={order.shipping_label_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Download Label
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-600 mb-4">Nog geen DHL verzending aangemaakt</p>
+                    <button
+                      onClick={() => createDhlShipment(order.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+                    >
+                      Maak DHL Verzending
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-4 pt-6">
             <button

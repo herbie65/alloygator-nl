@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
+import SEO from '../../components/SEO'
+import { generateWebPageData } from '../../lib/structured-data'
 
 interface Product {
   id: string
@@ -56,8 +58,27 @@ export default function MontageHulpmiddelenPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <>
+      <SEO 
+        title="Montagehulpmiddelen - AlloyGator Installatie Tools"
+        description="Professionele montage tools voor AlloyGator velgbescherming. Complete set met montagewiel, rubber hamer, snijtang en pomp voor perfecte installatie."
+        keywords="montagehulpmiddelen, alloygator installatie, velgbescherming monteren, montagewiel, rubber hamer, snijtang, band op spanning brengen"
+        canonical="/winkel/montagehulpmiddelen"
+        structuredData={generateWebPageData({
+          name: "Montagehulpmiddelen - AlloyGator Installatie Tools",
+          description: "Professionele tools voor eenvoudige montage van AlloyGator velgbescherming",
+          url: "/winkel/montagehulpmiddelen",
+          breadcrumb: {
+            items: [
+              { name: "Home", url: "/" },
+              { name: "Winkel", url: "/winkel" },
+              { name: "Montagehulpmiddelen", url: "/winkel/montagehulpmiddelen" }
+            ]
+          }
+        })}
+      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-8">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
@@ -72,10 +93,37 @@ export default function MontageHulpmiddelenPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Montagehulpmiddelen</h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Professionele tools voor eenvoudige montage van uw AlloyGator velgbescherming. 
-            Complete sets met alle benodigde gereedschappen voor perfecte installatie.
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+            De Montage Tool Set is speciaal ontwikkeld om AlloyGators eenvoudig, snel en professioneel te installeren.
           </p>
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Complete Montage Set Inhoud</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Montagewiel</h3>
+                <p className="text-gray-600">Speciaal ontwikkeld wiel voor het perfect positioneren van de AlloyGator tussen band en velg.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Rubber Hamer</h3>
+                <p className="text-gray-600">Zachte hamer voor het veilig aanslaan van de velgbeschermer zonder schade aan te richten.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Snijtang</h3>
+                <p className="text-gray-600">Professionele tang voor het precies afknippen van overtollig materiaal na installatie.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600 mb-2">Bandenpomp</h3>
+                <p className="text-gray-600">Pomp voor het op spanning brengen van de band na montage van de AlloyGator.</p>
+              </div>
+            </div>
+            <div className="mt-6 p-4 bg-green-50 rounded-lg">
+              <h3 className="font-semibold text-green-800 mb-2">Gebruik</h3>
+              <p className="text-green-700">
+                Met deze set druk je de AlloyGator stevig tussen de band en de velg, waarna je overtollig materiaal afknipt en de band op de juiste spanning brengt. 
+                Ideaal voor monteurs en doe-het-zelvers.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Products Grid */}
@@ -157,5 +205,6 @@ export default function MontageHulpmiddelenPage() {
         </div>
       </div>
     </div>
+    </>
   )
 } 

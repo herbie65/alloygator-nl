@@ -50,7 +50,11 @@ export default function OrderConfirmationPage() {
       try {
         const fetched = await FirebaseClientService.getOrderById(orderId)
         if (fetched) {
-          setOrder(fetched as Order)
+          // Bugfix: ensure UI has orderNumber/createdAt even if DB lacked them historically
+          const safe: any = fetched
+          const orderNumber = safe.orderNumber || safe.order_number || safe.id
+          const createdAt = safe.createdAt || safe.created_at || new Date().toISOString()
+          setOrder({ ...(fetched as any), orderNumber, createdAt } as Order)
         } else {
           router.push('/winkel')
         }
@@ -83,6 +87,17 @@ export default function OrderConfirmationPage() {
         </div>
       </div>
     )
+  }
+
+  const safeCustomer = {
+    voornaam: order.customer?.voornaam || '',
+    achternaam: order.customer?.achternaam || '',
+    email: order.customer?.email || '',
+    telefoon: order.customer?.telefoon || '',
+    adres: order.customer?.adres || '',
+    postcode: order.customer?.postcode || '',
+    plaats: order.customer?.plaats || '',
+    land: order.customer?.land || 'NL'
   }
 
   const getPaymentMethodName = (method: string) => {
@@ -128,7 +143,7 @@ export default function OrderConfirmationPage() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Bestelling Bevestigd!</h1>
           <p className="text-lg text-gray-600">
-            Bedankt voor uw bestelling. We hebben een bevestigingsemail gestuurd naar {order.customer.email}
+            Bedankt voor uw bestelling. {safeCustomer.email ? `We hebben een bevestigingsemail gestuurd naar ${safeCustomer.email}` : 'We sturen u spoedig een bevestigingsemail.'}
           </p>
         </div>
 
@@ -146,7 +161,7 @@ export default function OrderConfirmationPage() {
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Besteldatum</h3>
                   <p className="text-lg font-semibold text-gray-900">
-                    {new Date(order.createdAt).toLocaleDateString('nl-NL')}
+                    {new Date(order.createdAt || new Date().toISOString()).toLocaleDateString('nl-NL')}
                   </p>
                 </div>
                 <div>
@@ -221,22 +236,22 @@ export default function OrderConfirmationPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Naam</h3>
-                  <p className="text-gray-900">{order.customer.voornaam} {order.customer.achternaam}</p>
+                  <p className="text-gray-900">{`${safeCustomer.voornaam} ${safeCustomer.achternaam}`.trim() || '—'}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Email</h3>
-                  <p className="text-gray-900">{order.customer.email}</p>
+                  <p className="text-gray-900">{safeCustomer.email || '—'}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Telefoon</h3>
-                  <p className="text-gray-900">{order.customer.telefoon}</p>
+                  <p className="text-gray-900">{safeCustomer.telefoon || '—'}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Adres</h3>
                   <p className="text-gray-900">
-                    {order.customer.adres}<br />
-                    {order.customer.postcode} {order.customer.plaats}<br />
-                    {order.customer.land}
+                    {(safeCustomer.adres || '—')}<br />
+                    {(safeCustomer.postcode || '')} {(safeCustomer.plaats || '')}<br />
+                    {safeCustomer.land}
                   </p>
                 </div>
               </div>
