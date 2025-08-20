@@ -263,6 +263,7 @@ export async function ensureInvoice(orderId: string) {
     // Email PDF to customer and admin
     try {
       const email = new EmailService()
+      await email.init()
       await email.sendInvoiceEmail(
         {
           orderNumber: String(orderAny.orderNumber || orderId),
