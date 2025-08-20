@@ -111,7 +111,7 @@ export default function TipTapEditor({ value, onChange }: { value: string; onCha
       }
       
       // Controleer of de Image extensie beschikbaar is
-      if (!editor.can().setImage()) {
+      if (!editor.can().setImage({ src: '' })) {
         // Fallback: direct een URL vragen en HTML invoegen
         const url = prompt('Voer de URL van de afbeelding in:')
         if (url) {
@@ -277,7 +277,7 @@ export default function TipTapEditor({ value, onChange }: { value: string; onCha
                           }
                           
                           // Probeer eerst setImage, anders fallback naar insertContent
-                          if (editor.can().setImage()) {
+                          if (editor.can().setImage({ src: '' })) {
                             try {
                               editor.chain().focus().setImage({ src: url }).run()
                               setShowMedia(false)
@@ -325,7 +325,7 @@ export default function TipTapEditor({ value, onChange }: { value: string; onCha
                   }
                   
                   // Probeer eerst setImage, anders fallback naar insertContent
-                  if (editor.can().setImage()) {
+                  if (editor.can().setImage({ src: '' })) {
                     try {
                       editor.chain().focus().setImage({ src: url }).run()
                       setShowMedia(false)
