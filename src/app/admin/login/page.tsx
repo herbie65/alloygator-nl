@@ -143,7 +143,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">AlloyGator Admin</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">AlloyGator AdminTest</h1>
           <p className="text-gray-600">Log in om het admin panel te beheren</p>
         </div>
 
