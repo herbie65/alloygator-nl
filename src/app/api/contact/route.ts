@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Send notification email to admin
     try {
       const adminEmail = settingsArray && settingsArray.length > 0 ? settingsArray[0].adminEmail : 'info@alloygator.nl'
-      await emailService.transporter.sendMail({
+      await emailService.sendMail({
         from: `"AlloyGator Contact Formulier" <${settingsArray && settingsArray.length > 0 ? settingsArray[0].smtpUser : (process.env.SMTP_USER || 'noreply@alloygator.nl')}>`,
         to: adminEmail,
         subject: `Nieuw contactformulier: ${onderwerp}`,
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
                   // Send confirmation email to customer
               try {
-                await emailService.transporter.sendMail({
+                await emailService.sendMail({
                   from: `"AlloyGator Nederland" <${settingsArray && settingsArray.length > 0 ? settingsArray[0].smtpUser : (process.env.SMTP_USER || 'noreply@alloygator.nl')}>`,
                   to: email,
                   subject: `Bevestiging van uw bericht - AlloyGator`,
