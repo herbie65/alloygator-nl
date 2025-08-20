@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { signInWithEmailAndPassword, getAuth } from 'firebase/auth'
+import { initializeApp } from 'firebase/app'
+
+// Firebase config - werkt zowel lokaal als live via environment variables
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+}
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig)
+const auth = getAuth(app)
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -37,36 +53,73 @@ export default function AdminLoginPage() {
     }
   }, [mounted, router])
 
+  // Check if user is admin based on email
+  const isAdminEmail = (email: string): boolean => {
+    const adminEmails = [
+      'info@alloygator.nl',
+      'admin@alloygator.nl',
+      // Voeg meer admin emails toe als nodig
+    ]
+    return adminEmails.includes(email.toLowerCase().trim())
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    
     try {
-      const res = await fetch('/api/admin/auth/login', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ email, password }) 
-      })
+      console.log('🔐 Attempting Firebase login for:', email)
       
-      // Check if response is JSON
-      const contentType = res.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server error: Niet-JSON response ontvangen')
+      // Firebase Auth login
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
+      
+      console.log('✅ Firebase login successful:', user.email)
+      
+      // Check if user is admin
+      if (!isAdminEmail(user.email || '')) {
+        await auth.signOut() // Sign out non-admin user
+        throw new Error('Geen admin-toegang voor dit account')
       }
       
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}: Login mislukt`)
+      // Create admin session
+      const role = 'admin' // Default role for admin emails
+      const payload = { 
+        email: user.email, 
+        role, 
+        loginTime: new Date().toISOString(),
+        uid: user.uid 
       }
       
-      const payload = { email: data.email, role: data.role, loginTime: new Date().toISOString() }
+      // Save to localStorage
       localStorage.setItem('adminSessionV2', JSON.stringify(payload))
-      // Write cookie for middleware (server-side guards)
+      
+      // Set cookie for middleware (server-side guards)
       document.cookie = `adminSessionV2=${encodeURIComponent(JSON.stringify(payload))}; path=/; max-age=${60*60*8}`
+      
+      console.log('✅ Admin session created, redirecting to admin panel')
       router.push('/admin')
-    } catch (e:any) {
-      console.error('Login error:', e)
-      setError(e.message || 'Login mislukt')
+      
+    } catch (e: any) {
+      console.error('❌ Login error:', e)
+      
+      // Firebase error handling
+      let errorMessage = 'Login mislukt'
+      
+      if (e.code === 'auth/user-not-found') {
+        errorMessage = 'Gebruiker niet gevonden'
+      } else if (e.code === 'auth/wrong-password') {
+        errorMessage = 'Onjuist wachtwoord'
+      } else if (e.code === 'auth/invalid-email') {
+        errorMessage = 'Ongeldig e-mailadres'
+      } else if (e.code === 'auth/too-many-requests') {
+        errorMessage = 'Te veel mislukte pogingen. Probeer later opnieuw.'
+      } else if (e.message) {
+        errorMessage = e.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -138,6 +191,10 @@ export default function AdminLoginPage() {
             {isLoading ? 'Inloggen...' : 'Inloggen'}
           </button>
         </form>
+        
+        <div className="mt-4 text-xs text-gray-500 text-center">
+          <p>Firebase Direct Auth - v2.0</p>
+        </div>
       </div>
     </div>
   )
