@@ -12,10 +12,7 @@ import dynamic from 'next/dynamic'
 // Dynamische import van MediaPickerModal met error handling
 const MediaPickerModal = dynamic(() => import('../components/MediaPickerModal'), { 
   ssr: false,
-  loading: () => <div className="p-2 text-sm text-gray-500">Media picker laden...</div>,
-  onError: (error) => {
-    console.error('Error loading MediaPickerModal:', error)
-  }
+  loading: () => <div className="p-2 text-sm text-gray-500">Media picker laden...</div>
 })
 
 export default function TipTapEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
