@@ -50,10 +50,7 @@ export default function TipTapEditor({ value, onChange }: { value: string; onCha
         setError('Fout bij het maken van editor')
       }
     },
-    onError: (error) => {
-      console.error('Editor error:', error)
-      setError('Editor fout: ' + error.message)
-    }
+
   })
 
   // Alleen initialiseren bij mount of wanneer editor inhoud echt achterloopt.
