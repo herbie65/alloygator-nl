@@ -95,31 +95,10 @@ export default function AlloyGatorSetPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">AlloyGator Sets</h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             AlloyGator velgbeschermers zijn de ultieme bescherming voor je lichtmetalen velgen. 
             Gemaakt van hoogwaardig en flexibel nylon, beschermen ze effectief tegen stoeprandschade en andere alledaagse gevaren.
           </p>
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Waarom kiezen voor AlloyGator?</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-              <div>
-                <h3 className="font-semibold text-green-600 mb-2">Flexibiliteit & Maatwerk</h3>
-                <p className="text-gray-600">Geschikt voor vrijwel alle velgen van 12" tot 24". Tijdens montage worden ze op maat gemaakt voor jouw specifieke velg.</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-green-600 mb-2">Stijlkeuze</h3>
-                <p className="text-gray-600">Kies voor een onzichtbare look met zwarte, zilveren of grijze uitvoeringen, of juist opvallen met een opvallende kleur.</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-green-600 mb-2">Kwaliteit & Veiligheid</h3>
-                <p className="text-gray-600">Uitvoerig getest op duurzaamheid en veiligheid. Hoogwaardig nylon materiaal dat bestand is tegen dagelijks gebruik.</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-green-600 mb-2">Professionele Montage</h3>
-                <p className="text-gray-600">Laat je AlloyGators monteren door een erkende dealer voor het beste resultaat, of monteer ze zelf met onze montage tools.</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Products Grid */}
@@ -174,6 +153,29 @@ export default function AlloyGatorSetPage() {
             </Link>
           </div>
         )}
+
+        {/* Waarom kiezen voor AlloyGator */}
+        <div className="mt-16 bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4 text-center">Waarom kiezen voor AlloyGator?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            <div>
+              <h3 className="font-semibold text-green-600 mb-2">Flexibiliteit & Maatwerk</h3>
+              <p className="text-gray-600">Geschikt voor vrijwel alle velgen van 12" tot 24". Tijdens montage worden ze op maat gemaakt voor jouw specifieke velg.</p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-600 mb-2">Stijlkeuze</h3>
+              <p className="text-gray-600">Kies voor een onzichtbare look met zwarte, zilveren of grijze uitvoeringen, of juist opvallen met een opvallende kleur.</p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-600 mb-2">Kwaliteit & Veiligheid</h3>
+              <p className="text-gray-600">Uitvoerig getest op duurzaamheid en veiligheid. Hoogwaardig nylon materiaal dat bestand is tegen dagelijks gebruik.</p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-600 mb-2">Professionele Montage</h3>
+              <p className="text-gray-600">Laat je AlloyGators monteren door een erkende dealer voor het beste resultaat, of monteer ze zelf met onze montage tools.</p>
+            </div>
+          </div>
+        </div>
 
         {/* Category Navigation */}
         <div className="mt-16 bg-white rounded-lg shadow-md p-6">

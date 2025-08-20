@@ -369,40 +369,9 @@ export default function VindEenDealerPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Vind een Dealer</h1>
           <h2 className="text-2xl font-semibold text-green-600 mb-4">AlloyGator Montagepartners in Nederland en België</h2>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Altijd een AlloyGator dealer bij jou in de buurt
           </p>
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
-            <p className="text-gray-700 mb-4">
-              Wij werken met een professioneel netwerk van erkende dealers en montagepunten door heel Nederland en België. 
-              Deze partners zijn speciaal getraind in de juiste installatie van AlloyGator velgbeschermers en garanderen een perfecte pasvorm en veilige montage.
-            </p>
-            <p className="text-gray-700 mb-4">
-              Gebruik onze online dealerzoeker om eenvoudig een montagepartner te vinden op basis van je postcode of woonplaats. 
-              Laat je velgen professioneel beschermen door een expert bij jou in de buurt.
-            </p>
-            <div className="mt-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Waarom kiezen voor een erkende dealer?</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✓</span>
-                  <span className="text-gray-700">Vakkundige montage</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✓</span>
-                  <span className="text-gray-700">Advies over kleuren en maatvoering</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✓</span>
-                  <span className="text-gray-700">Directe levering uit voorraad</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✓</span>
-                  <span className="text-gray-700">Garantie op installatie</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Data Source Info */}
@@ -617,6 +586,55 @@ export default function VindEenDealerPage() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Informatie en voordelen */}
+        <div className="mt-16 bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h3 className="text-2xl font-semibold text-gray-900 mb-4 text-center">Over ons dealer netwerk</h3>
+            <p className="text-gray-700 mb-4 text-center">
+              Wij werken met een professioneel netwerk van erkende dealers en montagepunten door heel Nederland en België. 
+              Deze partners zijn speciaal getraind in de juiste installatie van AlloyGator velgbeschermers en garanderen een perfecte pasvorm en veilige montage.
+            </p>
+            <p className="text-gray-700 text-center">
+              Gebruik onze online dealerzoeker om eenvoudig een montagepartner te vinden op basis van je postcode of woonplaats. 
+              Laat je velgen professioneel beschermen door een expert bij jou in de buurt.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-xl font-semibold text-gray-900 mb-4 text-center">Waarom kiezen voor een erkende dealer?</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-center space-x-3">
+                <span className="text-green-600 text-xl">✓</span>
+                <div>
+                  <h5 className="font-semibold text-gray-900">Vakkundige montage</h5>
+                  <p className="text-gray-600 text-sm">Professionele installatie door getrainde specialisten</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-green-600 text-xl">✓</span>
+                <div>
+                  <h5 className="font-semibold text-gray-900">Advies over kleuren en maatvoering</h5>
+                  <p className="text-gray-600 text-sm">Persoonlijk advies voor de beste keuze</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-green-600 text-xl">✓</span>
+                <div>
+                  <h5 className="font-semibold text-gray-900">Directe levering uit voorraad</h5>
+                  <p className="text-gray-600 text-sm">Snelle beschikbaarheid van alle benodigde materialen</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-green-600 text-xl">✓</span>
+                <div>
+                  <h5 className="font-semibold text-gray-900">Garantie op installatie</h5>
+                  <p className="text-gray-600 text-sm">Volledige garantie op werk en materialen</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
