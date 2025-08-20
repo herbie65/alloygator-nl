@@ -61,6 +61,17 @@ export class EmailService {
     })
   }
 
+  // Publieke methode om e-mails te versturen
+  async sendMail(mailOptions: nodemailer.SendMailOptions): Promise<boolean> {
+    try {
+      await this.transporter.sendMail(mailOptions)
+      return true
+    } catch (error) {
+      console.error('Error sending email:', error)
+      return false
+    }
+  }
+
   // Admin wachtwoord reset e-mail
   async sendPasswordResetEmail(toEmail: string, resetUrl: string): Promise<boolean> {
     try {
