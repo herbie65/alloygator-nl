@@ -935,6 +935,26 @@ export class FirebaseService {
     return await this.getDocuments('settings', []);
   }
 
+  static async createSettings(settingsData: any) {
+    try {
+      const database = getDb();
+      const logicalId = await this.generateLogicalId('settings', settingsData)
+      const docRef = doc(database, 'settings', logicalId)
+      
+      await setDoc(docRef, {
+        ...settingsData,
+        id: logicalId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      return { id: logicalId, ...settingsData };
+    } catch (error) {
+      console.error('Error creating settings:', error);
+      throw error;
+    }
+  }
+
   static async updateSettings(id: string, settingsData: any) {
     return await this.updateDocument('settings', id, settingsData);
   }
