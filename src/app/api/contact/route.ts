@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmailService } from '@/lib/email';
+import { FirebaseService } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,15 +13,26 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Initialize email service
-    const emailService = new EmailService();
+    // Get email settings from database
+    const settings = await FirebaseService.getSettings();
+    const emailSettings = settings.find((s: any) => s.smtpHost && s.smtpUser && s.smtpPass);
     
-    // Send contact form email to admin
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER;
-    
-    if (adminEmail) {
+    if (emailSettings) {
+      // Initialize email service with settings from database
+      const emailService = new EmailService({
+        smtpHost: emailSettings.smtpHost,
+        smtpPort: emailSettings.smtpPort,
+        smtpUser: emailSettings.smtpUser,
+        smtpPass: emailSettings.smtpPass,
+        adminEmail: emailSettings.adminEmail || emailSettings.smtpUser,
+        emailNotifications: emailSettings.emailNotifications || true
+      });
+      
+      // Send contact form email to admin
+      const adminEmail = emailSettings.adminEmail || emailSettings.smtpUser;
+      
       const mailOptions = {
-        from: `AlloyGator Contact Form <${process.env.SMTP_USER}>`,
+        from: `AlloyGator Contact Form <${emailSettings.smtpUser}>`,
         to: adminEmail,
         subject: `Nieuw contactformulier bericht van ${name}`,
         html: `
@@ -41,6 +53,8 @@ export async function POST(request: NextRequest) {
       } else {
         console.error('Failed to send contact form email to admin');
       }
+    } else {
+      console.log('No email settings found, skipping email sending');
     }
 
     // Log the contact form submission

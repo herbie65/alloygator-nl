@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmailService } from '@/lib/email';
+import { FirebaseService } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,17 +13,33 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // TODO: Implement actual user lookup in database
-    // For now, we'll send the reset email to any valid email format
+    // Get email settings from database
+    const settings = await FirebaseService.getSettings();
+    const emailSettings = settings.find((s: any) => s.smtpHost && s.smtpUser && s.smtpPass);
     
+    if (!emailSettings) {
+      console.error('No email settings found in database');
+      return NextResponse.json({ 
+        success: false, 
+        message: 'E-mail configuratie niet gevonden. Neem contact op met de beheerder.' 
+      }, { status: 500 });
+    }
+
     // Generate reset token
     const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
     // Create reset URL (this should point to your reset password page)
     const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/reset?token=${resetToken}`;
     
-    // Initialize email service
-    const emailService = new EmailService();
+    // Initialize email service with settings from database
+    const emailService = new EmailService({
+      smtpHost: emailSettings.smtpHost,
+      smtpPort: emailSettings.smtpPort,
+      smtpUser: emailSettings.smtpUser,
+      smtpPass: emailSettings.smtpPass,
+      adminEmail: emailSettings.adminEmail || emailSettings.smtpUser,
+      emailNotifications: emailSettings.emailNotifications || true
+    });
     
     // Send password reset email
     const emailSent = await emailService.sendCustomerPasswordResetEmail(email, resetUrl);
