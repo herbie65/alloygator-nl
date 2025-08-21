@@ -2,10 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { FirebaseService } from '@/lib/firebase'
 
 type OpenState = {
   label: string
   detail: string
+}
+
+interface FooterContent {
+  id: string
+  type: 'footer'
+  content: string
+  updated_at: string
 }
 
 function computeOpenState(now: Date): OpenState {
@@ -50,11 +58,34 @@ function computeOpenState(now: Date): OpenState {
 
 export default function Footer() {
   const [openState, setOpenState] = useState<OpenState>(() => computeOpenState(new Date()))
+  const [footerContent, setFooterContent] = useState<FooterContent | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setOpenState(computeOpenState(new Date()))
     const t = setInterval(() => setOpenState(computeOpenState(new Date())), 60_000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const fetchFooterContent = async () => {
+      try {
+        setLoading(true)
+        const headerFooterData = await FirebaseService.getHeaderFooter()
+        if (headerFooterData && headerFooterData.length > 0) {
+          const footer = headerFooterData.find((hf: any) => hf.type === 'footer')
+          if (footer) {
+            setFooterContent(footer)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching footer content:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchFooterContent()
   }, [])
 
   const year = useMemo(() => new Date().getFullYear(), [])
@@ -83,7 +114,6 @@ export default function Footer() {
               <li><Link href="/montage-instructies" className="text-gray-300 hover:text-white transition-colors">Montage-instructies</Link></li>
               <li><Link href="/velgen-bescherming-laten-plaatsen" className="text-gray-300 hover:text-white transition-colors">Velgen bescherming laten plaatsen</Link></li>
               <li><Link href="/waarom-alloygator" className="text-gray-300 hover:text-white transition-colors">Waarom kiezen voor AlloyGator?</Link></li>
-              <li><Link href="/sitemap.xml" className="text-gray-300 hover:text-white transition-colors">Sitemap</Link></li>
             </ul>
           </div>
 
@@ -97,38 +127,30 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-4">Bedrijfsinfo</h3>
-            <div className="text-gray-300 space-y-1">
-              <p>Kweekgrasstraat 36</p>
-              <p>1313 BX Almere</p>
-              <p>Nederland</p>
-              <p className="mt-2">
-                <a href="tel:0853033400" className="text-green-400 hover:text-green-300">085-3033400</a>
-              </p>
-              <p>
-                <a href="mailto:info@alloygator.nl" className="text-green-400 hover:text-green-300">info@alloygator.nl</a>
-              </p>
+            <h3 className="text-lg font-semibold mb-4">Openingstijden</h3>
+            <div className="mb-4">
+              <div className="text-green-400 font-semibold">{openState.label}</div>
+              <div className="text-gray-300 text-sm">{openState.detail}</div>
             </div>
-            <div className="mt-4 text-sm relative inline-flex flex-col items-start group">
-              <div className="font-semibold cursor-default" aria-live="polite" aria-describedby="footer-open-tooltip">
-                {openState.label}
-              </div>
-              <div
-                id="footer-open-tooltip"
-                role="tooltip"
-                className="pointer-events-none absolute left-0 top-full mt-2 hidden max-w-xs whitespace-normal rounded-xl bg-gray-800/95 px-3 py-2 text-[0.9rem] text-white shadow-lg ring-1 ring-lime-400/30 group-hover:block"
-              >
-                {openState.detail}
-              </div>
-              <div className="mt-2 text-gray-400">
-                Ma–Vr: 08:30–17:00<br />Za–Zo: Gesloten
-              </div>
+            <div className="text-gray-300 text-sm">
+              <div>Maandag - Vrijdag: 08:30 - 17:00</div>
+              <div>Zaterdag - Zondag: Gesloten</div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-          <p>©{year} AlloyGator Netherlands. All rights reserved.</p>
+        {/* Dynamic Footer Content from CMS */}
+        {footerContent && !loading && (
+          <div className="mt-8 pt-8 border-t border-gray-700">
+            <div 
+              className="text-gray-300 prose prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: footerContent.content }}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 pt-8 border-t border-gray-700 text-center text-gray-400">
+          <p>&copy; {year} AlloyGator. Alle rechten voorbehouden.</p>
         </div>
       </div>
     </footer>
