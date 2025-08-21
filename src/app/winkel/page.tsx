@@ -106,10 +106,41 @@ export default function WinkelPage() {
     if (savedWishlist) {
       setWishlist(JSON.parse(savedWishlist))
     }
-    // React op dealer quick-login keys
-    const onStorage = () => setCart(prev => [...prev])
+    
+    // Real-time cart sync
+    const syncCart = () => {
+      const savedCart = localStorage.getItem('alloygator-cart')
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart)
+          setCart(parsedCart)
+        } catch (error) {
+          console.error('Error parsing cart:', error)
+        }
+      }
+    }
+    
+    // React op dealer quick-login keys en cart updates
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'alloygator-cart') {
+        syncCart()
+      }
+    }
+    
+    const onCartUpdated = () => {
+      syncCart()
+    }
+    
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener('cart-updated', onCartUpdated)
+    
+    // Initial sync
+    syncCart()
+    
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('cart-updated', onCartUpdated)
+    }
   }, [])
 
   // Filter and sort products (new logic)
@@ -163,7 +194,7 @@ export default function WinkelPage() {
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
       // Notify listeners
-      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
+      window.dispatchEvent(new Event('cart-updated'))
     } else {
       const newItem: CartItem = {
         id: product.id,
@@ -178,7 +209,7 @@ export default function WinkelPage() {
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
       // Notify listeners
-      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
+      window.dispatchEvent(new Event('cart-updated'))
     }
   }
 

@@ -45,6 +45,10 @@ export default function LoginPage() {
         is_dealer: !!data.user.is_dealer,
         dealer_group: data.user.dealer_group || ''
       }))
+      
+      // Trigger custom event to notify Header component
+      window.dispatchEvent(new Event('user-login'))
+      
       // Redirect: dealers naar account (met dealer-sectie), particulieren idem
       router.push('/account')
     } catch (e:any) {

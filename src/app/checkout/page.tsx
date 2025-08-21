@@ -558,8 +558,11 @@ export default function CheckoutPage() {
 
   const loadPickupLocations = async () => {
     try {
-      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-      if (!selectedMethod || selectedMethod.delivery_type !== 'pickup') return;
+      // Check if pickup is selected (either hardcoded or from database)
+      const isPickupSelected = shippingMethod === 'pickup' || 
+        (settings.shippingMethods.find(method => method.id === shippingMethod)?.delivery_type === 'pickup');
+      
+      if (!isPickupSelected) return;
 
       const postalCode = customer.separateShippingAddress ? customer.shippingPostcode : customer.postcode;
       if (!postalCode) {
@@ -571,16 +574,20 @@ export default function CheckoutPage() {
       setPickupLocations([]);
       setShowPickupLocations(true);
 
-      console.log(`Loading pickup locations for ${selectedMethod.carrier} in ${postalCode}`);
+      // For hardcoded pickup, use DHL as default carrier
+      const carrier = shippingMethod === 'pickup' ? 'dhl' : 
+        settings.shippingMethods.find(method => method.id === shippingMethod)?.carrier || 'dhl';
+
+      console.log(`Loading pickup locations for ${carrier} in ${postalCode}`);
 
       let response;
-      if (selectedMethod.carrier === 'dhl') {
+      if (carrier === 'dhl') {
         response = await fetch(
           `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
         );
       } else {
         // Voor andere carriers (PostNL, etc.) kunnen we hier later andere endpoints toevoegen
-        alert(`${selectedMethod.carrier.toUpperCase()} afhaalpunten worden nog niet ondersteund. Kies een andere verzendmethode.`);
+        alert(`${carrier.toUpperCase()} afhaalpunten worden nog niet ondersteund. Kies een andere verzendmethode.`);
         setShowPickupLocations(false);
         return;
       }
@@ -591,7 +598,7 @@ export default function CheckoutPage() {
           console.log(`Found ${data.data.length} pickup locations`);
           setPickupLocations(data.data);
         } else {
-          alert(`Geen afhaalpunten gevonden voor ${selectedMethod.carrier} in postcode ${postalCode}. Probeer een andere postcode of kies een andere verzendmethode.`);
+          alert(`Geen afhaalpunten gevonden voor ${carrier} in postcode ${postalCode}. Probeer een andere postcode of kies een andere verzendmethode.`);
           setShowPickupLocations(false);
         }
       } else {
@@ -610,7 +617,7 @@ export default function CheckoutPage() {
           } else if (errorData.details.includes('DHL API access denied')) {
             errorMessage = 'Toegang tot DHL API geweigerd. Controleer of je API key voldoende rechten heeft.';
           } else if (errorData.details.includes('No pickup locations found')) {
-            errorMessage = `Geen afhaalpunten gevonden voor ${selectedMethod.carrier} in postcode ${postalCode}. Probeer een andere postcode.`;
+            errorMessage = `Geen afhaalpunten gevonden voor ${carrier} in postcode ${postalCode}. Probeer een andere postcode.`;
           } else {
             errorMessage = `Fout bij het laden van afhaalpunten: ${errorData.details}`;
           }
@@ -1070,10 +1077,13 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="mt-2">
-                      <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
-                        <input type="checkbox" checked={createAccount} onChange={(e)=>setCreateAccount(e.target.checked)} />
-                        <span>Maak ook een account aan</span>
-                      </label>
+                      {/* Only show account creation checkbox if user is not logged in */}
+                      {!localStorage.getItem('currentUser') && (
+                        <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={createAccount} onChange={(e)=>setCreateAccount(e.target.checked)} />
+                          <span>Maak ook een account aan</span>
+                        </label>
+                      )}
                       {createAccount && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           <div>
@@ -1096,50 +1106,92 @@ export default function CheckoutPage() {
                     <h2 className="text-xl font-semibold text-gray-900">Verzendmethode</h2>
                     
                     <div className="space-y-4">
-                      {settings.shippingMethods
-                        .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
-                        .map((method) => {
-                          // Calculate if this method would be free (based on net items subtotal)
-                          const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                          const discountTmp = dealer.isDealer ? (subtotal * (dealer.discountPercent || 0)) / 100 : 0;
-                          const netTmp = subtotal - discountTmp;
-                          const isFree = netTmp >= parseFloat(settings.freeShippingThreshold);
-                          
-                          return (
-                            <div key={method.id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <input
-                                    type="radio"
-                                    id={method.id}
-                                    name="shippingMethod"
-                                    value={method.id}
-                                    checked={shippingMethod === method.id}
-                                    onChange={(e) => handleShippingMethodChange(e.target.value)}
-                                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
-                                  />
-                                  <div>
-                                    <label htmlFor={method.id} className="font-medium text-gray-900 cursor-pointer">
-                                      {method.name}
-                                    </label>
-                                    <p className="text-sm text-gray-600">{method.description}</p>
+                      {/* Hardcoded pickup option - always available */}
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="radio"
+                              id="pickup"
+                              name="shippingMethod"
+                              value="pickup"
+                              checked={shippingMethod === 'pickup'}
+                              onChange={(e) => handleShippingMethodChange(e.target.value)}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                            />
+                            <div>
+                              <label htmlFor="pickup" className="font-medium text-gray-900 cursor-pointer">
+                                Afhalen bij dealer
+                              </label>
+                              <p className="text-sm text-gray-600">Haal je bestelling op bij een dealer in de buurt</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-green-600">Gratis</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Database shipping methods */}
+                      {settings.shippingMethods && settings.shippingMethods.length > 0 ? (
+                        settings.shippingMethods
+                          .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
+                          .map((method) => {
+                            // Calculate if this method would be free (based on net items subtotal)
+                            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                            const discountTmp = dealer.isDealer ? (subtotal * (dealer.discountPercent || 0)) / 100 : 0;
+                            const netTmp = subtotal - discountTmp;
+                            const isFree = netTmp >= parseFloat(settings.freeShippingThreshold);
+                            
+                            return (
+                              <div key={method.id} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="radio"
+                                      id={method.id}
+                                      name="shippingMethod"
+                                      value={method.id}
+                                      checked={shippingMethod === method.id}
+                                      onChange={(e) => handleShippingMethodChange(e.target.value)}
+                                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                    />
+                                    <div>
+                                      <label htmlFor={method.id} className="font-medium text-gray-900 cursor-pointer">
+                                        {method.name}
+                                      </label>
+                                      <p className="text-sm text-gray-600">{method.description}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium text-gray-900">
+                                      {isFree ? 'Gratis' : `€${method.price.toFixed(2)}`}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-medium text-gray-900">
-                                    {isFree ? 'Gratis' : `€${method.price.toFixed(2)}`}
-                                  </p>
-                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-gray-500">Geen extra verzendmethodes beschikbaar</p>
+                          <div className="mt-2 p-3 bg-gray-50 rounded-md text-left">
+                            <p className="text-xs text-gray-600 mb-1">Debug info:</p>
+                            <p className="text-xs text-gray-500">Settings loaded: {settings.shippingMethods ? 'Yes' : 'No'}</p>
+                            <p className="text-xs text-gray-500">Shipping methods count: {settings.shippingMethods?.length || 0}</p>
+                            <p className="text-xs text-gray-500">Enabled carriers: {settings.enabledCarriers?.join(', ') || 'None'}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Pickup Location Selection */}
                     {(() => {
-                      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-                      return selectedMethod?.delivery_type === 'pickup' && (
+                      // Check if pickup is selected (either hardcoded or from database)
+                      const isPickupSelected = shippingMethod === 'pickup' || 
+                        (settings.shippingMethods.find(method => method.id === shippingMethod)?.delivery_type === 'pickup');
+                      
+                      return isPickupSelected && (
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <h3 className="text-lg font-medium text-gray-900">Afhaalpunt Selecteren</h3>
