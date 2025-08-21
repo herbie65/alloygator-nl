@@ -97,14 +97,32 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-4">Openingstijden</h3>
-            <div className="mb-4">
-              <div className="text-green-400 font-semibold">{openState.label}</div>
-              <div className="text-gray-300 text-sm">{openState.detail}</div>
+            <h3 className="text-lg font-semibold mb-4">Bedrijfsinfo</h3>
+            <div className="text-gray-300 space-y-1">
+              <p>Kweekgrasstraat 36</p>
+              <p>1313 BX Almere</p>
+              <p>Nederland</p>
+              <p className="mt-2">
+                <a href="tel:0853033400" className="text-green-400 hover:text-green-300">085-3033400</a>
+              </p>
+              <p>
+                <a href="mailto:info@alloygator.nl" className="text-green-400 hover:text-green-300">info@alloygator.nl</a>
+              </p>
             </div>
-            <div className="text-gray-300 text-sm">
-              <div>Maandag - Vrijdag: 08:30 - 17:00</div>
-              <div>Zaterdag - Zondag: Gesloten</div>
+            <div className="mt-4 text-sm relative inline-flex flex-col items-start group">
+              <div className="font-semibold cursor-default" aria-live="polite" aria-describedby="footer-open-tooltip">
+                {openState.label}
+              </div>
+              <div
+                id="footer-open-tooltip"
+                role="tooltip"
+                className="pointer-events-none absolute left-0 top-full mt-2 hidden max-w-xs whitespace-normal rounded-xl bg-gray-800/95 px-3 py-2 text-[0.9rem] text-white shadow-lg ring-1 ring-lime-400/30 group-hover:block"
+              >
+                {openState.detail}
+              </div>
+              <div className="mt-2 text-gray-400">
+                Ma–Vr: 08:30–17:00<br />Za–Zo: Gesloten
+              </div>
             </div>
           </div>
         </div>
