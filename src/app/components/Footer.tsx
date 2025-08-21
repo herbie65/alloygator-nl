@@ -67,10 +67,10 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Over AlloyGator</h3>
             <ul className="space-y-2">
-              <li><Link href="/over-ons" className="text-gray-300 hover:text-white transition-colors">Over ons</Link></li>
-              <li><Link href="/contact" className="text-gray-300 hover:text-white transition-colors">Contact</Link></li>
-              <li><Link href="/reviews" className="text-gray-300 hover:text-white transition-colors">Reviews & Pers</Link></li>
-              <li><Link href="/wat-zijn-onze-retourvoorwaarden" className="text-gray-300 hover:text-white transition-colors">Retourbeleid</Link></li>
+              <li><Link href="/over-ons" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Over ons</Link></li>
+              <li><Link href="/contact" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Contact</Link></li>
+              <li><Link href="/reviews" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Reviews & Pers</Link></li>
+              <li><Link href="/wat-zijn-onze-retourvoorwaarden" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Retourbeleid</Link></li>
               <li><Link href="/privacy-policy" className="text-gray-300 hover:text-white transition-colors">Privacybeleid</Link></li>
               <li><Link href="/algemene-voorwaarden" className="text-gray-300 hover:text-white transition-colors">Algemene voorwaarden</Link></li>
             </ul>
@@ -79,20 +79,20 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Content</h3>
             <ul className="space-y-2">
-              <li><Link href="/news" className="text-gray-300 hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="/customer-care" className="text-gray-300 hover:text-white transition-colors">Veelgestelde vragen</Link></li>
-              <li><Link href="/montage-instructies" className="text-gray-300 hover:text-white transition-colors">Montage-instructies</Link></li>
-              <li><Link href="/velgen-bescherming-laten-plaatsen" className="text-gray-300 hover:text-white transition-colors">Velgen bescherming laten plaatsen</Link></li>
-              <li><Link href="/waarom-alloygator" className="text-gray-300 hover:text-white transition-colors">Waarom kiezen voor AlloyGator?</Link></li>
+              <li><Link href="/news" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Blog</Link></li>
+              <li><Link href="/customer-care" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Veelgestelde vragen</Link></li>
+              <li><Link href="/montage-instructies" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Montage-instructies</Link></li>
+              <li><Link href="/velgen-bescherming-laten-plaatsen" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Velgen bescherming laten plaatsen</Link></li>
+              <li><Link href="/waarom-alloygator" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Waarom kiezen voor AlloyGator?</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold mb-4">Dealers</h3>
             <ul className="space-y-2">
-              <li><Link href="/vind-een-dealer" className="text-gray-300 hover:text-white transition-colors">Vind een dealer</Link></li>
-              <li><Link href="/wholesale" className="text-gray-300 hover:text-white transition-colors">Aanmelden als dealer</Link></li>
-              <li><Link href="/trade-partner-benefits" className="text-gray-300 hover:text-white transition-colors">Voordelen om dealer te worden</Link></li>
+              <li><Link href="/vind-een-dealer" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Vind een dealer</Link></li>
+              <li><Link href="/wholesale" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Aanmelden als dealer</Link></li>
+              <li><Link href="/trade-partner-benefits" className="text-gray-300 hover:text-white transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Voordelen om dealer te worden</Link></li>
             </ul>
           </div>
 
