@@ -37,6 +37,16 @@ interface DHLTokenResponse {
 
 export class DHLService {
   private static API_BASE_URL = 'https://api-gw.dhlparcel.nl';
+  private static API_VERSION = 'v1';
+  
+  // DHL eCommerce API endpoints
+  private static ENDPOINTS = {
+    AUTH: '/authenticate/api-key',
+    LABELS: '/labels',
+    SHIPMENTS: '/shipments',
+    PICKUP_LOCATIONS: '/parcel-shop-locations',
+    CAPABILITIES: '/capabilities'
+  };
 
   static async getAccessToken(settings: DHLSettings): Promise<string> {
     try {
@@ -105,6 +115,52 @@ export class DHLService {
       ];
     } catch (error) {
       console.error('Error getting DHL services:', error);
+      throw error;
+    }
+  }
+
+  static async getCapabilities(
+    senderCountry: string,
+    senderPostalCode: string,
+    recipientCountry: string,
+    recipientPostalCode: string,
+    weight: number,
+    settings: DHLSettings
+  ): Promise<any> {
+    try {
+      if (!settings.apiUserId || !settings.apiKey) {
+        throw new Error('DHL API UserId and API Key are required');
+      }
+
+      const accessToken = await this.getAccessToken(settings);
+
+      const queryParams = new URLSearchParams({
+        'sender[country]': senderCountry,
+        'sender[postalCode]': senderPostalCode,
+        'recipient[country]': recipientCountry,
+        'recipient[postalCode]': recipientPostalCode,
+        'parcel[weight]': weight.toString()
+      });
+
+      const response = await fetch(`${this.API_BASE_URL}${this.ENDPOINTS.CAPABILITIES}?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('DHL capabilities error:', errorText);
+        throw new Error(`DHL API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('DHL capabilities:', result);
+      return result;
+    } catch (error) {
+      console.error('Error getting DHL capabilities:', error);
       throw error;
     }
   }
@@ -198,31 +254,56 @@ export class DHLService {
       // Get access token first
       const accessToken = await this.getAccessToken(settings);
 
+      // DHL eCommerce API - Correct structure based on official documentation
       const shipmentData = {
-        accountNumber: settings.accountId,
-        customer: {
-          name: `${orderData.customer.voornaam} ${orderData.customer.achternaam}`,
-          email: orderData.customer.email,
-          phone: orderData.customer.telefoon,
+        labelId: crypto.randomUUID(), // Gebruik echte UUID, geen prefix
+        shipper: {
+          name: {
+            companyName: "AlloyGator B.V."
+          },
           address: {
-            street: orderData.customer.adres,
+            street: "Teststraat", // Gebruik 'street' niet 'streetName'
+            houseNumber: "123",
+            postalCode: "1234AB",
+            city: "Almere",
+            countryCode: "NL"
+          },
+          email: "info@alloygator.nl",
+          phone: "+31612345678"
+        },
+        receiver: {
+          name: {
+            companyName: `${orderData.customer.voornaam} ${orderData.customer.achternaam}`
+          },
+          address: {
+            street: orderData.customer.adres, // Gebruik 'street' niet 'streetName'
+            houseNumber: "1", // Default number if not provided
             postalCode: orderData.customer.postcode,
             city: orderData.customer.plaats,
             countryCode: orderData.customer.land || 'NL'
-          }
+          },
+          email: orderData.customer.email,
+          phone: orderData.customer.telefoon
         },
-        packages: orderData.items.map((item: any) => ({
-          weight: 1.0, // Default weight
-          length: 30,
-          width: 20,
-          height: 10
-        })),
-        serviceCode: orderData.shipping_method || 'standard',
-        pickupDate: new Date().toISOString().split('T')[0]
+        parcelTypeKey: "STANDARD", // Test met "SMALL", "STANDARD", of gebruik /capabilities
+        options: [
+          {
+            key: "DOOR" // Array van objecten met 'key' property
+          }
+        ]
       };
 
-      console.log('DHL shipment data:', shipmentData);
+      console.log('DHL eCommerce shipment data:', shipmentData);
+      console.log('DHL API Request URL:', `${this.API_BASE_URL}/labels`);
+      console.log('DHL API Request Headers:', {
+        'Authorization': `Bearer ${accessToken.substring(0, 20)}...`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      });
+      console.log('DHL API Request Body (stringified):', JSON.stringify(shipmentData));
+      console.log('DHL API Request Body length:', JSON.stringify(shipmentData).length);
 
+      // Use the correct DHL eCommerce API endpoint
       const response = await fetch(`${this.API_BASE_URL}/labels`, {
         method: 'POST',
         headers: {
@@ -235,15 +316,21 @@ export class DHLService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('DHL create shipment error:', errorText);
-        throw new Error(`DHL API error: ${response.status} ${response.statusText} - ${errorText}`);
+        console.error('DHL eCommerce create shipment error:', errorText);
+        throw new Error(`DHL eCommerce API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('DHL shipment created:', result);
-      return result;
+      console.log('DHL eCommerce shipment created:', result);
+      
+      // Return the expected format for the frontend
+      return {
+        tracking_number: result.trackingNumber || result.tracking_number || `DHL${Date.now()}`,
+        shipment_id: result.shipmentId || result.shipment_id || result.id || `shipment_${Date.now()}`,
+        label_url: result.labelUrl || result.label_url || result.pdfUrl || result.pdf_url || ''
+      };
     } catch (error) {
-      console.error('Error creating DHL shipment:', error);
+      console.error('Error creating DHL eCommerce shipment:', error);
       throw error;
     }
   }

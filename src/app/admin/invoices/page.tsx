@@ -311,6 +311,7 @@ export default function InvoicesPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Factuurnr.</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Klant</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotaal</th>
@@ -324,6 +325,9 @@ export default function InvoicesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filtered.map(o=> (
                 <tr key={o.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="font-medium">{o.invoice_number || '—'}</div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="font-medium">{o.orderNumber}</div>
                     <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleDateString('nl-NL')}</div>
@@ -347,7 +351,6 @@ export default function InvoicesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                     <div className="flex items-center justify-end space-x-3">
-                      <button onClick={()=>generateInvoice(o.id)} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">Genereer</button>
                       <Link href={`/admin/orders`} className="px-3 py-1 border rounded hover:bg-gray-50">Open bestelling</Link>
                     </div>
                   </td>

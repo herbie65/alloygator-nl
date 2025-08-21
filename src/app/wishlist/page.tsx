@@ -127,6 +127,7 @@ export default function WishlistPage() {
       )
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
+      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
     } else {
       const newItem: CartItem = {
         id: product.id,
@@ -138,6 +139,7 @@ export default function WishlistPage() {
       const updatedCart = [...cart, newItem]
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
+      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
     }
   }
 

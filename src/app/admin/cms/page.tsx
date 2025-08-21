@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { FirebaseService } from '@/lib/firebase'
 import dynamic from 'next/dynamic'
 const TipTapEditor = dynamic(() => import('./TipTapEditor'), { ssr: false })
+const MediaPickerModal = dynamic(() => import('../components/MediaPickerModal'), { ssr: false })
 
 interface CMSPage {
   id: string
@@ -32,6 +33,7 @@ export default function CMSPage() {
   const [editingPage, setEditingPage] = useState<CMSPage | null>(null)
   const [showHeaderFooterModal, setShowHeaderFooterModal] = useState(false)
   const [editingHeaderFooter, setEditingHeaderFooter] = useState<HeaderFooter | null>(null)
+  const [showMediaModal, setShowMediaModal] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -487,6 +489,15 @@ export default function CMSPage() {
           >
             + Nieuwe Pagina
           </button>
+          <button
+            onClick={() => {
+              // Open media picker modal directly for media management
+              setShowMediaModal(true)
+            }}
+            className="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-6 py-3 rounded-lg hover:from-orange-700 hover:to-orange-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            📁 Media Beheer
+          </button>
         </div>
       </div>
 
@@ -664,6 +675,20 @@ export default function CMSPage() {
           saving={saving}
         />
       )}
+
+      {/* Media Management Modal */}
+      {showMediaModal && (
+        <MediaPickerModal
+          isOpen={showMediaModal}
+          onClose={() => setShowMediaModal(false)}
+          onSelect={(url) => {
+            // Just close the modal when selecting media in this context
+            setShowMediaModal(false)
+          }}
+          allowUpload={true}
+          title="Media Beheer - Upload en beheer afbeeldingen"
+        />
+      )}
     </div>
   )
 }
@@ -688,12 +713,17 @@ function PageModal({ page, editingPage, onSave, onClose, saving }: PageModalProp
     created_at: '',
     updated_at: ''
   })
+  const [mode, setMode] = useState<'visual' | 'source'>('visual')
 
   useEffect(() => {
     if (editingPage) {
       setFormData(editingPage)
+      const html = editingPage.content || ''
+      setMode(/<h1|<h2|<h3|<p|<div|<section|<article/i.test(html) ? 'source' : 'visual')
     } else if (page) {
       setFormData(page)
+      const html = page.content || ''
+      setMode(/<h1|<h2|<h3|<p|<div|<section|<article/i.test(html) ? 'source' : 'visual')
     }
   }, [page, editingPage])
 
@@ -769,18 +799,50 @@ function PageModal({ page, editingPage, onSave, onClose, saving }: PageModalProp
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Content *
-              </label>
-              <textarea
-                value={formData.content}
-                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                rows={15}
-                required
-                disabled={isViewing}
-                placeholder="<h1>Titel</h1><p>Content hier...</p>"
-              />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Content *
+                </label>
+                {!isViewing && (
+                  <div className="space-x-2 text-xs">
+                    <button 
+                      type="button" 
+                      onClick={() => setMode('visual')} 
+                      className={`px-2 py-1 border rounded ${mode === 'visual' ? 'bg-green-600 text-white border-green-600' : 'bg-white'}`}
+                    >
+                      Visueel
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setMode('source')} 
+                      className={`px-2 py-1 border rounded ${mode === 'source' ? 'bg-green-600 text-white border-green-600' : 'bg-white'}`}
+                    >
+                      HTML bron
+                    </button>
+                  </div>
+                )}
+              </div>
+              {mode === 'visual' ? (
+                <TipTapEditor 
+                  value={formData.content} 
+                  onChange={(html) => setFormData(prev => ({ ...prev, content: html }))} 
+                />
+              ) : (
+                <textarea
+                  value={formData.content}
+                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                  rows={15}
+                  required
+                  disabled={isViewing}
+                  placeholder="<h1>Titel</h1><p>Content hier...</p>"
+                />
+              )}
+              {mode === 'visual' && !isViewing && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Let op: de visuele editor toont alleen gangbare elementen (koppen, lijsten, paragrafen, afbeeldingen). Voor complexe lay-out kun je overschakelen naar HTML.
+                </p>
+              )}
             </div>
 
             {!isViewing && (

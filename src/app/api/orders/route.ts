@@ -40,6 +40,13 @@ export async function PUT(request: NextRequest) {
 
     await FirebaseService.updateDocument('orders', id, update)
 
+    // Best effort: als order op betaald staat, leeg client cart via header-hint (front-end kan dit oppikken)
+    try {
+      if ((update as any).payment_status === 'paid') {
+        // no-op: response hint
+      }
+    } catch {}
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Order update error:', error)

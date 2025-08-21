@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FirebaseService } from '@/lib/firebase'
+import { ensureInvoice } from '@/lib/invoice'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +51,22 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Invoice generation error:', error)
+    return NextResponse.json({ error: 'Fout bij genereren factuur' }, { status: 500 })
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id') || searchParams.get('orderId')
+    if (!id) {
+      return NextResponse.json({ error: 'Order ID is verplicht' }, { status: 400 })
+    }
+    // Genereer of hergebruik factuur en redirect naar de PDF
+    const result = await ensureInvoice(id)
+    return NextResponse.redirect(new URL(result.url, request.url))
+  } catch (error) {
+    console.error('Invoice generation (GET) error:', error)
     return NextResponse.json({ error: 'Fout bij genereren factuur' }, { status: 500 })
   }
 }

@@ -36,8 +36,11 @@ export default function Header() {
     // Load cart count
     const savedCart = localStorage.getItem('alloygator-cart')
     if (savedCart) {
-      const cart = JSON.parse(savedCart)
-      setCartCount(cart.length)
+      try {
+        const cart = JSON.parse(savedCart)
+        const count = Array.isArray(cart) ? cart.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0) : 0
+        setCartCount(count)
+      } catch {}
     }
 
     // Load wishlist count
@@ -62,8 +65,6 @@ export default function Header() {
             else if (g.includes('zilver') || g.includes('silver')) setDealerGroupLabel('Zilver')
             else if (g.includes('brons') || g.includes('bronze')) setDealerGroupLabel('Brons')
             else if (g.includes('platina') || g.includes('platinum')) setDealerGroupLabel('Platina')
-            else setDealerGroupLabel(null)
-            setLoading(false)
             return
           }
         }
@@ -78,10 +79,43 @@ export default function Header() {
           else if (gl.includes('brons')||gl.includes('bronze')) setDealerGroupLabel('Brons')
           else if (gl.includes('platina')||gl.includes('platinum')) setDealerGroupLabel('Platina')
         }
-      } catch {}
+      } catch (err) {
+        // ignore
+      } finally { setLoading(false) }
     })()
 
-    setLoading(false)
+    // Keep cart and wishlist counters in sync via storage and light polling
+    const syncCart = () => {
+      try {
+        const raw = localStorage.getItem('alloygator-cart') || '[]'
+        const parsed = JSON.parse(raw)
+        const count = Array.isArray(parsed) ? parsed.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0) : 0
+        setCartCount(count)
+      } catch (_) {}
+    }
+    const syncWishlist = () => {
+      try {
+        const raw = localStorage.getItem('alloygator-wishlist') || '[]'
+        const parsed = JSON.parse(raw)
+        const count = Array.isArray(parsed) ? parsed.length : 0
+        setWishlistCount(count)
+      } catch (_) {}
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'alloygator-cart') syncCart()
+      if (e.key === 'alloygator-wishlist') syncWishlist()
+    }
+    const onCartUpdated = () => syncCart()
+    const interval = window.setInterval(() => {
+      syncCart(); syncWishlist()
+    }, 600)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('cart-updated', onCartUpdated as EventListener)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('cart-updated', onCartUpdated as EventListener)
+    }
   }, [])
 
   const handleLogout = () => {

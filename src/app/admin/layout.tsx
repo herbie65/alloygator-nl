@@ -27,6 +27,8 @@ export default function AdminLayout({
   const [role, setRole] = useState<'admin'|'staff'|'guest'>('guest')
   const [email, setEmail] = useState('')
   const [customerUploadNotifications, setCustomerUploadNotifications] = useState(0)
+  const [appointmentsUpcoming, setAppointmentsUpcoming] = useState(0)
+  const [appointmentsToday, setAppointmentsToday] = useState(0)
 
   const logout = () => {
     localStorage.removeItem('adminSessionV2')
@@ -126,6 +128,30 @@ export default function AdminLayout({
     if (isAuthenticated) {
       loadNotifications()
     }
+  }, [isAuthenticated])
+  useEffect(() => {
+    const loadUpcomingAppts = async () => {
+      try {
+        const now = new Date()
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const endOfToday = new Date(startOfToday)
+        endOfToday.setHours(23,59,59,999)
+        const endOfWeek = new Date(startOfToday)
+        endOfWeek.setDate(endOfWeek.getDate() + 7)
+        const [resWeek, resToday] = await Promise.all([
+          fetch(`/api/crm/appointments?from=${encodeURIComponent(startOfToday.toISOString())}&to=${encodeURIComponent(endOfWeek.toISOString())}&limit=500`),
+          fetch(`/api/crm/appointments?from=${encodeURIComponent(startOfToday.toISOString())}&to=${encodeURIComponent(endOfToday.toISOString())}&limit=500`)
+        ])
+        const listWeek = resWeek.ok ? await resWeek.json() : []
+        const listToday = resToday.ok ? await resToday.json() : []
+        setAppointmentsUpcoming(Array.isArray(listWeek) ? listWeek.length : 0)
+        setAppointmentsToday(Array.isArray(listToday) ? listToday.length : 0)
+      } catch {
+        setAppointmentsUpcoming(0)
+        setAppointmentsToday(0)
+      }
+    }
+    if (isAuthenticated) loadUpcomingAppts()
   }, [isAuthenticated])
 
   // Separate useEffect for authentication check
@@ -385,8 +411,9 @@ export default function AdminLayout({
           href: '/admin/crm', 
           icon: '🤝', 
           color: 'bg-green-400',
-          badge: customerUploadNotifications > 0 ? customerUploadNotifications.toString() : undefined
-        }
+          badge: appointmentsToday > 0 ? String(appointmentsToday) : (customerUploadNotifications > 0 ? String(customerUploadNotifications) : undefined)
+        },
+        { name: 'Afspraken', href: '/admin/crm/appointments', icon: '📅', color: 'bg-green-400', badge: appointmentsToday > 0 ? String(appointmentsToday) : undefined },
       ]
     },
     { 
@@ -407,7 +434,10 @@ export default function AdminLayout({
       color: 'bg-orange-500',
       children: [
         { name: 'Bestellingen', href: '/admin/orders', icon: '🛒', color: 'bg-orange-400' },
-        { name: 'Facturen', href: '/admin/invoices', icon: '🧾', color: 'bg-orange-400' }
+        { name: 'Facturen', href: '/admin/invoices', icon: '🧾', color: 'bg-orange-400' },
+        { name: 'Creditfacturen', href: '/admin/credit-invoices', icon: '🧾', color: 'bg-orange-400' },
+        { name: 'Retouren (RMA)', href: '/admin/returns', icon: '↩️', color: 'bg-orange-400' },
+        { name: 'DHL Verzendingen', href: '/admin/dhl', icon: '🚚', color: 'bg-orange-400' }
       ]
     },
     ...(role === 'admin' ? [{ 
@@ -476,10 +506,11 @@ export default function AdminLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-white rounded-lg mr-3 flex items-center justify-center">
-                <span className="text-green-600 font-bold text-lg">A</span>
-              </div>
               <h1 className="text-2xl font-bold text-white">AlloyGator Admin</h1>
+              <span className="ml-4 text-sm text-yellow-100">Afspraken vandaag:</span>
+              <a href="/admin/crm/appointments" className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-300 text-yellow-900 text-xs font-semibold hover:bg-yellow-200" title="Afspraken vandaag">
+                📅 {appointmentsToday}
+              </a>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-green-100">Welkom, {email || 'Admin'}</span>

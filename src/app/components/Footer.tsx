@@ -62,7 +62,7 @@ export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <h3 className="text-lg font-semibold mb-4">Over AlloyGator</h3>
             <ul className="space-y-2">
@@ -77,22 +77,14 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-4">Ondersteuning</h3>
+            <h3 className="text-lg font-semibold mb-4">Content</h3>
             <ul className="space-y-2">
               <li><Link href="/news" className="text-gray-300 hover:text-white transition-colors">Blog</Link></li>
               <li><Link href="/customer-care" className="text-gray-300 hover:text-white transition-colors">Veelgestelde vragen</Link></li>
               <li><Link href="/montage-instructies" className="text-gray-300 hover:text-white transition-colors">Montage-instructies</Link></li>
               <li><Link href="/velgen-bescherming-laten-plaatsen" className="text-gray-300 hover:text-white transition-colors">Velgen bescherming laten plaatsen</Link></li>
               <li><Link href="/waarom-alloygator" className="text-gray-300 hover:text-white transition-colors">Waarom kiezen voor AlloyGator?</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Populaire artikelen</h3>
-            <ul className="space-y-2">
-              <li><Link href="/winkel/alloygator-set" className="text-gray-300 hover:text-white transition-colors">AlloyGators</Link></li>
-              <li><Link href="/winkel/accessoires" className="text-gray-300 hover:text-white transition-colors">Accessoires</Link></li>
-              <li><Link href="/winkel/montagehulpmiddelen" className="text-gray-300 hover:text-white transition-colors">Montagehulpmiddelen</Link></li>
+              <li><Link href="/sitemap.xml" className="text-gray-300 hover:text-white transition-colors">Sitemap</Link></li>
             </ul>
           </div>
 

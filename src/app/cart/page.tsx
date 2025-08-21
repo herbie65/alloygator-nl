@@ -43,12 +43,14 @@ export default function CartPage() {
       const updatedCart = cartItems.filter(item => item.id !== id);
       setCartItems(updatedCart);
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart));
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     } else {
       const updatedCart = cartItems.map(item =>
         item.id === id ? { ...item, quantity: newQuantity } : item
       );
       setCartItems(updatedCart);
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart));
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     }
   };
 
@@ -56,6 +58,7 @@ export default function CartPage() {
     const updatedCart = cartItems.filter(item => item.id !== id);
     setCartItems(updatedCart);
     localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
   };
 
   const saveForLater = (item: CartItem) => {
@@ -63,6 +66,7 @@ export default function CartPage() {
     const updatedCart = cartItems.filter(cartItem => cartItem.id !== item.id);
     setCartItems(updatedCart);
     localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     
     // Add to saved items
     const updatedSavedItems = [...savedItems, item];
@@ -80,6 +84,7 @@ export default function CartPage() {
     const updatedCart = [...cartItems, item];
     setCartItems(updatedCart);
     localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
   };
 
   const removeSavedItem = (id: string) => {
@@ -91,6 +96,7 @@ export default function CartPage() {
   const clearCart = () => {
     setCartItems([]);
     localStorage.removeItem('alloygator-cart');
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
   };
 
   // Calculate totals with dealer discounts if applicable

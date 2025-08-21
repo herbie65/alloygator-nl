@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ products: 0, customers: 0, orders: 0 })
+  const [apptToday, setApptToday] = useState(0)
+  const [apptWeek, setApptWeek] = useState(0)
+  const [apptSoon, setApptSoon] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -21,6 +25,25 @@ export default function AdminDashboard() {
         ])
         if (!isMounted) return
         setStats({ products: prods.length || 0, customers: custs.length || 0, orders: ords.length || 0 })
+        // Load appointments for counters/notifications
+        try {
+          const now = new Date()
+          const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          const endOfWeek = new Date(startOfToday)
+          endOfWeek.setDate(endOfWeek.getDate() + 7)
+          const res = await fetch(`/api/crm/appointments?from=${encodeURIComponent(startOfToday.toISOString())}&to=${encodeURIComponent(endOfWeek.toISOString())}`)
+          const list = res.ok ? await res.json() : []
+          if (!isMounted) return
+          const todayCount = list.filter((a:any)=> new Date(a.start_at||0).toDateString() === startOfToday.toDateString()).length
+          setApptToday(todayCount)
+          setApptWeek(Array.isArray(list) ? list.length : 0)
+          // Binnen 24 uur en over tijd
+          const soon = (Array.isArray(list) ? list : []).filter((a:any)=>{
+            const t = new Date(a.start_at||0).getTime()
+            return t >= now.getTime() && t <= now.getTime() + 24*60*60*1000
+          }).slice(0,5)
+          setApptSoon(soon)
+        } catch {}
       } catch (e: any) {
         if (!isMounted) return
         setError(e?.message || 'Onbekende fout bij laden dashboard cijfers')
@@ -42,7 +65,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-green-100 text-green-600">
@@ -87,6 +110,40 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        <Link href="/admin/crm/appointments" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow block">
+          <div className="flex items-center cursor-pointer">
+            <div className="p-3 rounded-full bg-orange-100 text-orange-600">
+              📅
+            </div>
+            <div className="ml-4">
+              <h3 className="text-lg font-semibold text-gray-900">Afspraken</h3>
+              <p className="text-sm text-gray-600">Vandaag: <span className="font-semibold text-gray-900">{apptToday}</span></p>
+              <p className="text-sm text-gray-600">Deze week: <span className="font-semibold text-gray-900">{apptWeek}</span></p>
+              <span className="inline-block mt-1 text-xs text-green-700">Open agenda →</span>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Afspraken notificaties (onder stats, boven snelle acties) */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Afspraken – Binnen 24 uur</h2>
+        {apptSoon.length === 0 ? (
+          <p className="text-sm text-gray-500">Geen afspraken binnen 24 uur</p>
+        ) : (
+          <ul className="space-y-2">
+            {apptSoon.map((a:any, i:number) => (
+              <li key={i} className="flex items-center justify-between border-b last:border-b-0 pb-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{a.title || 'Afspraak'}</p>
+                  <p className="text-xs text-gray-600 truncate">{a.start_at ? new Date(a.start_at).toLocaleString('nl-NL') : ''} • {a.type || 'call'}</p>
+                </div>
+                <a href={a.customer_id ? `/admin/crm/${encodeURIComponent(a.customer_id)}` : '/admin/crm'} className="text-xs text-green-700 hover:underline">Bekijken</a>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -170,6 +227,8 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      
 
       {/* Info Box */}
       <div className="bg-green-50 border border-green-200 rounded-md p-4">

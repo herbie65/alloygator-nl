@@ -9,11 +9,22 @@ export default function CustomerGroupsPage(){
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [customers, setCustomers] = useState<any[]>([])
+
+  // Create form state
+  const [newName, setNewName] = useState('')
+  const [newDiscount, setNewDiscount] = useState<number>(0)
+  const [newTarget, setNewTarget] = useState<number>(0)
+  const [newDescription, setNewDescription] = useState('')
+  const [creating, setCreating] = useState(false)
 
 useEffect(() => { (async () => {
   try {
     setLoading(true)
-    const g = await FirebaseClientService.getCustomerGroups()
+    const [g, custs] = await Promise.all([
+      FirebaseClientService.getCustomerGroups(),
+      FirebaseClientService.getCustomers()
+    ])
     const raw = Array.isArray(g) ? g : []
 
     const norm: Group[] = raw.map((x: any) => ({
@@ -23,11 +34,12 @@ useEffect(() => { (async () => {
       description: String(x.description ?? ''),
       annual_target_sets: Number(
         // gebruik bestaande target indien aanwezig; anders 0
-        x.annual_target_sets ?? 0
+        x.annual_target_sets ?? x.target ?? 0
       ),
     }))
 
     setGroups(norm)
+    setCustomers(Array.isArray(custs) ? custs : [])
   } catch (e: any) {
     setError(e?.message || 'Fout bij laden')
   } finally {
@@ -37,9 +49,51 @@ useEffect(() => { (async () => {
 
   const updateTarget = async (id:string, target:number)=>{
     try{
-              await FirebaseClientService.updateDocumentInCollection('customer_groups', id, { annual_target_sets: target, updated_at: new Date().toISOString() })
+      await FirebaseClientService.updateDocumentInCollection('customer_groups', id, { annual_target_sets: target, updated_at: new Date().toISOString() })
       setGroups(prev=> prev.map(g=> g.id===id? { ...g, annual_target_sets: target}: g))
     }catch(e){ console.error(e) }
+  }
+
+  const updateDiscount = async (id:string, discount:number)=>{
+    try{
+      await FirebaseClientService.updateDocumentInCollection('customer_groups', id, { discount_percentage: discount, updated_at: new Date().toISOString() })
+      setGroups(prev=> prev.map(g=> g.id===id? { ...g, discount_percentage: discount}: g))
+    }catch(e){ console.error(e) }
+  }
+
+  const linkedCount = (groupName: string)=>{
+    const normalize = (v:any)=> String(v||'').toLowerCase().trim()
+    return customers.filter(c=> normalize(c.dealer_group) === normalize(groupName)).length
+  }
+
+  const deleteGroup = async (group: Group)=>{
+    const count = linkedCount(group.name)
+    if (count > 0){
+      alert(`Kan niet verwijderen: ${count} klant(en) gekoppeld aan "${group.name}"`)
+      return
+    }
+    if (!confirm(`Weet je zeker dat je "${group.name}" wilt verwijderen?`)) return
+    try{
+      await FirebaseClientService.deleteDocumentFromCollection('customer_groups', group.id)
+      setGroups(prev=> prev.filter(g=> g.id !== group.id))
+    }catch(e){ console.error(e); alert('Verwijderen mislukt') }
+  }
+
+  const createGroup = async ()=>{
+    if (!newName.trim()) { alert('Naam is verplicht'); return }
+    try{
+      setCreating(true)
+      const payload:any = {
+        name: newName.trim(),
+        discount_percentage: Number(newDiscount||0),
+        description: newDescription.trim(),
+        annual_target_sets: Number(newTarget||0),
+      }
+      const created = await FirebaseClientService.addDocument('customer_groups', payload)
+      setGroups(prev=> [...prev, { id: created.id, ...payload }])
+      setNewName(''); setNewDiscount(0); setNewTarget(0); setNewDescription('')
+    }catch(e){ console.error(e); alert('Aanmaken mislukt') }
+    finally{ setCreating(false) }
   }
 
   if (loading) return <div className="p-6">Laden…</div>
@@ -48,6 +102,18 @@ useEffect(() => { (async () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Klantgroepen</h1>
         <p className="text-gray-600">Beheer groepen en jaarlijkse targets (sets/jr)</p>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="font-semibold mb-3">Nieuwe groep</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input placeholder="Naam" value={newName} onChange={(e)=> setNewName(e.target.value)} className="px-2 py-1 border rounded" />
+          <input placeholder="Korting %" type="number" value={newDiscount} onChange={(e)=> setNewDiscount(parseFloat(e.target.value||'0'))} className="px-2 py-1 border rounded" />
+          <input placeholder="Target (sets/jr)" type="number" value={newTarget} onChange={(e)=> setNewTarget(parseInt(e.target.value||'0',10))} className="px-2 py-1 border rounded" />
+          <div className="flex items-center gap-2">
+            <input placeholder="Beschrijving" value={newDescription} onChange={(e)=> setNewDescription(e.target.value)} className="flex-1 px-2 py-1 border rounded" />
+            <button onClick={createGroup} disabled={creating} className="bg-green-600 text-white px-3 py-2 rounded disabled:opacity-60">{creating? 'Aanmaken…':'Aanmaken'}</button>
+          </div>
+        </div>
       </div>
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm">{error}</div>}
       <div className="bg-white rounded-lg shadow overflow-x-auto">
@@ -58,17 +124,27 @@ useEffect(() => { (async () => {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Korting</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Target (sets/jr)</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Beschrijving</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Acties</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200 text-sm">
             {groups.map(g=> (
               <tr key={g.id}>
                 <td className="px-6 py-3 font-medium text-gray-900">{g.name}</td>
-                <td className="px-6 py-3">{g.discount_percentage ?? 0}%</td>
+                <td className="px-6 py-3">
+                  <input type="number" value={g.discount_percentage ?? 0} onChange={(e)=> updateDiscount(g.id, parseFloat(e.target.value||'0'))} className="w-24 px-2 py-1 border rounded" />
+                </td>
                 <td className="px-6 py-3">
                   <input type="number" value={g.annual_target_sets ?? 0} onChange={(e)=> updateTarget(g.id, parseInt(e.target.value||'0',10))} className="w-24 px-2 py-1 border rounded"/>
                 </td>
                 <td className="px-6 py-3">{g.description || '-'}</td>
+                <td className="px-6 py-3">
+                  {linkedCount(g.name) > 0 ? (
+                    <span className="text-gray-500">Gekoppeld ({linkedCount(g.name)})</span>
+                  ) : (
+                    <button onClick={()=> deleteGroup(g)} className="text-red-600 hover:underline">Verwijderen</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

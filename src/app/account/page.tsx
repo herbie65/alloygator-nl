@@ -68,10 +68,20 @@ export default function AccountPage() {
   const [activities, setActivities] = useState<any[]>([])
   const [documents, setDocuments] = useState<any[]>([])
   const [openInvoices, setOpenInvoices] = useState<{count:number; total:number; oldestDays:number}>({ count: 0, total: 0, oldestDays: 0 })
-  const [avgPaymentDays, setAvgPaymentDays] = useState<number>(0)
+  const [avgPaymentDays, setAvgPaymentDays] = useState<number | null>(null)
   const [firstOrderDate, setFirstOrderDate] = useState<Date | null>(null)
   const [docPreview, setDocPreview] = useState<any | null>(null)
   const [showDocModal, setShowDocModal] = useState(false)
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [addrForm, setAddrForm] = useState({
+    voornaam: '',
+    achternaam: '',
+    telefoon: '',
+    adres: '',
+    postcode: '',
+    plaats: '',
+    land: 'NL'
+  })
 
   useEffect(() => {
     // Prefer live data over stored session for accurate dealerstatus
@@ -197,14 +207,43 @@ export default function AccountPage() {
 
         // Open invoice stats and payment speed (for all customers)
         try {
-          const invOrders = myOrders.filter((o:any) => (o.payment_method === 'invoice'))
-          const open = invOrders.filter((o:any) => (o.payment_status !== 'paid'))
+          // Helper: normalize Firestore Timestamp/Date/string → ms
+          const toMs = (v:any): number => {
+            if (!v) return 0
+            try {
+              if (typeof v?.toDate === 'function') return v.toDate().getTime()
+              if (typeof v === 'object' && typeof v.seconds === 'number') return v.seconds * 1000
+              if (typeof v === 'string') {
+                // Support dd-mm-yyyy or d-m-yyyy
+                const m = v.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+                if (m) {
+                  const dd = parseInt(m[1],10); const mm = parseInt(m[2],10)-1; const yy = parseInt(m[3],10)
+                  return new Date(yy, mm, dd).getTime()
+                }
+              }
+              const t = new Date(v as any).getTime()
+              return isNaN(t) ? 0 : t
+            } catch { return 0 }
+          }
+
+          // Openstaande facturen = onbetaalde factuur-orders, exclusief geannuleerde/terugbetaalde/credit
+          const invOrders = myOrders.filter((o:any) => String(o.payment_method||'').toLowerCase() === 'invoice')
+          const open = invOrders.filter((o:any) => {
+            const status = String(o.status||'').toLowerCase()
+            const pstat = String(o.payment_status||'').toLowerCase()
+            const cancelled = ['cancelled','canceled','geannuleerd','refunded','void','credit','credited','storno'].some(k => status.includes(k) || pstat.includes(k))
+            return !cancelled && pstat !== 'paid' && Number(o.total||0) > 0
+          })
           const openTotal = open.reduce((s:number,o:any)=> s + Number(o.total||0), 0)
-          const today = Date.now()
-          const oldest = open.reduce((min:number,o:any)=> {
-            const due = new Date(o.due_at || o.createdAt || o.created_at || new Date()).getTime()
-            const days = Math.max(0, Math.floor((today - due) / (1000*60*60*24)))
-            return Math.max(min, days)
+          const msPerDay = 1000*60*60*24
+          const todayStart = (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d.getTime() })()
+          const startOfDay = (ms:number)=> { const d=new Date(ms||0); if (!ms) return 0; return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() }
+          // Leeftijd bepalen op basis van verzend-/factuurdatum; val terug op orderdatum
+          const oldest = open.reduce((maxAge:number,o:any)=> {
+            const issued = toMs(o.invoice_sent_date || o.invoice_date || o.invoiceDate || o.invoice_created_at || o.createdAt || o.created_at)
+            const effective = startOfDay(issued || toMs(o.created_at) || toMs(o.createdAt))
+            const days = effective ? Math.max(0, Math.round((todayStart - effective) / msPerDay)) : 0
+            return Math.max(maxAge, days)
           }, 0)
           setOpenInvoices({ count: open.length, total: openTotal, oldestDays: oldest })
 
@@ -215,7 +254,7 @@ export default function AccountPage() {
             const paid = new Date(o.paid_at || o.updatedAt || o.updated_at || created).getTime()
             return Math.max(0, Math.round((paid - created) / (1000*60*60*24)))
           })
-          const avg = durations.length ? Math.round(durations.reduce((a,b)=>a+b,0)/durations.length) : 0
+          const avg = durations.length ? Math.round(durations.reduce((a,b)=>a+b,0)/durations.length) : null
           setAvgPaymentDays(avg)
         } catch {}
       } catch {}
@@ -377,15 +416,15 @@ export default function AccountPage() {
                     {/* Openstaande facturen */}
                     <div className="bg-white rounded-lg shadow-md p-6">
                       <div className="flex items-center">
-                        <div className="p-3 rounded-full bg-red-100 text-red-600">
+                        <div className={`p-3 rounded-full ${openInvoices.oldestDays>14 ? 'bg-red-100 text-red-600' : 'bg-red-50 text-red-500'}`}>
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
                           </svg>
                         </div>
                         <div className="ml-4">
                           <p className="text-sm font-medium text-gray-600">Openstaande facturen</p>
-                          <p className="text-xl font-bold text-gray-900">{openInvoices.count} €{openInvoices.total.toFixed(2)}</p>
-                          <p className="text-xs text-gray-500 mt-1">Oudste: {openInvoices.oldestDays} dagen</p>
+                          <p className={`text-xl font-bold ${openInvoices.oldestDays>14 ? 'text-red-600' : 'text-gray-900'}`}>{openInvoices.count} €{openInvoices.total.toFixed(2)}</p>
+                          <p className={`text-xs mt-1 ${openInvoices.oldestDays>14 ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>Oudste: {openInvoices.oldestDays} dagen</p>
                         </div>
                       </div>
                     </div>
@@ -399,22 +438,13 @@ export default function AccountPage() {
                         <div className="ml-4">
                           <p className="text-sm font-medium text-gray-600">Totaal Bestellingen</p>
                           <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Laatste bestelling: {orders.length ? new Date(Math.max(...orders.map(o=> new Date(o.created_at).getTime()))).toLocaleDateString('nl-NL') : '–'}
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                      <div className="flex items-center">
-                        <div className="p-3 rounded-full bg-green-100 text-green-600">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                          </svg>
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-600">Totale Uitgaven</p>
-                        <p className="text-2xl font-bold text-gray-900">€{orders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}</p>
-                        </div>
-                      </div>
-                    </div>
+                    
                   </div>
 
                   {/* Right large dealer target block */}
@@ -445,8 +475,7 @@ export default function AccountPage() {
 
                         <div className="flex items-center justify-between flex-wrap gap-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-600">Dealer Target (laatste 12 maanden)</p>
-                          <p className="text-2xl font-bold text-gray-900">{setsSold} / {(() => {
+                          <p className="text-3xl font-bold text-gray-900">{setsSold} / {(() => {
                             const g=(user.dealer_group||'').toLowerCase()
                             if (!g) return 0
                             // Exact match by name or id
@@ -462,7 +491,7 @@ export default function AccountPage() {
                           if (cg.includes('brons')||cg.includes('bronze')) return 10
                             return 0
                           })()}</p>
-                          <p className="text-xs text-gray-600 mt-1">Dealer sinds {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL') : '-'}</p>
+                          <p className="text-xs text-gray-500 mt-1">laatste 12 maanden</p>
                         </div>
                         <div></div>
                       </div>
@@ -508,11 +537,13 @@ export default function AccountPage() {
 
                         const yearProgress = calculateYearProgress()
                         
+                        // Target voortgang (sets / target)
+                        const targetProgressPct = target > 0 ? Math.min(100, Math.round((setsSold / target) * 100)) : 0
                         return (
                           <div className="mt-4 space-y-4">
                             {/* Pie chart met rode wijzer */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="bg-white rounded border p-3">
+                              <div className="bg-white rounded border p-6">
                                 <Pie
                                   data={{
                                     labels: ['Behaald', 'Resterend'],
@@ -530,8 +561,8 @@ export default function AccountPage() {
                                   <div>Doel: {target} sets</div>
                                   <div>Behaald (12 mnd): {setsSold} sets</div>
                                   <div className={`${(target-setsSold) <= 0 ? 'text-green-600' : 'text-red-600'}`}>{(target-setsSold) <= 0 ? 'Target gehaald' : `Nog nodig: ${target - setsSold} sets`}</div>
-                                  <div className="text-gray-600">Gem. betaaltermijn: {avgPaymentDays} dagen</div>
-                                  <div className="text-blue-600">Jaar progressie: {Math.round(yearProgress)}%</div>
+                                  <div className="text-gray-600">Gem. betaaltermijn: {avgPaymentDays === null ? '–' : `${avgPaymentDays} dagen`}</div>
+                                  <div className="text-blue-600">Target voortgang: {targetProgressPct}%</div>
                                   <div className="text-xs text-gray-500">Reset elk jaar op {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL', { month: 'long', day: 'numeric' }) : '-'}</div>
                                 </div>
                               </div>
@@ -540,17 +571,7 @@ export default function AccountPage() {
                         )
                       })()}
 
-                      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div className="bg-gray-50 rounded p-4">
-                          <div className="text-gray-500">Laatste bestelling</div>
-                          <div className="font-medium text-gray-900">{orders[0] ? new Date(orders[0].created_at).toLocaleDateString('nl-NL') : '-'}</div>
-                        </div>
-                        <div className="bg-gray-50 rounded p-4">
-                          <div className="text-gray-500">Openstaande status</div>
-                          <div className="font-medium text-gray-900">{orders.find(o=>o.payment_status!=='paid') ? 'Open' : '—'}</div>
-                        </div>
-                        
-                      </div>
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm"></div>
                     </div>
                   )}
                 </div>
@@ -837,7 +858,21 @@ export default function AccountPage() {
                       {user.land}
                     </p>
                     <div className="mt-4 flex space-x-2">
-                      <button className="text-green-600 hover:text-green-700 text-sm font-medium">
+                      <button
+                        className="text-green-600 hover:text-green-700 text-sm font-medium"
+                        onClick={() => {
+                          setAddrForm({
+                            voornaam: user.voornaam || '',
+                            achternaam: user.achternaam || '',
+                            telefoon: user.telefoon || '',
+                            adres: user.adres || '',
+                            postcode: user.postcode || '',
+                            plaats: user.plaats || '',
+                            land: user.land || 'NL'
+                          })
+                          setShowAddressModal(true)
+                        }}
+                      >
                         Bewerken
                       </button>
                       <button className="text-gray-600 hover:text-gray-700 text-sm">
@@ -845,10 +880,89 @@ export default function AccountPage() {
                       </button>
                     </div>
                   </div>
-                  
-                  <button className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-gray-700 hover:border-gray-400 transition-colors">
+                    
+                  <button
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-gray-700 hover:border-gray-400 transition-colors"
+                    onClick={() => {
+                      setAddrForm({ voornaam: '', achternaam: '', telefoon: '', adres: '', postcode: '', plaats: '', land: 'NL' })
+                      setShowAddressModal(true)
+                    }}
+                  >
                     + Nieuw adres toevoegen
                   </button>
+                </div>
+              </div>
+            )}
+
+            {showAddressModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/50" onClick={()=>setShowAddressModal(false)} />
+                <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Adres opslaan</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Voornaam</label>
+                      <input value={addrForm.voornaam} onChange={e=>setAddrForm({...addrForm, voornaam: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Achternaam</label>
+                      <input value={addrForm.achternaam} onChange={e=>setAddrForm({...addrForm, achternaam: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm text-gray-700 mb-1">Adres</label>
+                      <input value={addrForm.adres} onChange={e=>setAddrForm({...addrForm, adres: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Postcode</label>
+                      <input value={addrForm.postcode} onChange={e=>setAddrForm({...addrForm, postcode: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Plaats</label>
+                      <input value={addrForm.plaats} onChange={e=>setAddrForm({...addrForm, plaats: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Land</label>
+                      <input value={addrForm.land} onChange={e=>setAddrForm({...addrForm, land: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Telefoon</label>
+                      <input value={addrForm.telefoon} onChange={e=>setAddrForm({...addrForm, telefoon: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button className="px-4 py-2 border rounded" onClick={()=>setShowAddressModal(false)}>Annuleren</button>
+                    <button
+                      className="px-4 py-2 bg-green-600 text-white rounded"
+                      onClick={async ()=>{
+                        try {
+                          await fetch('/api/customers', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              email: user.email,
+                              ...addrForm
+                            })
+                          })
+                          // Update local user state
+                          setUser({ ...user, ...{
+                            voornaam: addrForm.voornaam,
+                            achternaam: addrForm.achternaam,
+                            telefoon: addrForm.telefoon,
+                            adres: addrForm.adres,
+                            postcode: addrForm.postcode,
+                            plaats: addrForm.plaats,
+                            land: addrForm.land,
+                          }})
+                          setShowAddressModal(false)
+                        } catch (e) {
+                          console.error('Adres opslaan mislukt', e)
+                          alert('Adres opslaan mislukt')
+                        }
+                      }}
+                    >
+                      Opslaan
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

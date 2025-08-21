@@ -245,13 +245,20 @@ export class FirebaseService {
       const database = getDb();
       const logicalId = await this.generateLogicalId(collectionName, data)
       const docRef = doc(database, collectionName, logicalId)
-      await setDoc(docRef, {
+      const nowIso = new Date().toISOString()
+      const payload: any = {
         ...data,
         id: logicalId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-      return { id: logicalId, ...data };
+        created_at: nowIso,
+        updated_at: nowIso
+      }
+      // Bugfix: ensure orders have consistent fields used by the UI/emails
+      if (collectionName === 'orders') {
+        payload.orderNumber = data?.orderNumber || data?.order_number || logicalId
+        payload.createdAt = data?.createdAt || data?.created_at || nowIso
+      }
+      await setDoc(docRef, payload);
+      return { id: logicalId, ...payload };
     } catch (error) {
       console.error('Error adding document:', error);
       throw error;
@@ -462,15 +469,21 @@ export class FirebaseService {
       const database = getDb();
       const logicalId = await this.generateLogicalId('orders', orderData)
       const docRef = doc(database, 'orders', logicalId)
-      
-      await setDoc(docRef, {
+
+      const nowIso = new Date().toISOString()
+      const payload: any = {
         ...orderData,
         id: logicalId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-      
-      return { id: logicalId, ...orderData };
+        created_at: nowIso,
+        updated_at: nowIso,
+        // Bugfix: normalize fields required by UI
+        orderNumber: orderData?.orderNumber || orderData?.order_number || logicalId,
+        createdAt: orderData?.createdAt || orderData?.created_at || nowIso
+      }
+
+      await setDoc(docRef, payload);
+
+      return { id: logicalId, ...payload };
     } catch (error) {
       console.error('Error adding order:', error);
       throw error;

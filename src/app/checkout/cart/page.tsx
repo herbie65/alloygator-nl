@@ -70,17 +70,20 @@ export default function CheckoutCartPage() {
     )
     setCartItems(updatedCart)
     localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
   }
 
   const removeFromCart = (productId: number) => {
     const updatedCart = cartItems.filter(item => item.id !== productId)
     setCartItems(updatedCart)
     localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
   }
 
   const clearCart = () => {
     setCartItems([])
     localStorage.removeItem('alloygator-cart')
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

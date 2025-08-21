@@ -106,7 +106,9 @@ export default function CheckoutPage() {
     shippingPlaats: "",
     shippingLand: "NL",
   });
-
+  const [createAccount, setCreateAccount] = useState(false)
+  const [accountPassword, setAccountPassword] = useState('')
+  const [accountPassword2, setAccountPassword2] = useState('')
   const [paymentMethod, setPaymentMethod] = useState("ideal");
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<{ id:string; name:string; mollie_id:string; is_active:boolean; fee_percent:number }[]>([])
   const [allowInvoicePayment, setAllowInvoicePayment] = useState(false)
@@ -129,6 +131,7 @@ export default function CheckoutPage() {
     vat_exempt: false,
     vat_reason: ''
   });
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null)
@@ -214,16 +217,6 @@ export default function CheckoutPage() {
           shippingPlaats: prev.shippingPlaats || u.shipping_city || '',
           shippingLand: prev.shippingLand || u.shipping_country || 'NL',
         }))
-
-        // Map dealer group for discount UI (optional)
-        const raw = String(u.dealer_group || '').toLowerCase()
-        let mapped: string | null = null
-        const g = raw.replace(/dealers?|groep|group/g,'').trim()
-        if (g.includes('goud') || g === 'gold') mapped = 'gold'
-        else if (g.includes('zilver') || g === 'silver') mapped = 'silver'
-        else if (g.includes('brons') || g === 'bronze') mapped = 'bronze'
-        else if (g.includes('platina') || g === 'platinum') mapped = 'platinum'
-        setDealerGroup(u.is_dealer ? mapped : null)
       }
     } catch {}
 
@@ -242,7 +235,45 @@ export default function CheckoutPage() {
 
     // Calculate initial totals
     calculateTotals();
+
+    // Prevent accidental form submit by Enter on non-review steps
+    const handler = (e: KeyboardEvent) => {
+      const isEnter = e.key === 'Enter'
+      if (!isEnter) return
+      const steps: CheckoutStep[] = ['customer', 'shipping', 'payment', 'review']
+      const idx = steps.indexOf(currentStep)
+      if (idx >= 0 && steps[idx] !== 'review') {
+        e.preventDefault()
+      }
+    }
+    try { window.addEventListener('keydown', handler) } catch {}
+    return () => { try { window.removeEventListener('keydown', handler) } catch {} }
   }, []);
+
+  // When we have an email, fetch the latest customer record from DB and merge missing fields
+  useEffect(() => {
+    const mergeFromDb = async () => {
+      const email = (customer.email || '').trim().toLowerCase()
+      if (!email) return
+      try {
+        const res = await fetch(`/api/customers?email=${encodeURIComponent(email)}`)
+        if (!res.ok) return
+        const dbCustomer = await res.json()
+        if (!dbCustomer) return
+        setCustomer(prev => ({
+          ...prev,
+          voornaam: prev.voornaam || dbCustomer.contact_first_name || dbCustomer.first_name || '',
+          achternaam: prev.achternaam || dbCustomer.contact_last_name || dbCustomer.last_name || '',
+          telefoon: prev.telefoon || dbCustomer.phone || dbCustomer.telefoon || '',
+          adres: prev.adres || dbCustomer.address || dbCustomer.adres || '',
+          postcode: prev.postcode || dbCustomer.postal_code || dbCustomer.postcode || '',
+          plaats: prev.plaats || dbCustomer.city || dbCustomer.plaats || '',
+          land: prev.land || dbCustomer.country || dbCustomer.land || 'NL',
+        }))
+      } catch {}
+    }
+    mergeFromDb()
+  }, [customer.email])
 
   // Persist customer form as user types
   useEffect(() => {
@@ -456,12 +487,11 @@ export default function CheckoutPage() {
   };
 
   const nextStep = () => {
-    if (validateStep(currentStep)) {
-      const steps: CheckoutStep[] = ['customer', 'shipping', 'payment', 'review'];
-      const currentIndex = steps.indexOf(currentStep);
-      if (currentIndex < steps.length - 1) {
-        setCurrentStep(steps[currentIndex + 1]);
-      }
+    if (!validateStep(currentStep)) return
+    const steps: CheckoutStep[] = ['customer', 'shipping', 'payment', 'review']
+    const currentIndex = steps.indexOf(currentStep)
+    if (currentIndex < steps.length - 1) {
+      setCurrentStep(steps[currentIndex + 1])
     }
   };
 
@@ -479,6 +509,15 @@ export default function CheckoutPage() {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    if (field === 'separateShippingAddress' && value === false) {
+      setCustomer(prev => ({
+        ...prev,
+        shippingAdres: '',
+        shippingPostcode: '',
+        shippingPlaats: '',
+        shippingLand: 'NL'
+      }))
+    }
   };
 
   const handleQuantityChange = (id: string, quantity: number) => {
@@ -486,12 +525,14 @@ export default function CheckoutPage() {
       const updatedCart = cart.filter(item => item.id !== id);
       setCart(updatedCart);
       localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     } else {
       const updatedCart = cart.map(item =>
         item.id === id ? { ...item, quantity } : item
       );
       setCart(updatedCart);
       localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     }
     calculateTotals();
   };
@@ -500,6 +541,7 @@ export default function CheckoutPage() {
     const updatedCart = cart.filter(item => item.id !== id);
     setCart(updatedCart);
     localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     calculateTotals();
   };
 
@@ -531,9 +573,17 @@ export default function CheckoutPage() {
 
       console.log(`Loading pickup locations for ${selectedMethod.carrier} in ${postalCode}`);
 
-      const response = await fetch(
-        `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
-      );
+      let response;
+      if (selectedMethod.carrier === 'dhl') {
+        response = await fetch(
+          `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
+        );
+      } else {
+        // Voor andere carriers (PostNL, etc.) kunnen we hier later andere endpoints toevoegen
+        alert(`${selectedMethod.carrier.toUpperCase()} afhaalpunten worden nog niet ondersteund. Kies een andere verzendmethode.`);
+        setShowPickupLocations(false);
+        return;
+      }
       
       if (response.ok) {
         const data = await response.json();
@@ -587,6 +637,41 @@ export default function CheckoutPage() {
       const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
       setLoading(true)
 
+      // 0) Upsert customer address by email (if provided)
+      try {
+        const email = (customer.email || '').trim().toLowerCase()
+        if (email) {
+          // If shipping is not separate and shipping fields empty, default to billing
+          const shippingDefaults = customer.separateShippingAddress ? {} : {
+            shippingAdres: customer.shippingAdres || customer.adres,
+            shippingPostcode: customer.shippingPostcode || customer.postcode,
+            shippingPlaats: customer.shippingPlaats || customer.plaats,
+            shippingLand: customer.shippingLand || customer.land,
+          }
+          await fetch('/api/customers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            email,
+            voornaam: customer.voornaam,
+            achternaam: customer.achternaam,
+            telefoon: customer.telefoon,
+            adres: customer.adres,
+            postcode: customer.postcode,
+            plaats: customer.plaats,
+            land: customer.land,
+            ...shippingDefaults,
+          }) })
+          if (createAccount) {
+            if (!accountPassword || accountPassword !== accountPassword2) throw new Error('Wachtwoorden komen niet overeen')
+            await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+              email,
+              password: accountPassword,
+              name: `${customer.voornaam || ''} ${customer.achternaam || ''}`.trim()
+            }) })
+          }
+        }
+      } catch (e) {
+        console.warn('Adres/account opslaan mislukt (gaat verder met checkout):', e)
+      }
+
       // Prepare items with dealer discount applied for dealers
       const itemsForOrder = cart.map((item) => ({
         ...item,
@@ -622,7 +707,10 @@ export default function CheckoutPage() {
         body: JSON.stringify(order),
       })
       if (!orderRes.ok) throw new Error('Failed to create order')
-      const { orderId, orderNumber } = await orderRes.json()
+      const created = await orderRes.json()
+      const orderId: string = created?.id || created?.orderId
+      const orderNumber: string = created?.orderNumber || created?.order_number || created?.id
+      if (!orderId) throw new Error('Order ID ontbreekt na aanmaken')
 
       // 2) If paymentMethod is invoice (op rekening), skip Mollie and mark as pending
       if (paymentMethod === 'invoice') {
@@ -635,6 +723,7 @@ export default function CheckoutPage() {
 
         localStorage.removeItem("alloygator-cart");
         setCart([]);
+        try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
         window.location.href = `/order-confirmation/${orderId}`;
         return
       }
@@ -655,13 +744,14 @@ export default function CheckoutPage() {
 
         localStorage.removeItem("alloygator-cart");
         setCart([]);
+        try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
         window.location.href = `/order-confirmation/${orderId}`;
         return
       }
 
       // 2) Create Mollie payment for the order
       const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      const returnUrl = `${window.location.origin}/payment/return?orderId=${orderId}${isLocalhost ? '&simulate=1' : ''}`
+      const returnUrl = `${window.location.origin}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
       const webhookUrl = `${window.location.origin}/api/payment/mollie/webhook`
 
       const paymentRes = await fetch('/api/payment/mollie', {
@@ -978,6 +1068,25 @@ export default function CheckoutPage() {
                         Ander verzendadres gebruiken
                       </label>
                     </div>
+
+                    <div className="mt-2">
+                      <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
+                        <input type="checkbox" checked={createAccount} onChange={(e)=>setCreateAccount(e.target.checked)} />
+                        <span>Maak ook een account aan</span>
+                      </label>
+                      {createAccount && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
+                            <input type="password" value={accountPassword} onChange={(e)=>setAccountPassword(e.target.value)} className="w-full px-3 py-2 border rounded-md" minLength={6} />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Herhaal wachtwoord</label>
+                            <input type="password" value={accountPassword2} onChange={(e)=>setAccountPassword2(e.target.value)} className="w-full px-3 py-2 border rounded-md" minLength={6} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1164,18 +1273,20 @@ export default function CheckoutPage() {
                                         selectedMethod?.carrier === 'local';
                         
                         // Filter payment methods based on pickup/delivery and invoice allowance
-                        let filteredMethods = availablePaymentMethods;
+                        let filteredMethods = availablePaymentMethods.filter(pm => pm.is_active === true);
                         
                         if (!allowInvoicePayment) {
                           filteredMethods = filteredMethods.filter(pm => pm.mollie_id !== 'invoice');
                         }
                         
-                        // For pickup: show all methods including cash/pin
-                        // For delivery: only show online payment methods
-                        if (!isPickup) {
-                          filteredMethods = filteredMethods.filter(pm => 
-                            pm.mollie_id !== 'cash' && pm.mollie_id !== 'pin'
-                          );
+                        if (isPickup) {
+                          // For pickup: allow cash/pin; drop methods explicitly unavailable for pickup
+                          filteredMethods = filteredMethods.filter(pm => (pm as any).available_for_pickup !== false)
+                        } else {
+                          // For delivery: hide cash/pin and any method marked unavailable for delivery
+                          filteredMethods = filteredMethods
+                            .filter(pm => pm.mollie_id !== 'cash' && pm.mollie_id !== 'pin')
+                            .filter(pm => (pm as any).available_for_delivery !== false)
                         }
                         
                         return filteredMethods;
@@ -1321,6 +1432,20 @@ export default function CheckoutPage() {
                           })()}
                         </div>
                       </div>
+
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <label className="flex items-start space-x-3 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={termsAccepted}
+                            onChange={(e)=>setTermsAccepted(e.target.checked)}
+                            className="mt-1"
+                          />
+                          <span>
+                            Ik accepteer de <a className="text-green-700 underline" href="/algemene-voorwaarden" target="_blank" rel="noreferrer">algemene voorwaarden</a> en ga akkoord met de bestelling.
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1348,10 +1473,10 @@ export default function CheckoutPage() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || !termsAccepted}
                       className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {loading ? 'Bestelling plaatsen...' : 'Bestelling plaatsen'}
+                      {loading ? 'Bestelling plaatsen...' : (termsAccepted ? 'Bestelling plaatsen' : 'Accepteer voorwaarden om te bestellen')}
                     </button>
                   )}
                 </div>

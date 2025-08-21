@@ -139,4 +139,16 @@ export async function POST(req: Request) {
   }
 }
 
+export async function GET() {
+  try {
+    const list = await FirebaseService.getDocuments('return_requests')
+    // Sort newest first
+    const rows = Array.isArray(list) ? list.sort((a:any,b:any)=> new Date(b.created_at||0).getTime() - new Date(a.created_at||0).getTime()) : []
+    return NextResponse.json(rows)
+  } catch (e) {
+    console.error('Return list error', e)
+    return NextResponse.json({ ok: false, error: 'Serverfout' }, { status: 500 })
+  }
+}
+
 
