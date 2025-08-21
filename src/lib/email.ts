@@ -132,15 +132,19 @@ export class EmailService {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #f9fafb; }
-              .header { background: #10b981; color: white; padding: 16px; text-align: center; }
+              .header { background: #a2c614; color: white; padding: 20px; text-align: center; }
+              .logo { max-width: 200px; height: auto; margin-bottom: 10px; }
               .content { background: white; padding: 20px; border-radius: 8px; margin-top: 16px; }
-              .btn { display: inline-block; padding: 10px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; }
+              .btn { display: inline-block; padding: 12px 24px; background: #a2c614; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
               .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
             </style>
           </head>
           <body>
             <div class="container">
-              <div class="header">AlloyGator</div>
+              <div class="header">
+                <img src="https://alloygator-nl.web.app/wysiwyg/media/AlloyGator_Logo.png" alt="AlloyGator Logo" class="logo">
+                <h1 style="margin: 0; font-size: 24px;">AlloyGator</h1>
+              </div>
               <div class="content">
                 <h2>Wachtwoord resetten</h2>
                 <p>Je hebt een verzoek gedaan om je wachtwoord te resetten.</p>
