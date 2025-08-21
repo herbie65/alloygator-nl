@@ -1,9 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // output: 'export', // disabled to allow dynamic routes in build
+  // output: 'export', // disabled for development
   images: { unoptimized: true },
   eslint: { ignoreDuringBuilds: true },
+  trailingSlash: true,
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Client-side webpack config - exclude server-only packages
