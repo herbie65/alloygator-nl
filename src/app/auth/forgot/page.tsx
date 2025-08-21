@@ -12,9 +12,8 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     setMessage('')
     try {
-      // Force gebruik van localhost:3000 om cache problemen te omzeilen
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : ''
-      const apiUrl = `${baseUrl}/api/auth/forgot`
+      // Gebruik huidige window location voor API call
+      const apiUrl = '/api/auth/forgot'
       
       console.log('🔍 API call naar:', apiUrl)
       

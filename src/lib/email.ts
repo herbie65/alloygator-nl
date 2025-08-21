@@ -49,14 +49,18 @@ export class EmailService {
   constructor(settings?: EmailSettings) {
     this.settings = settings
     
-    // Gebruik settings of environment variables voor e-mail configuratie
+    if (!settings?.smtpHost || !settings?.smtpPort || !settings?.smtpUser || !settings?.smtpPass) {
+      throw new Error('EmailService requires complete SMTP settings: smtpHost, smtpPort, smtpUser, smtpPass');
+    }
+    
+    // Gebruik alleen de opgegeven settings
     this.transporter = nodemailer.createTransport({
-      host: settings?.smtpHost || process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(settings?.smtpPort || process.env.SMTP_PORT || '587'),
+      host: settings.smtpHost,
+      port: parseInt(settings.smtpPort),
       secure: false, // true voor 465, false voor andere poorten
       auth: {
-        user: settings?.smtpUser || process.env.SMTP_USER || '',
-        pass: settings?.smtpPass || process.env.SMTP_PASS || ''
+        user: settings.smtpUser,
+        pass: settings.smtpPass
       }
     })
   }
@@ -76,7 +80,7 @@ export class EmailService {
   async sendPasswordResetEmail(toEmail: string, resetUrl: string): Promise<boolean> {
     try {
       const mailOptions = {
-        from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `AlloyGator <${this.settings?.smtpUser}>`,
         to: toEmail,
         subject: 'Wachtwoord resetten - AlloyGator Admin',
         html: `
@@ -112,7 +116,7 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions)
       return true
     } catch (error) {
-      console.error('Fout bij verzenden reset e-mail:', error)
+      console.error('Error sending admin reset email:', error)
       return false
     }
   }
@@ -120,8 +124,16 @@ export class EmailService {
   // Klant wachtwoord reset e-mail
   async sendCustomerPasswordResetEmail(toEmail: string, resetUrl: string): Promise<boolean> {
     try {
+      console.log('🔍 EmailService: Attempting to send customer password reset email');
+      console.log('🔍 EmailService: SMTP settings:', {
+        host: this.settings?.smtpHost,
+        port: this.settings?.smtpPort,
+        user: this.settings?.smtpUser,
+        hasPass: !!(this.settings?.smtpPass)
+      });
+      
       const mailOptions = {
-        from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `AlloyGator <${this.settings?.smtpUser}>`,
         to: toEmail,
         subject: 'Wachtwoord resetten - AlloyGator',
         html: `
@@ -141,8 +153,10 @@ export class EmailService {
           </head>
           <body>
             <div class="container">
-              <div class="header">
+              <div style="text-align: center; margin-bottom: 20px;">
                 <img src="https://alloygator-nl.web.app/wysiwyg/media/AlloyGator_Logo.png" alt="AlloyGator Logo" class="logo">
+              </div>
+              <div class="header">
                 <h1 style="margin: 0; font-size: 24px;">AlloyGator</h1>
               </div>
               <div class="content">
@@ -169,10 +183,18 @@ export class EmailService {
         `
       }
 
+      console.log('🔍 EmailService: Mail options prepared, attempting to send...');
       await this.transporter.sendMail(mailOptions)
+      console.log('✅ EmailService: Email sent successfully');
       return true
     } catch (error) {
-      console.error('Fout bij verzenden klant reset e-mail:', error)
+      console.error('❌ EmailService: Error sending customer reset email:', error)
+      console.error('❌ EmailService: Error details:', {
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        response: error.response
+      })
       return false
     }
   }
@@ -207,7 +229,7 @@ export class EmailService {
   async sendOrderConfirmation(data: OrderEmailData): Promise<boolean> {
     try {
       const mailOptions = {
-        from: `"AlloyGator" <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `"AlloyGator" <${this.settings?.smtpUser}>`,
         to: data.customerEmail,
         subject: `Bestelbevestiging - Order #${data.orderNumber}`,
         html: this.generateOrderConfirmationHTML(data)
@@ -225,20 +247,19 @@ export class EmailService {
   // Bestelnotificatie naar admin
   async sendOrderNotification(data: OrderEmailData): Promise<boolean> {
     try {
-      const adminEmail = this.settings?.adminEmail || process.env.ADMIN_EMAIL || process.env.SMTP_USER
+      const adminEmail = this.settings?.adminEmail
       
       const mailOptions = {
-        from: `"AlloyGator" <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `"AlloyGator" <${this.settings?.smtpUser}>`,
         to: adminEmail,
         subject: `Nieuwe bestelling - Order #${data.orderNumber}`,
         html: this.generateOrderNotificationHTML(data)
       }
 
       await this.transporter.sendMail(mailOptions)
-      console.log(`Bestelnotificatie verzonden naar admin`)
       return true
     } catch (error) {
-      console.error('Fout bij verzenden bestelnotificatie:', error)
+      console.error('Error sending order notification:', error)
       return false
     }
   }
@@ -253,7 +274,7 @@ export class EmailService {
   ): Promise<boolean> {
     try {
       const mailOptions = {
-        from: `"AlloyGator" <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `"AlloyGator" <${this.settings?.smtpUser}>`,
         to: customerEmail,
         subject: `Status update - Order #${orderNumber}`,
         html: this.generateStatusUpdateHTML(orderNumber, customerName, oldStatus, newStatus)
@@ -275,12 +296,12 @@ export class EmailService {
     invoiceNumber: string
   ): Promise<boolean> {
     try {
-      const adminEmail = this.settings?.adminEmail || process.env.ADMIN_EMAIL || process.env.SMTP_USER
+      const adminEmail = this.settings?.adminEmail
       const attachments = [{ filename: `factuur-${invoiceNumber}.pdf`, content: pdfBuffer }]
 
       // Naar klant
       await this.transporter.sendMail({
-        from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `AlloyGator <${this.settings?.smtpUser}>`,
         to: meta.customerEmail,
         subject: `Factuur ${invoiceNumber} - Order #${meta.orderNumber}`,
         html: `<p>Hallo ${meta.customerName},</p><p>In de bijlage vind je de factuur voor je bestelling #${meta.orderNumber}.</p><p>Bedankt voor je bestelling!</p>`,
@@ -290,7 +311,7 @@ export class EmailService {
       // Naar admin
       if (adminEmail) {
         await this.transporter.sendMail({
-          from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+          from: `AlloyGator <${this.settings?.smtpUser}>`,
           to: adminEmail,
           subject: `Factuur ${invoiceNumber} gestuurd - Order #${meta.orderNumber}`,
           html: `<p>Factuur ${invoiceNumber} voor order #${meta.orderNumber} is naar ${meta.customerEmail} gemaild.</p>`,
@@ -554,7 +575,7 @@ export class EmailService {
   ): Promise<boolean> {
     try {
       const mailOptions = {
-        from: `AlloyGator <${this.settings?.smtpUser || process.env.SMTP_USER}>`,
+        from: `AlloyGator <${this.settings?.smtpUser}>`,
         to: toEmail,
         subject: `Betaling bevestigd - Bestelling #${data.orderNumber}`,
         html: this.generatePaymentConfirmationHTML(data)

@@ -68,16 +68,27 @@ export default function Header() {
             return
           }
         }
-        // Fallback to localStorage
-        const dn = localStorage.getItem('dealerName')
-        const dg = localStorage.getItem('dealerGroup')
-        setDealerName(dn)
-        if (dg) {
-          const gl = dg.toLowerCase()
-          if (gl.includes('goud')||gl.includes('gold')) setDealerGroupLabel('Goud')
-          else if (gl.includes('zilver')||gl.includes('silver')) setDealerGroupLabel('Zilver')
-          else if (gl.includes('brons')||gl.includes('bronze')) setDealerGroupLabel('Brons')
-          else if (gl.includes('platina')||gl.includes('platinum')) setDealerGroupLabel('Platina')
+        
+        // Only show dealer info from localStorage if there's a valid user session
+        const isLoggedIn = localStorage.getItem('isLoggedIn')
+        if (isLoggedIn && session) {
+          // Fallback to localStorage only when user is actually logged in
+          const dn = localStorage.getItem('dealerName')
+          const dg = localStorage.getItem('dealerGroup')
+          if (dn) {
+            setDealerName(dn)
+            if (dg) {
+              const gl = dg.toLowerCase()
+              if (gl.includes('goud')||gl.includes('gold')) setDealerGroupLabel('Goud')
+              else if (gl.includes('zilver')||gl.includes('silver')) setDealerGroupLabel('Zilver')
+              else if (gl.includes('brons')||gl.includes('bronze')) setDealerGroupLabel('Brons')
+              else if (gl.includes('platina')||gl.includes('platinum')) setDealerGroupLabel('Platina')
+            }
+          }
+        } else {
+          // Clear dealer info if no valid session
+          setDealerName(null)
+          setDealerGroupLabel(null)
         }
       } catch (err) {
         // ignore
