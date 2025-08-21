@@ -69,7 +69,6 @@ export default function Footer() {
               <li><Link href="/over-ons" className="text-gray-300 hover:text-white transition-colors">Over ons</Link></li>
               <li><Link href="/contact" className="text-gray-300 hover:text-white transition-colors">Contact</Link></li>
               <li><Link href="/reviews" className="text-gray-300 hover:text-white transition-colors">Reviews & Pers</Link></li>
-              <li><Link href="/testing" className="text-gray-300 hover:text-white transition-colors">Kwaliteit en testen</Link></li>
               <li><Link href="/wat-zijn-onze-retourvoorwaarden" className="text-gray-300 hover:text-white transition-colors">Retourbeleid</Link></li>
               <li><Link href="/privacy-policy" className="text-gray-300 hover:text-white transition-colors">Privacybeleid</Link></li>
               <li><Link href="/algemene-voorwaarden" className="text-gray-300 hover:text-white transition-colors">Algemene voorwaarden</Link></li>
