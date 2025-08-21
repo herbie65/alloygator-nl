@@ -2,18 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { FirebaseService } from '@/lib/firebase'
 
 type OpenState = {
   label: string
   detail: string
-}
-
-interface FooterContent {
-  id: string
-  type: 'footer'
-  content: string
-  updated_at: string
 }
 
 function computeOpenState(now: Date): OpenState {
@@ -58,34 +50,11 @@ function computeOpenState(now: Date): OpenState {
 
 export default function Footer() {
   const [openState, setOpenState] = useState<OpenState>(() => computeOpenState(new Date()))
-  const [footerContent, setFooterContent] = useState<FooterContent | null>(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setOpenState(computeOpenState(new Date()))
     const t = setInterval(() => setOpenState(computeOpenState(new Date())), 60_000)
     return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => {
-    const fetchFooterContent = async () => {
-      try {
-        setLoading(true)
-        const headerFooterData = await FirebaseService.getHeaderFooter()
-        if (headerFooterData && headerFooterData.length > 0) {
-          const footer = headerFooterData.find((hf: any) => hf.type === 'footer')
-          if (footer) {
-            setFooterContent(footer)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching footer content:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchFooterContent()
   }, [])
 
   const year = useMemo(() => new Date().getFullYear(), [])
@@ -140,15 +109,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Additional Dynamic Footer Content from CMS */}
-        {footerContent && !loading && (
-          <div className="mt-8 pt-8 border-t border-gray-700">
-            <div 
-              className="text-gray-300 prose prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: footerContent.content }}
-            />
-          </div>
-        )}
+
 
         <div className="mt-8 pt-8 border-t border-gray-700 text-center text-gray-400">
           <p>&copy; {year} AlloyGator. Alle rechten voorbehouden.</p>
