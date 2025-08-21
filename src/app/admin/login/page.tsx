@@ -3,20 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signInWithEmailAndPassword, getAuth } from 'firebase/auth'
-import { initializeApp } from 'firebase/app'
+import { app } from '@/lib/firebase' // Gebruik jouw bestaande Firebase config!
 
-// Firebase config - werkt zowel lokaal als live via environment variables
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-}
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+// Gebruik jouw bestaande Firebase app instance
 const auth = getAuth(app)
 
 export default function AdminLoginPage() {
@@ -70,8 +59,9 @@ export default function AdminLoginPage() {
     
     try {
       console.log('🔐 Attempting Firebase login for:', email)
+      console.log('🔥 Using existing Firebase Auth instance')
       
-      // Firebase Auth login
+      // Firebase Auth login met jouw bestaande configuratie
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
@@ -193,7 +183,7 @@ export default function AdminLoginPage() {
         </form>
         
         <div className="mt-4 text-xs text-gray-500 text-center">
-          <p>Firebase Direct Auth - v2.0</p>
+          <p>Firebase Direct Auth - v3.0 (Existing Config)</p>
         </div>
       </div>
     </div>
