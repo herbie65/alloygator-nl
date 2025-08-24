@@ -1,63 +1,66 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
-import AdminSidebar from '@/app/admin/components/AdminSidebar'
 import { FirebaseClientService } from '@/lib/firebase-client'
 
 type ReturnItem = { product_id: string; name?: string; qty_requested?: number; qty_received?: number; qty_credit?: number; qty_restock?: number; condition?: string; reason?: string }
 type RMA = { id: string; rmaNumber: string; orderNumber?: string; order_id?: string; customerName?: string; email?: string; status?: string; created_at?: string; items?: ReturnItem[]; rma_log?: any[] }
 
 export default function AdminReturnsPage() {
-  const [activeTab, setActiveTab] = useState('returns')
   const [list, setList] = useState<RMA[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [selected, setSelected] = useState<RMA | null>(null)
   const [error, setError] = useState('')
-  const [order, setOrder] = useState<any | null>(null)
   const [lastCredit, setLastCredit] = useState<{ number: string; url: string } | null>(null)
+  const [orders, setOrders] = useState<any[]>([])
 
   const load = async () => {
     try {
       setLoading(true)
       setError('')
-      const res = await fetch('/api/returns')
+      const [res, ordersRes] = await Promise.all([
+        fetch('/api/returns'),
+        FirebaseClientService.getOrders()
+      ])
       const all = res.ok ? await res.json() : []
       setList(Array.isArray(all) ? all : [])
+      setOrders(Array.isArray(ordersRes) ? ordersRes : [])
     } catch (e:any) {
       setError(e.message || 'Fout bij laden retouren')
     } finally { setLoading(false) }
   }
   useEffect(()=>{ load() }, [])
 
-  // Load linked order when a RMA is selected
-  useEffect(()=>{
-    const fetchOrder = async () => {
-      try {
-        setOrder(null)
-        if (!selected?.orderNumber) return
-        const all = await FirebaseClientService.getOrders()
-        const found = (Array.isArray(all) ? all : []).find((o:any)=> (o.orderNumber || o.order_number || o.id) === selected.orderNumber)
-        setOrder(found || null)
-      } catch {}
-    }
-    fetchOrder()
-  }, [selected?.id])
-
   // Load customer details when needed
   const getCustomerDisplayName = (rma: RMA) => {
     if (rma.customerName) return rma.customerName
-    if (rma.customer_id && order?.customer) {
-      return `${order.customer.contact_first_name || order.customer.voornaam} ${order.customer.contact_last_name || order.customer.achternaam}`
+    if (rma.order_id) {
+      const order = orders.find(o => o.id === rma.order_id)
+      if (order?.customer) {
+        return `${order.customer.contact_first_name || order.customer.voornaam} ${order.customer.contact_last_name || order.customer.achternaam}`
+      }
     }
     return 'Onbekende klant'
   }
 
   // Load product details when needed
-  const getProductDisplayName = (productId: string) => {
-    if (!order?.items) return productId
-    const product = order.items.find((item: any) => (item.id || item.product_id) === productId)
-    return product?.name || productId
+  const getProductDisplayName = (rma: RMA, productId: string) => {
+    if (rma.order_id) {
+      const order = orders.find(o => o.id === rma.order_id)
+      if (order?.items) {
+        const product = order.items.find((item: any) => (item.id || item.product_id) === productId)
+        return product?.name || productId
+      }
+    }
+    return productId
+  }
+
+  // Get order for RMA
+  const getOrder = (rma: RMA) => {
+    if (rma.order_id) {
+      return orders.find(o => o.id === rma.order_id)
+    }
+    return null
   }
 
   const filtered = useMemo(()=> {
@@ -120,109 +123,163 @@ export default function AdminReturnsPage() {
     await load()
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return 'bg-blue-100 text-blue-800'
+      case 'approved': return 'bg-green-100 text-green-800'
+      case 'received': return 'bg-purple-100 text-purple-800'
+      case 'inspected': return 'bg-yellow-100 text-yellow-800'
+      case 'credited': return 'bg-orange-100 text-orange-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'open': return 'Open'
+      case 'approved': return 'Goedgekeurd'
+      case 'received': return 'Ontvangen'
+      case 'inspected': return 'Geïnspecteerd'
+      case 'credited': return 'Gegrediteerd'
+      default: return status || 'Open'
+    }
+  }
+
   return (
-    <div className="min-h-screen flex">
-      <AdminSidebar activeTab={activeTab} onNavigate={setActiveTab} />
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Retouren (RMA)</h1>
-              <p className="text-gray-600">Ontvangen → Inspectie → Crediteren</p>
-            </div>
-            <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Zoek op RMA, order of klant" className="px-3 py-2 border rounded" />
-          </div>
-          <div></div>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Retouren (RMA)</h1>
+          <p className="text-gray-600">Ontvangen → Inspectie → Crediteren</p>
         </div>
+        <input 
+          value={q} 
+          onChange={(e)=>setQ(e.target.value)} 
+          placeholder="Zoek op RMA, order of klant" 
+          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" 
+        />
+      </div>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm mb-4">{error}</div>}
-        {lastCredit && (
-          <div className="bg-green-50 border border-green-200 text-green-800 rounded p-3 text-sm mb-4 flex items-center justify-between">
-            <div>Creditnota <strong>{lastCredit.number}</strong> aangemaakt.</div>
-            <div className="space-x-3">
-              <a href={lastCredit.url} target="_blank" className="text-green-700 underline">Download</a>
-              <a href="/admin/credit-invoices" className="text-green-700 underline">Bekijk alle creditfacturen</a>
-            </div>
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm mb-6">{error}</div>}
+      {lastCredit && (
+        <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 text-sm mb-6 flex items-center justify-between">
+          <div>Creditnota <strong>{lastCredit.number}</strong> aangemaakt.</div>
+          <div className="space-x-3">
+            <a href={lastCredit.url} target="_blank" className="text-green-700 underline">Download</a>
+            <a href="/admin/credit-invoices" className="text-green-700 underline">Bekijk alle creditfacturen</a>
           </div>
-        )}
+        </div>
+      )}
 
-        {loading ? <div>Laden…</div> : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-white rounded shadow">
-              <ul className="divide-y">
-                {filtered.map((r)=> (
-                  <li key={r.id} className={`p-4 cursor-pointer ${selected?.id===r.id?'bg-green-50':''}`} onClick={()=>setSelected(r)}>
-                    <div className="font-medium">{r.rmaNumber}</div>
-                    <div className="text-xs text-gray-500">Order: {r.orderNumber || '—'}</div>
-                    <div className="text-xs text-gray-500">{getCustomerDisplayName(r)} • {r.email}</div>
-                    <div className="text-xs mt-1"><span className="px-2 py-0.5 rounded bg-gray-100">{r.status || 'requested'}</span></div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="lg:col-span-2 bg-white rounded shadow p-4">
-              {!selected ? <div className="text-gray-600">Selecteer een RMA links</div> : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-lg font-semibold">{selected.rmaNumber}</div>
-                      <div className="text-sm text-gray-600">Order: {selected.orderNumber || '—'}</div>
-                    </div>
-                    <div className="space-x-2">
-                      <button onClick={()=>approve(selected)} className="px-3 py-1 bg-blue-600 text-white rounded">Keur goed</button>
-                      <button onClick={()=>receive(selected)} className="px-3 py-1 bg-indigo-600 text-white rounded">Ontvangen opslaan</button>
-                      <button onClick={()=>inspect(selected)} className="px-3 py-1 bg-yellow-600 text-white rounded">Inspectie opslaan</button>
-                      <button onClick={()=>credit(selected)} className="px-3 py-1 bg-green-600 text-white rounded">Creditnota</button>
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-600 mb-2">Originele orderregels hieronder; vul links de ontvangen aantallen, en bij Inspectie de te crediteren aantallen en restock.</div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-gray-500 border-b">
-                        <th className="py-2">Product</th>
-                        <th className="py-2">Besteld</th>
-                        <th className="py-2">Ontvangen</th>
-                        <th className="py-2">Credit</th>
-                        <th className="py-2">Restock</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(order?.items || selected.items || []).map((row:any,idx:number)=> {
-                        // Find matching RMA line
-                        const rline = (selected.items||[]).find((x:any)=> String(x.product_id) === String(row.id || row.productId || row.product_id)) || { product_id: String(row.id || row.productId || ''), name: row.name, qty_requested: row.quantity || 0, qty_received: 0, qty_credit: 0, qty_restock: 0 }
-                        const updateRma = (patch: Partial<ReturnItem>) => {
-                          setSelected(prev => prev ? ({...prev, items: (()=>{
-                            const cur = Array.isArray(prev.items) ? [...prev.items] : []
-                            const i = cur.findIndex((x:any)=> String(x.product_id) === String(rline.product_id))
-                            const merged = { ...rline, ...patch }
-                            if (i >= 0) cur[i] = merged; else cur.push(merged)
-                            return cur
-                          })() }) : prev)
-                        }
-                        return (
-                          <tr key={idx} className="border-b">
-                            <td className="py-2">{row.name || rline.name || rline.product_id}</td>
-                            <td className="py-2">{row.quantity || rline.qty_requested || 0}</td>
-                            <td className="py-2">
-                              <input type="number" min={0} className="w-20 border rounded px-2 py-1" value={rline.qty_received || 0} onChange={(e)=>updateRma({ qty_received: Math.max(0, Number(e.target.value||0)) })} />
-                            </td>
-                            <td className="py-2">
-                              <input type="number" min={0} className="w-20 border rounded px-2 py-1" value={rline.qty_credit || 0} onChange={(e)=>updateRma({ qty_credit: Math.max(0, Number(e.target.value||0)) })} />
-                            </td>
-                            <td className="py-2">
-                              <input type="number" min={0} className="w-20 border rounded px-2 py-1" value={rline.qty_restock || 0} onChange={(e)=>updateRma({ qty_restock: Math.max(0, Number(e.target.value||0)) })} />
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-gray-500">Laden…</div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RMA</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Klant</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producten</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acties</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filtered.map((rma) => {
+                  const order = getOrder(rma)
+                  return (
+                    <tr key={rma.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{rma.rmaNumber}</div>
+                        <div className="text-xs text-gray-500">{rma.created_at ? new Date(rma.created_at).toLocaleDateString('nl-NL') : '—'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{rma.orderNumber || '—'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{getCustomerDisplayName(rma)}</div>
+                        <div className="text-xs text-gray-500">{rma.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(rma.status)}`}>
+                          {getStatusText(rma.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">
+                          {rma.items && rma.items.length > 0 ? (
+                            <div className="space-y-1">
+                              {rma.items.map((item, idx) => (
+                                <div key={idx} className="text-xs">
+                                  {getProductDisplayName(rma, item.product_id)} - Qty: {item.qty_requested || 0}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">Geen items</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          {rma.status === 'open' && (
+                            <button 
+                              onClick={() => approve(rma)} 
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Keur goed
+                            </button>
+                          )}
+                          {rma.status === 'approved' && (
+                            <button 
+                              onClick={() => receive(rma)} 
+                              className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition-colors"
+                            >
+                              Ontvangen
+                            </button>
+                          )}
+                          {rma.status === 'received' && (
+                            <button 
+                              onClick={() => inspect(rma)} 
+                              className="px-3 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-700 transition-colors"
+                            >
+                              Inspectie
+                            </button>
+                          )}
+                          {rma.status === 'inspected' && (
+                            <button 
+                              onClick={() => credit(rma)} 
+                              className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                            >
+                              Creditnota
+                            </button>
+                          )}
+                          {rma.status === 'credited' && (
+                            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                              Voltooid
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </main>
+          
+          {filtered.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              {q ? 'Geen RMA\'s gevonden voor deze zoekopdracht' : 'Geen RMA\'s gevonden'}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
