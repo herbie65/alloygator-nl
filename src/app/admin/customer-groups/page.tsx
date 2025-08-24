@@ -200,50 +200,13 @@ function LegacyCustomerGroupsEditor() {
           return
         }
       } catch (firebaseError) {
-        console.log('Firebase data niet beschikbaar, gebruik dummy data')
+        console.log('Firebase data niet beschikbaar, toon lege lijst')
+        setCustomerGroups([])
+        return
       }
       
-      // Fallback naar dummy data als Firebase leeg is
-      const dummyGroups: CustomerGroup[] = [
-        {
-          id: '1',
-          name: 'Particulieren',
-          description: 'Reguliere particuliere klanten',
-          discount_percentage: 0,
-          show_on_map: false,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Brons Dealers',
-          description: 'Brons niveau dealers',
-          discount_percentage: 10,
-          show_on_map: true,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: '3',
-          name: 'Zilver Dealers',
-          description: 'Zilver niveau dealers',
-          discount_percentage: 15,
-          show_on_map: true,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: '4',
-          name: 'Goud Dealers',
-          description: 'Goud niveau dealers',
-          discount_percentage: 20,
-          show_on_map: true,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        }
-      ]
-      
-      setCustomerGroups(dummyGroups)
+      // Geen fallback meer - toon lege lijst als er geen data is
+      setCustomerGroups([])
     } catch (error) {
       console.error('Error loading customer groups:', error)
       setError('Fout bij het laden van klantgroepen')
@@ -291,10 +254,9 @@ function LegacyCustomerGroupsEditor() {
             group.id === editingGroup.id ? updatedGroup : group
           ))
         } else {
-          // Fallback naar lokale update
-          setCustomerGroups(prev => prev.map(group => 
-            group.id === editingGroup.id ? updatedGroup : group
-          ))
+          // Geen fallback meer - toon foutmelding
+          setError('Fout bij het bijwerken van klantgroep in database')
+          return
         }
         
         setEditingGroup(null)
@@ -306,13 +268,15 @@ function LegacyCustomerGroupsEditor() {
         }
         
         // Probeer Firebase save
-        const firebaseSuccess = await saveToFirebase(newGroup)
+        const firebaseSuccess = await saveToFirebase(newGroup, false)
         
         if (firebaseSuccess) {
-          setCustomerGroups(prev => [...prev, newGroup])
+          // Herlaad data uit database
+          await loadCustomerGroups()
         } else {
-          // Fallback naar lokale save
-          setCustomerGroups(prev => [...prev, newGroup])
+          // Geen fallback meer - toon foutmelding
+          setError('Fout bij het opslaan van klantgroep in database')
+          return
         }
       }
       

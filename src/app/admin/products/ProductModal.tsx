@@ -25,6 +25,8 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [productColors, setProductColors] = useState<any[]>([])
   const [showMedia, setShowMedia] = useState(false)
+  const [settings, setSettings] = useState<any>(null)
+  const [vatSettings, setVatSettings] = useState<any[]>([])
   
   // Lokale conceptvelden voor WYSIWYG zodat er niets buiten deze modal wordt geüpdatet tijdens typen
   const [shortDraft, setShortDraft] = useState<string>('')
@@ -67,6 +69,27 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
     }
     
     const load = async () => {
+      // Laad settings uit database
+      try {
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setSettings(data[0]);
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+      
+      // Laad BTW instellingen uit database
+      try {
+        const vatData = await FirebaseService.getVatSettings()
+        if (vatData && Array.isArray(vatData)) {
+          setVatSettings(vatData)
+        }
+      } catch (error) {
+        console.error('Error loading VAT settings:', error)
+      }
+      
       // Als we een product-ID hebben: vers, direct uit de database ophalen
       if (product?.id) {
         try {
@@ -80,7 +103,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
             return
           }
         } catch (_) {
-          // fallback op meegegeven product-object
+          // backup op meegegeven product-object
         }
         const normalizedCat = normalizeCategory((product as any).category)
         const currentSlug = (product as any).slug || uniqueSlug((product as any).name || (product as any).title || 'product', (product as any).id)
@@ -174,38 +197,48 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.name) { // Remove the description requirement
-      const categorySlug = normalizeCategory(formData.category)
-      
-      const productData = {
-        ...formData,
-        sku: formData.sku,
-        cost_price: Number(formData.cost_price) || 0,
-        stock_quantity: Number(formData.stock_quantity) || 0,
-        min_stock: Number(formData.min_stock) || 0,
-        ean_code: formData.ean_code,
-        weight: Number(formData.weight) || 0,
-        dimensions: formData.dimensions,
-        material: formData.material,
-        color: formData.color,
-        warranty: formData.warranty,
-        instructions: formData.instructions,
-        supplier_id: formData.supplier_id,
-        // Laat id leeg bij nieuw product zodat backend een numerieke id toewijst
-        id: product?.id, 
-        price: Number(formData.price) || 0,
-        features: Array.isArray(formData.features) ? formData.features : [],
-        specifications: formData.specifications || {},
-        created_at: formData.created_at ?? new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        category: categorySlug,
-        short_description: shortDraft || formData.short_description || formData.description || '',
-        long_description: longDraft || formData.long_description || '',
-      } as Product
-      
-      onSave(productData)
-      onClose()
+    
+    // Validatie voor verplichte velden
+    if (!formData.name) {
+      alert('Product naam is verplicht')
+      return
     }
+    
+    if (!formData.supplier_id) {
+      alert('Leverancier is verplicht. Selecteer een leverancier uit de lijst.')
+      return
+    }
+    
+    const categorySlug = normalizeCategory(formData.category)
+    
+    const productData = {
+      ...formData,
+      sku: formData.sku,
+      cost_price: Number(formData.cost_price) || 0,
+      stock_quantity: Number(formData.stock_quantity) || 0,
+      min_stock: Number(formData.min_stock) || 0,
+      ean_code: formData.ean_code,
+      weight: Number(formData.weight) || 0,
+      dimensions: formData.dimensions,
+      material: formData.material,
+      color: formData.color,
+      warranty: formData.warranty,
+      instructions: formData.instructions,
+      supplier_id: formData.supplier_id,
+      // Laat id leeg bij nieuw product zodat backend een numerieke id toewijst
+      id: product?.id, 
+      price: Number(formData.price) || 0,
+      features: Array.isArray(formData.features) ? formData.features : [],
+      specifications: formData.specifications || {},
+      created_at: formData.created_at ?? new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      category: categorySlug,
+      short_description: shortDraft || formData.short_description || formData.description || '',
+      long_description: longDraft || formData.long_description || '',
+    } as Product
+    
+    onSave(productData)
+    onClose()
   }
 
   const handleFeaturesChange = (value: string) => {
@@ -237,27 +270,27 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Naam *
                 </label>
-                <input
-                  type="text"
-                  value={formData.name || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  disabled={!isEditing && !!product}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                  required
-                />
+                                  <input
+                    type="text"
+                    value={formData.name || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    disabled={!!product && !isEditing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                    required
+                  />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   SKU
                 </label>
-                <input
-                  type="text"
-                  value={formData.sku || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
-                  disabled={!isEditing && !!product}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                />
+                                  <input
+                    type="text"
+                    value={formData.sku || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
+                    disabled={!!product && !isEditing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                  />
               </div>
 
               <div>
@@ -268,7 +301,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                   type="text"
                   value={formData.ean_code || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, ean_code: e.target.value }))}
-                  disabled={!isEditing && !!product}
+                  disabled={!!product && !isEditing}
                   placeholder="13 cijfers"
                   pattern="[0-9]{13}"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
@@ -284,7 +317,7 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                   step="0.01"
                   value={formData.price || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) }))}
-                  disabled={!isEditing && !!product}
+                  disabled={!!product && !isEditing}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                   required
                 />
@@ -428,15 +461,16 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Leverancier
+                  Leverancier *
                 </label>
                 <select
                   value={formData.supplier_id || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, supplier_id: e.target.value }))}
-                  disabled={!isEditing && !!product}
+                  disabled={!!product && !isEditing}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                  required
                 >
-                  <option value="">Geen leverancier</option>
+                  <option value="">— Selecteer een leverancier * —</option>
                   {suppliers.map(supplier => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.name}
@@ -471,9 +505,9 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
                   disabled={!isEditing && !!product}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 >
-                  <option value="standard">Standaard (21%)</option>
-                  <option value="reduced">Verlaagd (9%)</option>
-                  <option value="zero">Nul (0%)</option>
+                  <option value="standard">Standaard ({vatSettings.find(v => v.country_code === 'NL')?.standard_rate || 21}%)</option>
+                  <option value="reduced">Verlaagd ({vatSettings.find(v => v.country_code === 'NL')?.reduced_rate || 9}%)</option>
+                  <option value="zero">Nul ({vatSettings.find(v => v.country_code === 'NL')?.zero_rate || 0}%)</option>
                 </select>
               </div>
 
@@ -554,19 +588,12 @@ export default function ProductModal({ product, isEditing, isOpen, onClose, onSa
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                Annuleren
-              </button>
-              {isEditing && (
+              {(isEditing || !product) && (
                 <button
                   type="submit"
                   className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
                 >
-                  Opslaan
+                  Product opslaan
                 </button>
               )}
             </div>

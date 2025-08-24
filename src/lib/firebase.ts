@@ -3,13 +3,18 @@ import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, dele
 
 // Firebase configuratie
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyBfTecdVHIYbwyI822bcKAhLWs0bNNT1yM',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'alloygator-nl.firebaseapp.com',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'alloygator-nl',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'alloygator-nl.appspot.com',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '501404252412',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:501404252412:web:0dd2bd394f9a13117a3f79'
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
+
+// Check if all required environment variables are set
+if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+  throw new Error('Missing required Firebase environment variables. Please check your .env.local file.');
+}
 
 console.log('Firebase config loaded successfully');
 
@@ -41,12 +46,7 @@ const initializeFirebase = () => {
     return db;
   } catch (error) {
     console.error('Firebase initialization error:', error);
-    // Fallback initialization
-    console.log('Attempting fallback initialization...');
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    console.log('Firestore database initialized (fallback), db value:', db);
-    return db;
+    throw new Error('Failed to initialize Firebase. Please check your configuration.');
   }
 }
 
@@ -69,12 +69,12 @@ const getDb = () => {
   return db;
 }
 
-// BTW (VAT) nummers voor e-Boekhouden
+// BTW (VAT) nummers voor e-Boekhouden - komen uit database
 export const BTW_NUMMERS = {
-  HOOG_VERK_21: 'HOOG_VERK_21',    // 21% BTW verkoop
-  LAAG_VERK_9: 'LAAG_VERK_9',      // 9% BTW verkoop
-  BI_EU_VERK: 'BI_EU_VERK',        // BTW-vrije verkoop binnen EU
-  GEEN: 'GEEN'                      // Geen BTW
+  HOOG_VERK: '',    // BTW percentage uit database
+  LAAG_VERK: '',    // BTW percentage uit database  
+  BI_EU_VERK: '',   // BTW-vrije verkoop binnen EU
+  GEEN: 'GEEN'      // Geen BTW
 }
 
 // Database service functies
@@ -127,9 +127,9 @@ export class FirebaseService {
       return String(next)
     } catch (error) {
       console.error('Error generating numeric product ID:', error)
-      // Fallback to time-based suffix if listing products failed
-      const ts = Date.now()
-      return String(100000 + (ts % 100000))
+      // Fallback: gebruik timestamp als ID als er een probleem is met database
+      const timestamp = Date.now()
+      return String(timestamp)
     }
   }
 
@@ -155,20 +155,14 @@ export class FirebaseService {
       return `${PREFIX}${padded}`
     } catch (e) {
       console.error('Error generating sequential order ID:', e)
-      const fallback = `${PREFIX}${String(START).padStart(5, '0')}`
-      return fallback
+      throw new Error('Failed to generate order ID. Please check your database connection.');
     }
   }
 
   // Helper functie om kleur ID's te genereren op basis van medeklinkers
   static generateColorId(colorData: any): string {
     if (!colorData || !colorData.name) {
-      // Fallback naar timestamp als er geen naam is
-      const now = new Date()
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
-      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '')
-      const timestamp = Date.now()
-      return `kleur-${dateStr}-${timeStr}-${String(timestamp).slice(-3)}`
+      throw new Error('Color name is required to generate color ID.');
     }
 
     // Haal medeklinkers uit de kleurnaam
@@ -387,6 +381,25 @@ export class FirebaseService {
     return this.deleteDocument('customers', id);
   }
 
+  static async getCustomersByEmail(email: string) {
+    try {
+      const customers = await this.getDocuments('customers');
+      if (!customers || !Array.isArray(customers)) {
+        return [];
+      }
+      
+      // Filter customers by email (case-insensitive)
+      const matchingCustomers = customers.filter(customer => 
+        customer.email && customer.email.toLowerCase() === email.toLowerCase()
+      );
+      
+      return matchingCustomers;
+    } catch (error) {
+      console.error('Error getting customers by email:', error);
+      return [];
+    }
+  }
+
   // Helper for generating numeric customer IDs
   private static async generateNumericCustomerId(): Promise<string> {
     try {
@@ -425,8 +438,19 @@ export class FirebaseService {
 
   static async addProduct(productData: any) {
     try {
+      console.log('addProduct called with data:', productData);
       const database = getDb();
-      const logicalId = await this.generateLogicalId('products', productData)
+      console.log('Database obtained:', database);
+      
+      // Probeer eerst de normale ID generatie
+      let logicalId;
+      try {
+        logicalId = await this.generateLogicalId('products', productData);
+        console.log('Generated logical ID:', logicalId);
+      } catch (idError) {
+        console.warn('ID generation failed, using timestamp fallback:', idError);
+        logicalId = String(Date.now());
+      }
       
       const nowIso = new Date().toISOString();
       const { id: _omitId, created_at, updated_at, ...rest } = productData || {};
@@ -437,12 +461,23 @@ export class FirebaseService {
         created_at: created_at || nowIso,
         updated_at: nowIso,
       };
+      
+      console.log('Payload prepared:', payload);
 
       const docRef = doc(database, 'products', logicalId);
+      console.log('Document reference created:', docRef);
+      
       await setDoc(docRef, payload, { merge: true });
+      console.log('Product saved successfully');
+      
       return { id: logicalId, ...payload };
     } catch (error) {
       console.error('Error adding product:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       throw error;
     }
   }

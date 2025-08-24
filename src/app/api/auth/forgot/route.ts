@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       console.error('❌ Error fetching email settings:', dbError);
     }
     
-    // Gebruik database instellingen of fallback naar environment variables
+    // Gebruik database instellingen of backup naar environment variables
     const smtpHost = emailSettings?.smtpHost;
     const smtpPort = emailSettings?.smtpPort;
     const smtpUser = emailSettings?.smtpUser;

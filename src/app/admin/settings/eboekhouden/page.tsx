@@ -178,7 +178,7 @@ export default function EBoekhoudenSettings() {
             <h3 className="font-medium mb-2">Factuur BTW Codes</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>Hoog (21%):</span>
+                <span>Hoog ({settings?.vatHighRate || 0}%):</span>
                 <code className="bg-gray-100 px-2 py-1 rounded">{BTW.FACTUUR.HOOG}</code>
               </div>
               <div className="flex justify-between">

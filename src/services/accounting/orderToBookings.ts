@@ -55,9 +55,10 @@ export function mapOrderToBookings(order: Order, customer: Customer): OrderBooki
   // Bereken totaal BTW bedrag
   let totalBTW = 0;
   let totalExclBTW = 0;
+  let btwPercentage = 0; // Default BTW percentage
   
   order.items.forEach(item => {
-    const btwPercentage = item.vat_rate || 21;
+    btwPercentage = item.vat_rate || 0; // Geen hardcoded fallback meer
     const { amountExclBTW, btwAmount } = calculateBTWAmount(item.price, btwPercentage);
     totalExclBTW += amountExclBTW;
     totalBTW += btwAmount;
@@ -81,7 +82,7 @@ export function mapOrderToBookings(order: Order, customer: Customer): OrderBooki
     },
     {
       Rekening: COA.btwHoog, // We gebruiken voorlopig alleen hoog, kan later uitgebreid worden
-      Omschrijving: `BTW 21% ${order.order_number || order.id}`,
+      Omschrijving: `BTW ${btwPercentage}% ${order.order_number || order.id}`,
       Bedrag: totalBTW.toFixed(2),
       DebetCredit: 'C',
       BTWCode: BTW.GEEN
@@ -168,7 +169,7 @@ export function normalizeOrderForAccounting(rawOrder: any): Order {
   const normalizedItems = itemsArray.map((it) => ({
     name: it.name,
     price: Number(it.price || it.price_incl || 0),
-    vat_rate: Number(it.vat_rate ?? it.vat ?? 21),
+    vat_rate: Number(it.vat_rate ?? it.vat ?? 0), // Geen hardcoded fallback meer
     sku: it.sku,
     product_id: it.product_id,
     quantity: Number(it.quantity || 1),
@@ -193,9 +194,10 @@ export function mapOrderToBookingsFlexible(rawOrder: any, customer: Customer): O
 
   let totalBTW = 0;
   let totalExclBTW = 0;
+  let btwPercentage = 0; // Default BTW percentage
 
   order.items.forEach((item: any) => {
-    const btwPercentage = item.vat_rate || 21;
+    btwPercentage = item.vat_rate || 0; // Geen hardcoded fallback meer
     const qty = Number(item.quantity || 1);
     const { amountExclBTW, btwAmount } = calculateBTWAmount(item.price, btwPercentage);
     totalExclBTW += amountExclBTW * qty;
@@ -219,7 +221,7 @@ export function mapOrderToBookingsFlexible(rawOrder: any, customer: Customer): O
     },
     {
       Rekening: COA.btwHoog,
-      Omschrijving: `BTW 21% ${order.order_number || order.id}`,
+      Omschrijving: `BTW ${btwPercentage}% ${order.order_number || order.id}`,
       Bedrag: totalBTW.toFixed(2),
       DebetCredit: 'C',
       BTWCode: BTW.GEEN,

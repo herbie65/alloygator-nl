@@ -49,22 +49,18 @@ export default function MapComponent({ dealers, userLocation, onDealerSelect, se
   useEffect(() => {
     const fetchApiKey = async () => {
       try {
-        const response = await fetch('/api/settings')
-        const settings = await response.json()
+        // Haal de API key op via de environment variables API
+        const response = await fetch('/api/env/')
+        const envVars = await response.json()
         
-        // Handle both array and single object responses
-        let apiKeyValue = ''
-        if (Array.isArray(settings) && settings.length > 0) {
-          apiKeyValue = settings[0].googleMapsApiKey || settings[0].google_maps_api_key || ''
-        } else if (settings && typeof settings === 'object') {
-          apiKeyValue = settings.googleMapsApiKey || settings.google_maps_api_key || ''
-        }
+        const apiKeyValue = envVars.googleMapsApiKey || ''
         
         if (apiKeyValue) {
           console.log('✅ Google Maps API key loaded:', apiKeyValue.substring(0, 10) + '...')
           setApiKey(apiKeyValue)
         } else {
-          console.warn('⚠️ No Google Maps API key found in settings')
+          console.warn('⚠️ No Google Maps API key found in environment variables')
+          console.warn('💡 Configureer NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local')
         }
       } catch (error) {
         console.error('❌ Error fetching Google Maps API key:', error)

@@ -30,138 +30,174 @@ interface Product {
   reviews?: { rating: number; comment: string; author: string; date: string }[]
 }
 
-// Static product data (in real app, this would come from Firebase)
-const staticProducts: Product[] = [
-  {
-    id: '1',
-    name: 'AlloyGator Complete Set 17"',
-    description: 'Complete set voor 17 inch velgen inclusief montagehulpmiddelen. Professionele velgbescherming tegen stoeprandschade.',
-    price: 89.95,
-    vat_category: 'standard',
-    category: 'alloygator-set',
-    sku: 'AG-17-SET',
-    stock_quantity: 50,
-    weight: 2.5,
-    dimensions: '17 inch',
-    material: 'Kunststof',
-    color: 'Zwart',
-    warranty: '2 jaar',
-    instructions: 'Inclusief montagehandleiding',
-    features: ['Complete set', 'Montagehulpmiddelen', 'Handleiding', '2 jaar garantie'],
-    specifications: {
-      'Velgmaat': '17 inch',
-      'Materiaal': 'Kunststof',
-      'Kleur': 'Zwart',
-      'Gewicht': '2.5 kg',
-      'Garantie': '2 jaar'
-    },
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01',
-    reviews: [
-      { rating: 5, comment: 'Uitstekende kwaliteit, makkelijk te monteren!', author: 'Jan S.', date: '2024-01-15' },
-      { rating: 4, comment: 'Goede bescherming, aanrader.', author: 'Piet M.', date: '2024-01-10' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'AlloyGator Complete Set 18"',
-    description: 'Complete set voor 18 inch velgen inclusief montagehulpmiddelen. Professionele velgbescherming tegen stoeprandschade.',
-    price: 99.95,
-    vat_category: 'standard',
-    category: 'alloygator-set',
-    sku: 'AG-18-SET',
-    stock_quantity: 45,
-    weight: 2.8,
-    dimensions: '18 inch',
-    material: 'Kunststof',
-    color: 'Zwart',
-    warranty: '2 jaar',
-    instructions: 'Inclusief montagehandleiding',
-    features: ['Complete set', 'Montagehulpmiddelen', 'Handleiding', '2 jaar garantie'],
-    specifications: {
-      'Velgmaat': '18 inch',
-      'Materiaal': 'Kunststof',
-      'Kleur': 'Zwart',
-      'Gewicht': '2.8 kg',
-      'Garantie': '2 jaar'
-    },
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01',
-    reviews: [
-      { rating: 5, comment: 'Perfecte pasvorm voor mijn 18 inch velgen!', author: 'Mark V.', date: '2024-01-20' }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Montage Tool Set',
-    description: 'Professionele montagehulpmiddelen voor eenvoudige installatie van AlloyGator velgbescherming.',
-    price: 24.95,
-    vat_category: 'standard',
-    category: 'montagehulpmiddelen',
-    sku: 'MT-TOOL-SET',
-    stock_quantity: 100,
-    weight: 0.5,
-    dimensions: 'Toolbox',
-    material: 'Staal',
-    color: 'Zilver',
-    warranty: '1 jaar',
-    instructions: 'Professionele gereedschappen',
-    features: ['Complete gereedschap', 'Professioneel', 'Duurzaam', '1 jaar garantie'],
-    specifications: {
-      'Inhoud': 'Complete gereedschap set',
-      'Materiaal': 'Staal',
-      'Kleur': 'Zilver',
-      'Gewicht': '0.5 kg',
-      'Garantie': '1 jaar'
-    },
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01',
-    reviews: [
-      { rating: 4, comment: 'Goede kwaliteit gereedschap', author: 'Tom B.', date: '2024-01-12' }
-    ]
-  },
-  {
-    id: '4',
-    name: 'Vervangingsonderdelen Set',
-    description: 'Extra onderdelen voor onderhoud en reparatie van AlloyGator velgbescherming.',
-    price: 19.95,
-    vat_category: 'standard',
-    category: 'accessoires',
-    sku: 'VR-ONDERDELEN',
-    stock_quantity: 75,
-    weight: 0.3,
-    dimensions: 'Klein',
-    material: 'Kunststof',
-    color: 'Zwart',
-    warranty: '1 jaar',
-    instructions: 'Vervangingsonderdelen',
-    features: ['Onderdelen', 'Onderhoud', 'Reparatie', '1 jaar garantie'],
-    specifications: {
-      'Inhoud': 'Vervangingsonderdelen',
-      'Materiaal': 'Kunststof',
-      'Kleur': 'Zwart',
-      'Gewicht': '0.3 kg',
-      'Garantie': '1 jaar'
-    },
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01',
-    reviews: [
-      { rating: 5, comment: 'Handig voor onderhoud', author: 'Lisa K.', date: '2024-01-08' }
-    ]
-  }
-]
+interface VatSettings {
+  id: string
+  country_code: string
+  standard_rate: number
+  reduced_rate: number
+  zero_rate: number
+  description: string
+  is_eu_member: boolean
+  created_at: string
+  updated_at: string
+}
 
-export default function ProductDetailPage() {
+export default function ProductPage() {
   const dealer = useDealerPricing()
   const params = useParams()
   const router = useRouter()
-  const productId = params.id as string
-  
+  const productId = String(params.id)
   const [product, setProduct] = useState<Product | null>(null)
-  const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [selectedImage, setSelectedImage] = useState(0)
+  const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState('description')
+  const [vatSettings, setVatSettings] = useState<any[]>([])
+
+  // Functie om prijzen inclusief BTW te berekenen op basis van database instellingen
+  const getPriceIncludingVat = (basePrice: number, vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard 21%')
+      const priceIncludingVat = basePrice * 1.21
+      return Math.round(priceIncludingVat * 100) / 100
+    }
+    
+    // Zoek BTW instellingen voor Nederland
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard 21%')
+      const priceIncludingVat = basePrice * 1.21
+      return Math.round(priceIncludingVat * 100) / 100
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    const priceIncludingVat = basePrice * (1 + vatRate / 100)
+    
+    return Math.round(priceIncludingVat * 100) / 100 // Afronden op 2 decimalen
+  }
+  
+  // Functie om BTW rate op te halen op basis van database instellingen
+  const getVatRate = (vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard 21%')
+      return 21
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard 21%')
+      return 21
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        return 21
+      }
+      return vatSetting.reduced_rate
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        return 0
+      }
+      return vatSetting.zero_rate
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        return 21
+      }
+      return vatSetting.standard_rate
+    }
+  }
+  
+  // Functie om BTW tekst te genereren op basis van database instellingen
+  const getVatText = (vatCategory: string = 'standard'): string => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    return `incl. ${vatRate}% BTW`
+  }
+
+    // Functie om de juiste weergave prijs te bepalen op basis van gebruikerstype
+  const getDisplayPrice = (product: Product): { price: number; vatText: string } => {
+    const basePrice = Number(product.price || 0)
+    
+    // Voor dealers: toon prijs exclusief BTW met korting toegepast
+    if (dealer.isDealer) {
+      const discountedPrice = applyDealerDiscount(basePrice, dealer.discountPercent)
+      return {
+        price: discountedPrice,
+        vatText: 'excl. BTW'
+      }
+    }
+    
+    // Voor particuliere klanten en niet-ingelogde gebruikers: toon prijs inclusief BTW
+    const priceIncludingVat = getPriceIncludingVat(basePrice, product.vat_category || 'standard')
+    const vatText = getVatText(product.vat_category || 'standard')
+    
+    return {
+      price: priceIncludingVat,
+      vatText: vatText
+    }
+  }
+
+
 
   // Zet de paginatitel zodra product geladen is
   useEffect(() => {
@@ -176,6 +212,16 @@ export default function ProductDetailPage() {
     let isMounted = true
     const load = async () => {
       try {
+        // Laad BTW instellingen uit database
+        try {
+          const vatData = await FirebaseService.getVatSettings()
+          if (vatData && Array.isArray(vatData) && isMounted) {
+            setVatSettings(vatData)
+          }
+        } catch (error) {
+          console.error('Fout bij laden BTW instellingen:', error)
+        }
+        
         // 1) Probeer vanuit Firebase direct document te halen
         let doc: any = null
         try {
@@ -226,15 +272,7 @@ export default function ProductDetailPage() {
           return
         }
 
-        // 3) Fallback naar statische producten
-        const foundProduct = staticProducts.find(p => p.id === productId)
-        if (foundProduct && isMounted) {
-          setProduct(foundProduct)
-          setLoading(false)
-          return
-        }
-
-        // 4) Als niets gevonden, terug naar winkel
+        // 3) Geen fallback meer - alleen database data gebruiken
         if (isMounted) {
           setLoading(false)
           router.push('/winkel')
@@ -256,7 +294,8 @@ export default function ProductDetailPage() {
     const cartItem = {
       id: product.id,
       name: product.name,
-      price: product.price,
+      // Gebruik de juiste prijs op basis van gebruikerstype
+      price: dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : getPriceIncludingVat(product.price, product.vat_category || 'standard'),
       quantity: quantity,
       image: product.image_url,
       vat_category: product.vat_category,
@@ -307,9 +346,12 @@ export default function ProductDetailPage() {
     )
   }
 
-  const base = dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : product.price
-  const displayPrice = dealer.isDealer ? base : calculatePriceWithVat(base, 21)
-  const vatText = getVatDisplayText(21, 'NL')
+  // Voor dealers: toon prijs exclusief BTW met korting toegepast
+  // Voor particuliere klanten: toon prijs inclusief BTW
+  const displayPrice = dealer.isDealer ? 
+    applyDealerDiscount(product.price, dealer.discountPercent) : 
+    getPriceIncludingVat(product.price, product.vat_category || 'standard')
+  const vatText = dealer.isDealer ? 'excl. BTW' : getVatText(product.vat_category || 'standard')
   const averageRating = getAverageRating()
 
   return (
@@ -383,9 +425,9 @@ export default function ProductDetailPage() {
               <div className="mb-6">
                 <div className="flex items-baseline space-x-2">
                   <span className="text-3xl font-bold text-gray-900">
-                    €{displayPrice.toFixed(2)}
+                    €{getDisplayPrice(product).price.toFixed(2)}
                   </span>
-                  <span className="text-sm text-gray-500">{dealer.isDealer ? 'excl. BTW' : vatText}</span>
+                  <span className="text-sm text-gray-500">{getDisplayPrice(product).vatText}</span>
                 </div>
                 <p className="text-sm text-gray-600">SKU: {product.sku}</p>
                 {(product as any).ean_code && (

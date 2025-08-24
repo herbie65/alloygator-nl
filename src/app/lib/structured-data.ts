@@ -150,52 +150,46 @@ export function generateWebPageData(data: WebPageData) {
 }
 
 // Local Business structured data
+// TODO: Vervang door database calls naar company_settings collection
 export function generateLocalBusinessData() {
   return {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "name": "AlloyGator B.V.",
-    "description": "Specialist in velgen bescherming en auto accessoires",
-    "url": "https://alloygator-nl.web.app",
-    "logo": "https://alloygator-nl.web.app/media/AlloyGator_Logo.png",
-    "image": "https://alloygator-nl.web.app/media/AlloyGator_Logo.png",
+    "name": "AlloyGator B.V.", // TODO: uit database
+    "description": "Specialist in velgen bescherming en auto accessoires", // TODO: uit database
+    "url": "https://alloygator-nl.web.app", // TODO: uit database
+    "logo": "https://alloygator-nl.web.app/media/AlloyGator_Logo.png", // TODO: uit database
+    "image": "https://alloygator-nl.web.app/media/AlloyGator_Logo.png", // TODO: uit database
     "address": {
       "@type": "PostalAddress",
-      "streetAddress": "Kweekgrasstraat 36",
-      "addressLocality": "Almere",
-      "postalCode": "1313 BX",
-      "addressCountry": "NL"
+      "streetAddress": "Kweekgrasstraat 36", // TODO: uit database
+      "addressLocality": "Almere", // TODO: uit database
+      "postalCode": "1313 BX", // TODO: uit database
+      "addressCountry": "NL" // TODO: uit database
     },
     "geo": {
       "@type": "GeoCoordinates",
-      "latitude": "52.3508",
-      "longitude": "5.2647"
+      "latitude": "52.3508", // TODO: uit database
+      "longitude": "5.2647" // TODO: uit database
     },
-    "telephone": "+31853033400",
-    "email": "info@alloygator.nl",
-    "openingHours": [
+    "telephone": "+31853033400", // TODO: uit database
+    "email": "info@alloygator.nl", // TODO: uit database
+    "openingHours": [ // TODO: uit database
       "Mo-Fr 08:30-17:00"
     ],
-    "priceRange": "€€",
-    "currenciesAccepted": "EUR",
-    "paymentAccepted": "Cash, Credit Card, Bank Transfer",
-    "areaServed": "Netherlands",
+    "priceRange": "€€", // TODO: uit database
+    "currenciesAccepted": "EUR", // TODO: uit database
+    "paymentAccepted": "Cash, Credit Card, Bank Transfer", // TODO: uit database
+    "areaServed": "Netherlands", // TODO: uit database
     "serviceArea": {
       "@type": "Country",
-      "name": "Netherlands"
+      "name": "Netherlands" // TODO: uit database
     },
     "hasOfferCatalog": {
       "@type": "OfferCatalog",
-      "name": "Velgen Bescherming Producten",
-      "itemListElement": [
-        {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Product",
-            "name": "AlloyGator Complete Set",
-            "description": "Complete velgen bescherming set"
-          }
-        }
+      "name": "Velgen Bescherming Producten", // TODO: uit database
+      "itemListElement": [ // TODO: uit database - dynamische producten
+        // Lege array - geen hardcoded producten meer
       ]
     }
   }

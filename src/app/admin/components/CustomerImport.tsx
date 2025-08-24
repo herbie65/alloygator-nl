@@ -102,7 +102,7 @@ export default function CustomerImport({ onImport, onClose }: CustomerImportProp
       }
     }
     
-    // Fallback: alles als adres
+    // Default: alles als adres
     return {
       address: cleanAddress,
       city: '',

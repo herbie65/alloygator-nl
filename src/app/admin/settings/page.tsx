@@ -7,6 +7,11 @@ import { useSearchParams } from 'next/navigation'
 export default function SettingsPage() {
   const params = useSearchParams()
   const currentTab = (params.get('tab') || 'general') as 'general'|'shipping'|'payments'|'email'|'dhl'|'taxmap'|'social'|'crm'|'data'
+  
+  // Database state voor BTW instellingen
+  const [vatSettings, setVatSettings] = useState<any[]>([])
+  const [loadingVat, setLoadingVat] = useState(true)
+  
   const [settings, setSettings] = useState({
     siteName: '',
     siteDescription: '',
@@ -27,11 +32,14 @@ export default function SettingsPage() {
     mapCenterLng: 4.9041,
     mapZoom: 7,
     searchRadius: 25,
-    // BTW settings
-    defaultVatRate: 21,
-    showVatAsLastLine: true,
-    labelShippingExclVat: true,
-    autoReverseChargeEU: true,
+    // BTW settings - VOLLEDIG uit database, geen hardcoded waarden
+    defaultVatRate: 0,
+    vatHighRate: 0,
+    vatLowRate: 0,
+    vatZeroRate: 0,
+    showVatAsLastLine: false,
+    labelShippingExclVat: false,
+    autoReverseChargeEU: false,
     shippingCost: '8.95',
     freeShippingThreshold: '300',
     defaultCarrier: 'postnl',
@@ -134,6 +142,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadSettings()
+    loadVatSettings()
     loadPaymentMethods()
     loadCRMSettings()
     loadDocumentMeta()
@@ -162,29 +171,14 @@ export default function SettingsPage() {
         });
 
         // Ensure enabledCarriers exists
-        const enabledCarriers = savedSettings.enabledCarriers || ['postnl', 'dhl', 'dpd'];
+        const enabledCarriers = savedSettings.enabledCarriers || [];
         
         setSettings(prev => ({
           ...prev,
           ...savedSettings,
           // Map database field names to component field names
           googleMapsApiKey: savedSettings.google_maps_api_key || '',
-          shippingMethods: (() => {
-            const list = [...fixedShippingMethods]
-            // Ensure local pickup exists
-            if (!list.some((m:any) => m.id === 'local-pickup')) {
-              list.push({
-                id: 'local-pickup',
-                name: 'Afhalen (Almere)',
-                description: 'Gratis afhalen bij ons magazijn',
-                carrier: 'local',
-                delivery_type: 'pickup_local',
-                price: 0,
-                enabled: true
-              })
-            }
-            return list
-          })(),
+          shippingMethods: fixedShippingMethods, // Geen hardcoded fallbacks meer
           enabledCarriers: Array.from(new Set([...(enabledCarriers || []), 'local'])),
           mollieApiKey: savedSettings.mollieApiKey || savedSettings.mollie_api_key || prev.mollieApiKey,
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode
@@ -200,6 +194,36 @@ export default function SettingsPage() {
       setLoading(false);
     }
   }
+
+  // Laad BTW instellingen uit de database
+  const loadVatSettings = async () => {
+    try {
+      setLoadingVat(true)
+      const vatData = await FirebaseClientService.getVatSettings()
+      
+      if (vatData && Array.isArray(vatData)) {
+        setVatSettings(vatData)
+        
+        // Update settings met BTW data uit database - GEEN fallbacks
+        const nlVat = vatData.find((v: any) => v.country_code === 'NL')
+        if (nlVat) {
+          setSettings(prev => ({
+            ...prev,
+            defaultVatRate: (nlVat as any).standard_rate,
+            vatHighRate: (nlVat as any).standard_rate,
+            vatLowRate: (nlVat as any).reduced_rate,
+            vatZeroRate: (nlVat as any).zero_rate
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading VAT settings:', error)
+    } finally {
+      setLoadingVat(false)
+    }
+  }
+
+
 
   const loadPaymentMethods = async () => {
     try {
@@ -224,48 +248,24 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings')
       if (res.ok) {
         const data = await res.json()
-        // Set default CRM types if none exist
-        if (!data.visitTypes || data.visitTypes.length === 0) {
-          setVisitTypes([
-            { id: '1', name: 'Eerste bezoek', description: 'Eerste kennismaking met klant', color: '#3B82F6', active: true },
-            { id: '2', name: 'Follow-up', description: 'Vervolgafspraak', color: '#10B981', active: true },
-            { id: '3', name: 'Demonstratie', description: 'Product demonstratie', color: '#F59E0B', active: true },
-            { id: '4', name: 'Onderhoud', description: 'Onderhoudsbezoek', color: '#EF4444', active: true },
-            { id: '5', name: 'Klachten', description: 'Klachtenafhandeling', color: '#8B5CF6', active: true }
-          ])
-        } else {
+        // Laad CRM types uit database - geen hardcoded fallbacks meer
+        if (data.visitTypes && data.visitTypes.length > 0) {
           setVisitTypes(data.visitTypes)
+        } else {
+          setVisitTypes([])
         }
         
-        if (!data.contactMomentTypes || data.contactMomentTypes.length === 0) {
-          setContactMomentTypes([
-            { id: '1', name: 'Telefoon', description: 'Telefonisch contact', color: '#3B82F6', active: true },
-            { id: '2', name: 'E-mail', description: 'E-mail contact', color: '#10B981', active: true },
-            { id: '3', name: 'WhatsApp', description: 'WhatsApp bericht', color: '#22C55E', active: true },
-            { id: '4', name: 'Bezoek', description: 'Fysiek bezoek', color: '#F59E0B', active: true },
-            { id: '5', name: 'Vergadering', description: 'Vergadering', color: '#8B5CF6', active: true }
-          ])
-        } else {
+        if (data.contactMomentTypes && data.contactMomentTypes.length > 0) {
           setContactMomentTypes(data.contactMomentTypes)
+        } else {
+          setContactMomentTypes([])
         }
       }
     } catch (error) {
       console.error('Error loading CRM settings:', error)
-      // Set default types on error
-      setVisitTypes([
-        { id: '1', name: 'Eerste bezoek', description: 'Eerste kennismaking met klant', color: '#3B82F6', active: true },
-        { id: '2', name: 'Follow-up', description: 'Vervolgafspraak', color: '#10B981', active: true },
-        { id: '3', name: 'Demonstratie', description: 'Product demonstratie', color: '#F59E0B', active: true },
-        { id: '4', name: 'Onderhoud', description: 'Onderhoudsbezoek', color: '#EF4444', active: true },
-        { id: '5', name: 'Klachten', description: 'Klachtenafhandeling', color: '#8B5CF6', active: true }
-      ])
-      setContactMomentTypes([
-        { id: '1', name: 'Telefoon', description: 'Telefonisch contact', color: '#3B82F6', active: true },
-        { id: '2', name: 'E-mail', description: 'E-mail contact', color: '#10B981', active: true },
-        { id: '3', name: 'WhatsApp', description: 'WhatsApp bericht', color: '#22C55E', active: true },
-        { id: '4', name: 'Bezoek', description: 'Fysiek bezoek', color: '#F59E0B', active: true },
-        { id: '5', name: 'Vergadering', description: 'Vergadering', color: '#8B5CF6', active: true }
-      ])
+      // Geen hardcoded fallbacks meer - lege arrays bij fout
+      setVisitTypes([])
+      setContactMomentTypes([])
     } finally {
       setCrmLoading(false)
     }
@@ -324,6 +324,23 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaveStatus('saving')
+      
+      // Sla eerst BTW instellingen op in de database
+      if (vatSettings.length > 0) {
+        const nlVat = vatSettings.find((v: any) => v.country_code === 'NL')
+        if (nlVat) {
+          const updatedVatData = {
+            ...nlVat,
+            standard_rate: settings.vatHighRate,
+            reduced_rate: settings.vatLowRate,
+            zero_rate: settings.vatZeroRate,
+            updated_at: new Date().toISOString()
+          }
+          
+          // Update in database
+          await FirebaseClientService.updateVatSettings(nlVat.id, updatedVatData)
+        }
+      }
       
       // Prepare settings for database (map component field names to database field names)
       const settingsForDatabase = {
@@ -1392,36 +1409,101 @@ export default function SettingsPage() {
           <div className="p-6 space-y-8">
             <div>
               <h3 className="text-md font-semibold text-gray-900 mb-3">BTW</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Standaard BTW tarief (%)</label>
-                  <input type="number" value={settings.defaultVatRate} onChange={(e)=> setSettings(prev=>({...prev, defaultVatRate: parseInt(e.target.value||'21',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              {loadingVat && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-700">BTW instellingen laden uit database...</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Hoog tarief (%)</label>
-                  <input type="number" value={(settings as any).vatHighRate ?? 21} onChange={(e)=> setSettings(prev=>({...prev, vatHighRate: parseInt(e.target.value||'21',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              )}
+              
+              {/* Toon alle landen met BTW instellingen */}
+              {vatSettings.length > 0 && (
+                <div className="space-y-4">
+                  {vatSettings.map((vatCountry: any) => (
+                    <div key={vatCountry.id} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3">
+                        {vatCountry.country_code} - {vatCountry.description}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Standaard tarief (%)</label>
+                          <input 
+                            type="number" 
+                            value={vatCountry.country_code === 'NL' ? settings.vatHighRate : vatCountry.standard_rate} 
+                            onChange={(e) => {
+                              if (vatCountry.country_code === 'NL') {
+                                setSettings(prev => ({...prev, vatHighRate: parseInt(e.target.value || '0', 10)}))
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Verlaagd tarief (%)</label>
+                          <input 
+                            type="number" 
+                            value={vatCountry.country_code === 'NL' ? settings.vatLowRate : vatCountry.reduced_rate} 
+                            onChange={(e) => {
+                              if (vatCountry.country_code === 'NL') {
+                                setSettings(prev => ({...prev, vatLowRate: parseInt(e.target.value || '0', 10)}))
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Nultarief (%)</label>
+                          <input 
+                            type="number" 
+                            value={vatCountry.country_code === 'NL' ? settings.vatZeroRate : vatCountry.zero_rate} 
+                            onChange={(e) => {
+                              if (vatCountry.country_code === 'NL') {
+                                setSettings(prev => ({...prev, vatZeroRate: parseInt(e.target.value || '0', 10)}))
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                          />
+                        </div>
+                      </div>
+                      {vatCountry.country_code === 'NL' && (
+                        <p className="text-xs text-blue-600 mt-2">
+                          💡 Nederlandse BTW instellingen worden opgeslagen via de hoofdknop "Instellingen Opslaan"
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Laag tarief (%)</label>
-                  <input type="number" value={(settings as any).vatLowRate ?? 9} onChange={(e)=> setSettings(prev=>({...prev, vatLowRate: parseInt(e.target.value||'9',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nultarief (%)</label>
-                  <input type="number" value={(settings as any).vatZeroRate ?? 0} onChange={(e)=> setSettings(prev=>({...prev, vatZeroRate: parseInt(e.target.value||'0',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
-                <div className="flex items-center">
-                  <input id="showVatAsLastLine" type="checkbox" checked={settings.showVatAsLastLine} onChange={(e)=> setSettings(prev=>({...prev, showVatAsLastLine: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
-                  <label htmlFor="showVatAsLastLine" className="ml-2 text-sm text-gray-700">Toon BTW altijd als laatste regel</label>
-                </div>
-                <div className="flex items-center">
-                  <input id="labelShippingExclVat" type="checkbox" checked={settings.labelShippingExclVat} onChange={(e)=> setSettings(prev=>({...prev, labelShippingExclVat: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
-                  <label htmlFor="labelShippingExclVat" className="ml-2 text-sm text-gray-700">Label verzendkosten als excl. BTW</label>
-                </div>
-                <div className="flex items-center">
-                  <input id="autoReverseChargeEU" type="checkbox" checked={settings.autoReverseChargeEU} onChange={(e)=> setSettings(prev=>({...prev, autoReverseChargeEU: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
-                  <label htmlFor="autoReverseChargeEU" className="ml-2 text-sm text-gray-700">BTW verleggen automatisch bij geldig EU BTW (niet NL)</label>
+              )}
+              
+              {/* BTW Weergave Instellingen */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-3">BTW Weergave Instellingen</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input id="showVatAsLastLine" type="checkbox" checked={settings.showVatAsLastLine} onChange={(e)=> setSettings(prev=>({...prev, showVatAsLastLine: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                    <label htmlFor="showVatAsLastLine" className="ml-2 text-sm text-gray-700">Toon BTW altijd als laatste regel</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input id="labelShippingExclVat" type="checkbox" checked={settings.labelShippingExclVat} onChange={(e)=> setSettings(prev=>({...prev, labelShippingExclVat: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                    <label htmlFor="labelShippingExclVat" className="ml-2 text-sm text-gray-700">Label verzendkosten als excl. BTW</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input id="autoReverseChargeEU" type="checkbox" checked={settings.autoReverseChargeEU} onChange={(e)=> setSettings(prev=>({...prev, autoReverseChargeEU: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                    <label htmlFor="autoReverseChargeEU" className="ml-2 text-sm text-gray-700">BTW verleggen automatisch bij geldig EU BTW (niet NL)</label>
+                  </div>
                 </div>
               </div>
+              
+              {/* BTW Database Info */}
+              {vatSettings.length > 0 && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-700">
+                    ✅ BTW instellingen geladen uit database ({vatSettings.length} landen)
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Huidige waarden komen uit de vat_settings collectie
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

@@ -5,7 +5,7 @@ import AdminSidebar from '@/app/admin/components/AdminSidebar'
 import { FirebaseClientService } from '@/lib/firebase-client'
 
 type ReturnItem = { product_id: string; name?: string; qty_requested?: number; qty_received?: number; qty_credit?: number; qty_restock?: number; condition?: string; reason?: string }
-type RMA = { id: string; rmaNumber: string; orderNumber?: string; customerName?: string; email?: string; status?: string; created_at?: string; items?: ReturnItem[]; rma_log?: any[] }
+type RMA = { id: string; rmaNumber: string; orderNumber?: string; order_id?: string; customerName?: string; email?: string; status?: string; created_at?: string; items?: ReturnItem[]; rma_log?: any[] }
 
 export default function AdminReturnsPage() {
   const [activeTab, setActiveTab] = useState('returns')
@@ -44,6 +44,22 @@ export default function AdminReturnsPage() {
     fetchOrder()
   }, [selected?.id])
 
+  // Load customer details when needed
+  const getCustomerDisplayName = (rma: RMA) => {
+    if (rma.customerName) return rma.customerName
+    if (rma.customer_id && order?.customer) {
+      return `${order.customer.contact_first_name || order.customer.voornaam} ${order.customer.contact_last_name || order.customer.achternaam}`
+    }
+    return 'Onbekende klant'
+  }
+
+  // Load product details when needed
+  const getProductDisplayName = (productId: string) => {
+    if (!order?.items) return productId
+    const product = order.items.find((item: any) => (item.id || item.product_id) === productId)
+    return product?.name || productId
+  }
+
   const filtered = useMemo(()=> {
     const s = q.trim().toLowerCase()
     return list.filter(r=> !s || r.rmaNumber?.toLowerCase().includes(s) || r.orderNumber?.toLowerCase().includes(s) || r.customerName?.toLowerCase().includes(s) || r.email?.toLowerCase().includes(s))
@@ -55,16 +71,21 @@ export default function AdminReturnsPage() {
     await load()
   }
 
-  const approve = async (r: RMA) => { await call('/api/returns/approve', { id: r.id }) }
+  const approve = async (r: RMA) => { await call('/api/returns/approve', { rmaId: r.id }) }
   const receive = async (r: RMA) => {
-    const rows = (r.items||[]).map(it=> ({ product_id: it.product_id, qty: Number(it.qty_received || 0) }))
-    await call('/api/returns/receive', { id: r.id, items: rows })
+    const rows = (r.items||[]).map(it=> ({ product_id: it.product_id, qty_received: Number(it.qty_received || 0) }))
+    await call('/api/returns/receive', { rmaId: r.id, items: rows })
   }
   const inspect = async (r: RMA) => {
     const rows = (r.items||[]).map(it=> ({ product_id: it.product_id, qty_credit: Number(it.qty_credit || 0), qty_restock: Number(it.qty_restock || 0), condition: it.condition, reason: it.reason }))
-    await call('/api/returns/inspect', { id: r.id, decisions: rows })
+    await call('/api/returns/inspect', { rmaId: r.id, items: rows })
   }
   const credit = async (r: RMA) => {
+    // Debug: log de RMA data
+    console.log('RMA data voor creditnota:', r)
+    console.log('order_id:', r.order_id)
+    console.log('orderNumber:', r.orderNumber)
+    
     // Bepaal te crediteren items: voorkeur qty_credit, anders qty_received, anders qty_requested
     const prepared = (r.items||[]).map(it => ({
       product_id: it.product_id,
@@ -75,10 +96,19 @@ export default function AdminReturnsPage() {
       alert('Geen te crediteren aantallen bekend. Voer eerst Inspectie uit of vul credit-aantallen in.')
       return
     }
-    const res = await fetch('/api/invoices/credit', {
+    
+    // Gebruik order_id (dit is de juiste referentie voor database lookup)
+    const orderId = r.order_id
+    if (!orderId) {
+      alert('RMA heeft geen geldige order referentie. Kan geen creditnota aanmaken.')
+      return
+    }
+    console.log('Gebruikte orderId:', orderId)
+    
+    const res = await fetch('/api/returns/credit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: r.orderNumber, rmaId: r.id, items, restock: true })
+      body: JSON.stringify({ orderId, rmaId: r.id, items, restock: true })
     })
     if (!res.ok) {
       const msg = await res.text().catch(()=> '')
@@ -124,7 +154,7 @@ export default function AdminReturnsPage() {
                   <li key={r.id} className={`p-4 cursor-pointer ${selected?.id===r.id?'bg-green-50':''}`} onClick={()=>setSelected(r)}>
                     <div className="font-medium">{r.rmaNumber}</div>
                     <div className="text-xs text-gray-500">Order: {r.orderNumber || '—'}</div>
-                    <div className="text-xs text-gray-500">{r.customerName} • {r.email}</div>
+                    <div className="text-xs text-gray-500">{getCustomerDisplayName(r)} • {r.email}</div>
                     <div className="text-xs mt-1"><span className="px-2 py-0.5 rounded bg-gray-100">{r.status || 'requested'}</span></div>
                   </li>
                 ))}

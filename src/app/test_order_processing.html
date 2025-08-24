@@ -262,7 +262,7 @@
 
             const cart = JSON.parse(savedCart);
             const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const vatAmount = subtotal * 0.21; // 21% BTW
+            const vatAmount = subtotal * (settings?.vatHighRate || 0) / 100; // BTW uit database
             const shippingCost = 5.95;
             const total = subtotal + vatAmount + shippingCost;
 
@@ -275,7 +275,7 @@
                 items: cart,
                 subtotal: subtotal,
                 vat_amount: vatAmount,
-                vat_rate: 21,
+                vat_rate: settings?.vatHighRate || 0, // BTW uit database
                 shippingCost: shippingCost,
                 total: total,
                 paymentMethod: 'ideal',

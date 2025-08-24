@@ -1,13 +1,6 @@
 // Test script om checkout met verzendmethoden te testen
-const testCart = [
-  {
-    id: 1,
-    name: "Set van 4 AlloyGators-Geel-12\"-19\"",
-    price: 119.83,
-    quantity: 1,
-    vat_category: "standard"
-  }
-];
+// Geen hardcoded test data meer - gebruik echte producten uit de database
+const testCart = [];
 
 // Voeg test cart toe aan localStorage
 if (typeof window !== 'undefined') {

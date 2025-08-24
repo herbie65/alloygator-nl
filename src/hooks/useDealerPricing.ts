@@ -9,12 +9,8 @@ export interface DealerPricingInfo {
   discountPercent: number
 }
 
-const GROUP_DISCOUNTS: Record<string, number> = {
-  bronze: 5,
-  silver: 10,
-  gold: 15,
-  platinum: 20,
-}
+// Geen hardcoded discounts meer - deze komen uit de database via customer_groups
+const GROUP_DISCOUNTS: Record<string, number> = {}
 
 export function applyDealerDiscount(basePrice: number, discountPercent: number): number {
   if (!discountPercent || discountPercent <= 0) return Number(basePrice || 0)
@@ -53,13 +49,12 @@ export function useDealerPricing(): DealerPricingInfo {
       // Try dealer login session
       const dealerSession = localStorage.getItem('dealerSession')
       const dealerGroup = localStorage.getItem('dealerGroup')
-      const dealerDiscount = localStorage.getItem('dealerDiscount')
-      if (dealerSession || dealerGroup || dealerDiscount) {
+      if (dealerSession || dealerGroup) {
         const ds = dealerSession ? JSON.parse(dealerSession) : {}
         const group = normalizeGroup(ds.group || ds.dealerGroup || dealerGroup || '')
-        const percentFromSession = Number(ds.discount || ds.dealerDiscount || dealerDiscount || 0) || 0
-        // Set preliminary percent; will be corrected by customer_groups mapping once loaded
-        setInfo({ isDealer: true, group, discountPercent: percentFromSession })
+        console.log('Dealer sessie gevonden:', { dealerSession, dealerGroup, group })
+        // Stel dealer status in, maar wacht op customer_groups voor de juiste korting
+        setInfo({ isDealer: true, group, discountPercent: 0 })
         return
       }
 
@@ -69,8 +64,9 @@ export function useDealerPricing(): DealerPricingInfo {
         const u = JSON.parse(currentUserStr)
         const isDealer = !!u.is_dealer
         const group = normalizeGroup(u.dealer_group || u.group || localStorage.getItem('dealerGroup') || '')
-        const percent = Number(localStorage.getItem('dealerDiscount') || 0) || 0
-        setInfo({ isDealer, group, discountPercent: isDealer ? percent : 0 })
+        console.log('Current user sessie gevonden:', { isDealer, group, dealer_group: u.dealer_group })
+        // Stel dealer status in, maar wacht op customer_groups voor de juiste korting
+        setInfo({ isDealer, group, discountPercent: 0 })
         return
       }
     } catch {}
@@ -86,13 +82,13 @@ export function useDealerPricing(): DealerPricingInfo {
         if (!email) return
         // Try dealers collection first
         let group: DealerPricingInfo['group'] | null = null
-        let percent = 0
         const dealers = await FirebaseClientService.getDealersByEmail(email)
         if (Array.isArray(dealers) && dealers.length > 0) {
           const d: any = dealers[0]
           group = normalizeGroup(d.group || d.dealer_group)
-          percent = Number(d.discount || d.dealer_discount || 0) || 0
-          setInfo({ isDealer: true, group, discountPercent: percent })
+          console.log('Dealer gevonden in Firestore:', { email, group, dealer: d })
+          // Stel dealer status in, maar wacht op customer_groups voor de juiste korting
+          setInfo({ isDealer: true, group, discountPercent: 0 })
           return
         }
         // Fallback to customers by email
@@ -101,8 +97,11 @@ export function useDealerPricing(): DealerPricingInfo {
           const c: any = customers[0]
           const isDealer = !!c.is_dealer
           group = normalizeGroup(c.dealer_group)
-          percent = Number(c.dealer_discount || 0) || 0
-          if (isDealer) setInfo({ isDealer: true, group, discountPercent: percent })
+          console.log('Customer gevonden in Firestore:', { email, isDealer, group, dealer_group: c.dealer_group })
+          if (isDealer) {
+            // Stel dealer status in, maar wacht op customer_groups voor de juiste korting
+            setInfo({ isDealer: true, group, discountPercent: 0 })
+          }
           else {
             // Clear stale dealer flags if user is no longer a dealer
             try {
@@ -123,6 +122,8 @@ export function useDealerPricing(): DealerPricingInfo {
     (async () => {
       try {
         const groups = await FirebaseClientService.getCustomerGroups()
+        console.log('Customer groups geladen:', groups)
+        
         const map: Record<'gold'|'silver'|'bronze'|'platinum', number> = { gold: 0, silver: 0, bronze: 0, platinum: 0 }
         ;(groups || []).forEach((g: any) => {
           const key = normalizeGroup(g.name)
@@ -132,18 +133,35 @@ export function useDealerPricing(): DealerPricingInfo {
             if (pct > map[key]) map[key] = pct
           }
         })
+        
+        console.log('Dealer kortingen mapping:', map)
         setGroupPercentByKey(map)
-      } catch {}
+      } catch (error) {
+        console.error('Fout bij laden customer groups:', error)
+      }
     })()
   }, [])
 
-  // When group mapping loads and we already know dealer group but percent is zero, update percent
+  // When group mapping loads, always use the correct discount from customer_groups
   useEffect(() => {
-    if (info.isDealer && info.group) {
-      const pct = groupPercentByKey[info.group] || info.discountPercent || 0
-      if (pct !== info.discountPercent) {
-        setInfo(prev => ({ ...prev, discountPercent: pct }))
+    if (info.isDealer && info.group && groupPercentByKey[info.group]) {
+      const correctPercent = groupPercentByKey[info.group]
+      // Gebruik altijd de korting uit customer_groups, niet uit localStorage
+      if (correctPercent !== info.discountPercent) {
+        console.log(`Dealer korting bijgewerkt: ${info.discountPercent}% → ${correctPercent}% (uit customer_groups)`)
+        setInfo(prev => ({ ...prev, discountPercent: correctPercent }))
       }
+    }
+    
+    // Debug logging
+    if (info.isDealer && info.group) {
+      console.log('Dealer pricing debug:', {
+        isDealer: info.isDealer,
+        group: info.group,
+        currentDiscount: info.discountPercent,
+        availableGroups: groupPercentByKey,
+        groupDiscount: groupPercentByKey[info.group]
+      })
     }
   }, [groupPercentByKey, info.isDealer, info.group, info.discountPercent])
 

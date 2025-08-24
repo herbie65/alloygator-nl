@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // output: 'export', // disabled for development
   images: { unoptimized: true },
   eslint: { ignoreDuringBuilds: true },
-  trailingSlash: true,
+  // trailingSlash: true, // Temporarily disabled for API routes
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Client-side webpack config - exclude server-only packages

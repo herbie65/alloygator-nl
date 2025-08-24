@@ -30,7 +30,7 @@ export default function DealerLogin() {
       window.localStorage.setItem("dealerEmail", String(dealer.email || ''));
       window.localStorage.setItem("dealerName", String(dealer.name || ''));
       window.localStorage.setItem("dealerGroup", String(dealer.group || dealer.dealer_group || ''));
-      window.localStorage.setItem("dealerDiscount", String((dealer.discount ?? dealer.dealer_discount ?? 0).toString()));
+      // Geen dealerDiscount meer opslaan - dit komt uit customer_groups
       router.push("/winkel");
     } catch (error) {
       console.error("Login error:", error);

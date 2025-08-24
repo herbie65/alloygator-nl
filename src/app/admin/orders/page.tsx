@@ -7,15 +7,24 @@ interface Order {
   id: string
   order_number: string
   rma_number?: string
+  rma_status?: string
   customer: {
-    voornaam: string
-    achternaam: string
+    contact_first_name: string
+    contact_last_name: string
+    voornaam?: string
+    achternaam?: string
     email: string
-    telefoon: string
-    adres: string
-    plaats: string
-    postcode: string
-    land: string
+    phone: string
+    telefoon?: string
+    address: string
+    adres?: string
+    city: string
+    plaats?: string
+    postal_code: string
+    postcode?: string
+    country: string
+    land?: string
+    company_name?: string
     bedrijfsnaam?: string
   }
   items: Array<{
@@ -118,7 +127,7 @@ export default function OrdersPage() {
         // Get all orders from Firebase
         const [data, returns] = await Promise.all([
           FirebaseService.getOrders(),
-          FirebaseService.getDocuments('return_requests')
+          FirebaseService.getDocuments('returns')
         ])
         console.log('Fetched orders:', data)
         const rmaByOrder: Record<string, any> = {}
@@ -140,6 +149,11 @@ export default function OrdersPage() {
               const k = String(order.orderNumber || order.order_number || '').toLowerCase()
               const rr = rmaByOrder[k]
               return rr?.rmaNumber || null
+            })(),
+            rma_status: (()=>{
+              const k = String(order.orderNumber || order.order_number || '').toLowerCase()
+              const rr = rmaByOrder[k]
+              return rr?.status || null
             })(),
             customer: order.customer || {
               voornaam: 'Onbekend',
@@ -197,7 +211,7 @@ export default function OrdersPage() {
 
   const handleCreateRma = async (order: any) => {
     try {
-      const customerName = `${order.customer?.voornaam || ''} ${order.customer?.achternaam || ''}`.trim() || order.customer?.name || 'Onbekend Klant'
+      const customerName = `${order.customer?.contact_first_name || order.customer?.voornaam || ''} ${order.customer?.contact_last_name || order.customer?.achternaam || ''}`.trim() || order.customer?.name || 'Onbekend Klant'
       const payload = {
         orderNumber: order.order_number,
         customerName,
@@ -255,6 +269,18 @@ export default function OrdersPage() {
       if (newStatus === 'verwerken' && oldStatus === 'nieuw') {
         try {
           // 1. Genereer en verstuur factuur
+          console.log('Debug: Start factuur generatie voor order:', order.id)
+          console.log('Debug: Order data voor factuur:', {
+            orderId: order.id,
+            order_number: order.order_number,
+            customer: order.customer,
+            items: order.items,
+            subtotal: order.subtotal,
+            vat_amount: order.vat_amount,
+            shipping_cost: order.shipping_cost,
+            total: order.total
+          })
+          
           const invoiceResponse = await fetch('/api/invoices/generate', {
             method: 'POST',
             headers: {
@@ -262,6 +288,7 @@ export default function OrdersPage() {
             },
             body: JSON.stringify({
               orderId: order.id,
+              order_number: order.order_number,
               customer: order.customer,
               items: order.items,
               subtotal: order.subtotal,
@@ -277,8 +304,12 @@ export default function OrdersPage() {
             })
           })
           
+          console.log('Debug: Factuur API response status:', invoiceResponse.status)
+          
           if (invoiceResponse.ok) {
             const result = await invoiceResponse.json()
+            console.log('Debug: Factuur API response:', result)
+            
             // Update order met factuur informatie
             setOrders(prev => prev.map(o => o.id === orderId ? { 
               ...o, 
@@ -288,6 +319,17 @@ export default function OrdersPage() {
               invoice_sent_date: new Date().toISOString()
             } : o))
             console.log('Factuur automatisch gegenereerd en verzonden')
+            
+            // Toon succes melding
+            setError(`Factuur ${result.invoice_number} succesvol gegenereerd`)
+            setTimeout(() => setError(''), 5000)
+          } else {
+            const errorText = await invoiceResponse.text()
+            console.error('Debug: Factuur API error response:', errorText)
+            
+            // Toon fout melding
+            setError(`Fout bij genereren factuur: ${errorText}`)
+            setTimeout(() => setError(''), 5000)
           }
           
           // 2. Voorraad reserveren (wordt automatisch gedaan door de workflow API)
@@ -300,6 +342,8 @@ export default function OrdersPage() {
 
       // Send status update email
       try {
+        console.log('Debug: Versturen status update email voor order:', order.order_number)
+        
         const response = await fetch('/api/email/status-update', {
           method: 'POST',
           headers: {
@@ -308,16 +352,18 @@ export default function OrdersPage() {
           body: JSON.stringify({
             orderNumber: order.order_number,
             customerEmail: order.customer.email,
-            customerName: `${order.customer.voornaam} ${order.customer.achternaam}`,
+            customerName: `${order.customer.contact_first_name || order.customer.voornaam} ${order.customer.contact_last_name || order.customer.achternaam}`,
             oldStatus,
             newStatus
           }),
         })
 
         if (response.ok) {
-          console.log('Status update email sent')
+          const result = await response.json()
+          console.log('Status update email sent successfully:', result)
         } else {
-          console.error('Failed to send status update email')
+          const errorText = await response.text()
+          console.error('Failed to send status update email. Status:', response.status, 'Response:', errorText)
         }
       } catch (emailError) {
         console.error('Error sending status update email:', emailError)
@@ -444,7 +490,7 @@ export default function OrdersPage() {
         }
       } catch (error) {
         console.error('Firebase update failed, trying direct mark-paid API...', error)
-        // Fallback: use secured mark-paid API which will also ensure invoice
+        // Backup: use secured mark-paid API which will also ensure invoice
         try {
           const token = process.env.NEXT_PUBLIC_ADMIN_PAYMENT_TOKEN || ''
           const url = `/api/orders/mark-paid?id=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`
@@ -509,7 +555,7 @@ export default function OrdersPage() {
           body: JSON.stringify({
             orderNumber: order.order_number,
             customerEmail: order.customer.email,
-            customerName: `${order.customer.voornaam} ${order.customer.achternaam}`,
+            customerName: `${order.customer.contact_first_name || order.customer.voornaam} ${order.customer.contact_last_name || order.customer.achternaam}`,
             paymentMethod: order.payment_method,
             paymentStatus: 'paid', // Nu betaald
             total: order.total,
@@ -566,7 +612,7 @@ export default function OrdersPage() {
       case 'verzonden': return 'Verzonden'
       case 'afgerond': return 'Afgerond'
       case 'annuleren': return 'Geannuleerd'
-      // Fallback voor oude Engelse status types
+      // Status mapping voor oude Engelse status types
       case 'pending': return 'Nieuw (wacht op betaling)'
       case 'processing': return 'Wordt verwerkt'
       case 'shipped': return 'Verzonden'
@@ -591,6 +637,28 @@ export default function OrdersPage() {
       case 'paid': return 'Betaald'
       case 'failed': return 'Mislukt'
       default: return 'Onbekend'
+    }
+  }
+
+  const getRmaStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return 'bg-blue-100 text-blue-800'
+      case 'approved': return 'bg-green-100 text-green-800'
+      case 'received': return 'bg-purple-100 text-purple-800'
+      case 'inspected': return 'bg-yellow-100 text-yellow-800'
+      case 'credited': return 'bg-orange-100 text-orange-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getRmaStatusText = (status: string) => {
+    switch (status) {
+      case 'open': return 'Open'
+      case 'approved': return 'Goedgekeurd'
+      case 'received': return 'Ontvangen'
+      case 'inspected': return 'Geïnspecteerd'
+      case 'credited': return 'Gegrediteerd'
+      default: return status
     }
   }
 
@@ -755,7 +823,7 @@ export default function OrdersPage() {
                     case 'order_number':
                       return dir * (a.order_number.localeCompare(b.order_number))
                     case 'customer':
-                      return dir * ((a.customer.voornaam + ' ' + a.customer.achternaam).localeCompare(b.customer.voornaam + ' ' + b.customer.achternaam))
+                      return dir * ((a.customer.contact_first_name || a.customer.voornaam + ' ' + a.customer.contact_last_name || a.customer.achternaam).localeCompare(b.customer.contact_first_name || b.customer.voornaam + ' ' + b.customer.contact_last_name || b.customer.achternaam))
                     case 'items':
                       return dir * (a.items.length - b.items.length)
                     case 'total':
@@ -779,8 +847,15 @@ export default function OrdersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold ${order.rma_number ? 'bg-orange-500' : 'bg-gradient-to-r from-green-400 to-green-600'}`}>🛒</div>
-                      <div className="ml-4 text-sm font-semibold text-gray-900">
-                        #{order.order_number}
+                      <div className="ml-4">
+                        <div className="text-sm font-semibold text-gray-900">
+                          #{order.order_number}
+                        </div>
+                        {order.rma_number && (
+                          <div className="text-xs text-orange-600 font-medium">
+                            RMA#
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -789,7 +864,7 @@ export default function OrdersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-semibold text-gray-900">
-                      {order.customer.voornaam} {order.customer.achternaam}
+                      {order.customer.contact_first_name || order.customer.voornaam} {order.customer.contact_last_name || order.customer.achternaam}
                     </div>
                     <div className="text-sm text-gray-500">
                       {order.customer.email}
@@ -812,9 +887,16 @@ export default function OrdersPage() {
                         {getStatusText(order.status)}
                       </span>
                       {order.rma_number && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
-                          RMA: {order.rma_number}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-orange-200 text-orange-900" title="Retouraanvraag geregistreerd">
+                            RMA: {order.rma_number}
+                          </span>
+                          {order.rma_status && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[8px] font-medium ${getRmaStatusColor(order.rma_status)}`}>
+                              {getRmaStatusText(order.rma_status)}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>
@@ -922,7 +1004,7 @@ function OrderDetailModal({ order, onClose, onUpdateStatus, createDhlShipment }:
               <div>
                 <label className="block text-sm font-medium text-gray-700">Naam</label>
                 <p className="text-sm text-gray-900">
-                  {order.customer.voornaam} {order.customer.achternaam}
+                  {order.customer.contact_first_name || order.customer.voornaam} {order.customer.contact_last_name || order.customer.achternaam}
                 </p>
               </div>
               <div>
@@ -931,20 +1013,20 @@ function OrderDetailModal({ order, onClose, onUpdateStatus, createDhlShipment }:
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Telefoon</label>
-                <p className="text-sm text-gray-900">{order.customer.telefoon}</p>
+                <p className="text-sm text-gray-900">{order.customer.phone || order.customer.telefoon}</p>
               </div>
-              {order.customer.bedrijfsnaam && (
+              {order.customer.company_name || order.customer.bedrijfsnaam && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Bedrijf</label>
-                  <p className="text-sm text-gray-900">{order.customer.bedrijfsnaam}</p>
+                  <p className="text-sm text-gray-900">{order.customer.company_name || order.customer.bedrijfsnaam}</p>
                 </div>
               )}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Adres</label>
                 <p className="text-sm text-gray-900">
-                  {order.customer.adres}<br />
-                  {order.customer.postcode} {order.customer.plaats}<br />
-                  {order.customer.land}
+                  {order.customer.address || order.customer.adres}<br />
+                  {order.customer.postal_code || order.customer.postcode} {order.customer.city || order.customer.plaats}<br />
+                  {order.customer.country || order.customer.land}
                 </p>
               </div>
             </div>
@@ -1131,7 +1213,7 @@ function getStatusText(status: string) {
     case 'verzonden': return 'Verzonden'
     case 'afgerond': return 'Afgerond'
     case 'annuleren': return 'Geannuleerd'
-    // Fallback voor oude Engelse status types
+    // Status mapping voor oude Engelse status types
     case 'pending': return 'Nieuw (wacht op betaling)'
     case 'processing': return 'Wordt verwerkt'
     case 'shipped': return 'Verzonden'
@@ -1180,7 +1262,7 @@ function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; onCreat
     })
   }, [customers, customerSearch])
   const [items, setItems] = useState<Array<{productId:string; name:string; price:number; quantity:number}>>([])
-  const [selectedShippingId, setSelectedShippingId] = useState<string>('local-pickup')
+  const [selectedShippingId, setSelectedShippingId] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -1201,11 +1283,9 @@ function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; onCreat
         const all = (cfg && cfg.shippingMethods) ? cfg.shippingMethods : []
         const enabledCarriers: string[] = (cfg && cfg.enabledCarriers) ? cfg.enabledCarriers : []
         const available = all.filter((m:any)=> m.enabled && (enabledCarriers.length === 0 || enabledCarriers.includes(m.carrier)))
-        const defaultPickup = { id: 'local-pickup', name: 'Afhalen (Almere)', description: 'Gratis afhalen in Almere', price: 0, enabled: true, carrier: 'local', delivery_type: 'pickup_local' }
-        const withPickup = [defaultPickup, ...available]
-        const dedupById = Array.from(new Map(withPickup.map((m:any)=> [m.id, m])).values())
-        setShippingMethods(dedupById)
-        if (dedupById.length > 0) setSelectedShippingId(dedupById[0].id)
+        // Geen hardcoded shipping data meer - alleen database waarden
+        setShippingMethods(available)
+        if (available.length > 0) setSelectedShippingId(available[0].id)
       } catch (e) {
         console.error(e)
         setError('Fout bij laden van data')
@@ -1238,10 +1318,10 @@ function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const discountAmount = (subtotal * discountPercent) / 100
   const discountedSubtotal = Math.max(0, subtotal - discountAmount)
   const shipping = (shippingMethods.find((m:any)=> m.id === selectedShippingId)?.price) || 0
-  // VAT rates from settings (fallbacks to NL)
-  const std = Number((settings && (settings.vatHighRate ?? settings.defaultVatRate)) ?? 21)
-  const low = Number((settings && settings.vatLowRate) ?? 9)
-  const zero = Number((settings && settings.vatZeroRate) ?? 0)
+  // VAT rates from settings (defaults to NL)
+  const std = Number((settings && (settings.vatHighRate ?? settings.defaultVatRate)))
+  const low = Number((settings && settings.vatLowRate))
+  const zero = Number((settings && settings.vatZeroRate))
   const rateForCategory = (cat?: string) => {
     if (cat === 'reduced') return low
     if (cat === 'zero') return zero
@@ -1279,7 +1359,7 @@ function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; onCreat
         },
         // Sla netto prijzen per regel op in de order
         items: items.map((it:any) => ({ id: it.productId, name: it.name, price: Number((it.price * (1 - (discountPercent||0)/100)).toFixed(2)), quantity: it.quantity, vat_category: it.vat_category || 'standard' })),
-        shipping_method: method?.name || 'Afhalen (Almere)',
+        shipping_method: method?.name || 'Verzending',
         shipping_cost: method?.price || 0,
         shipping_carrier: method?.carrier || 'local',
         shipping_delivery_type: method?.delivery_type || 'pickup_local',

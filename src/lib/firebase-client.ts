@@ -195,6 +195,21 @@ export class FirebaseClientService {
     }
   }
 
+  // Get invoices
+  static async getInvoices() {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'invoices'));
+      const invoices = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      return invoices;
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      return [];
+    }
+  }
+
   // Get customer by ID
   static async getCustomerById(id: string) {
     try {
@@ -275,6 +290,18 @@ export class FirebaseClientService {
     } catch (error) {
       console.error('Error fetching VAT settings:', error);
       return [];
+    }
+  }
+
+  // Update VAT settings
+  static async updateVatSettings(id: string, data: any) {
+    try {
+      const docRef = doc(db, 'vat_settings', id);
+      await updateDoc(docRef, data);
+      return true;
+    } catch (error) {
+      console.error('Error updating VAT settings:', error);
+      return false;
     }
   }
 

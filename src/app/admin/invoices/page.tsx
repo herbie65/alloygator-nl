@@ -5,10 +5,36 @@ import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
 import Modal from '@/app/admin/components/Modal'
 
+interface Invoice {
+  id: string
+  invoice_number: string
+  order_id?: string
+  customer: { 
+    contact_first_name?: string
+    contact_last_name?: string
+    voornaam?: string
+    achternaam?: string
+    email?: string 
+  }
+  amount: number
+  vat_amount: number
+  total: number
+  status: 'open' | 'paid' | 'overdue' | 'cancelled'
+  due_date: string
+  created_at: string
+  paid_at?: string
+}
+
 interface OrderRow {
   id: string
   orderNumber: string
-  customer: { voornaam?: string; achternaam?: string; email?: string }
+  customer: { 
+    contact_first_name?: string
+    contact_last_name?: string
+    voornaam?: string
+    achternaam?: string
+    email?: string 
+  }
   subtotal: number
   vat_amount: number
   shipping_cost: number
@@ -41,24 +67,30 @@ export default function InvoicesPage() {
       try {
         setLoading(true)
         setErr('')
-        const list = await FirebaseClientService.getOrders()
-        const rows = (Array.isArray(list) ? list : []).map((o:any)=> ({
-          id: o.id,
-          orderNumber: o.orderNumber || o.order_number || o.id,
-          customer: o.customer || {},
-          subtotal: Number(o.subtotal || 0),
-          vat_amount: Number(o.vat_amount || 0),
-          shipping_cost: Number(o.shipping_cost || 0),
-          total: Number(o.total || 0),
-          createdAt: o.createdAt || o.created_at || new Date().toISOString(),
-          invoice_number: o.invoice_number,
-          invoice_url: o.invoice_url,
-          eboekhouden_sync: o.eboekhouden_sync || undefined
+        
+        // Laad facturen uit de invoices collection
+        const invoices = await FirebaseClientService.getInvoices()
+        console.log('Debug: Geladen facturen:', invoices)
+        
+        const rows = (Array.isArray(invoices) ? invoices : []).map((inv:any)=> ({
+          id: inv.id,
+          orderNumber: inv.order_number || inv.orderNumber || inv.order_id || '—',
+          customer: inv.customer || {},
+          subtotal: Number(inv.subtotal || 0),
+          vat_amount: Number(inv.vat_amount || 0),
+          shipping_cost: Number(inv.shipping_cost || 0),
+          total: Number(inv.total || 0),
+          createdAt: inv.created_at || inv.createdAt || new Date().toISOString(),
+          invoice_number: inv.invoice_number,
+          invoice_url: `/api/invoices/${inv.id}/pdf`, // Genereer download URL
+          eboekhouden_sync: inv.eboekhouden_sync || undefined
         }))
+        
         // Most recent first
         rows.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         setOrders(rows)
       } catch (e:any) {
+        console.error('Error loading invoices:', e)
         setErr(e.message || 'Fout bij laden facturen')
       } finally {
         setLoading(false)
@@ -74,7 +106,7 @@ export default function InvoicesPage() {
       if (onlyWithoutInvoice && o.invoice_number) return false
       const s = q.trim().toLowerCase()
       if (!s) return true
-      const name = `${o.customer?.voornaam||''} ${o.customer?.achternaam||''}`.trim().toLowerCase()
+      const name = `${o.customer?.contact_first_name || o.customer?.voornaam || ''} ${o.customer?.contact_last_name || o.customer?.achternaam || ''}`.trim().toLowerCase()
       return (
         o.orderNumber.toLowerCase().includes(s) ||
         name.includes(s) ||
@@ -333,7 +365,7 @@ export default function InvoicesPage() {
                     <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleDateString('nl-NL')}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {(o.customer?.voornaam||'') + ' ' + (o.customer?.achternaam||'')}<br/>
+                    {(o.customer?.contact_first_name || o.customer?.voornaam || '') + ' ' + (o.customer?.contact_last_name || o.customer?.achternaam || '')}<br/>
                     <span className="text-xs text-gray-500">{o.customer?.email}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">€{o.subtotal.toFixed(2)}</td>

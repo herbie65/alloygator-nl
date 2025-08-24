@@ -60,33 +60,33 @@ export default function CustomerDashboardPage() {
           v = await FirebaseClientService.getVisits(decodedId)
           console.log(`✅ Loaded ${v.length} visits via normal query`)
           
-          // If no visits found, try fallback method
+          // If no visits found, try backup method
           if (v.length === 0) {
-            console.log('🔍 No visits found via normal query, trying fallback method...')
+            console.log('🔍 No visits found via normal query, trying backup method...')
             try {
               const allVisits = await FirebaseClientService.getAllVisits()
               console.log(`🔍 Total visits loaded: ${allVisits.length}`)
               console.log(`🔍 All visit customer_ids:`, allVisits.map((visit: any) => visit.customer_id))
               
               v = allVisits.filter((visit: any) => visit.customer_id === decodedId)
-              console.log(`✅ Loaded ${v.length} visits via fallback method for customer ${params.id}`)
-            } catch (fallbackError) {
-              console.log('❌ Fallback method also failed:', fallbackError.message)
+              console.log(`✅ Loaded ${v.length} visits via backup method for customer ${params.id}`)
+            } catch (backupError) {
+              console.log('❌ Backup method also failed:', backupError.message)
               v = []
             }
           }
         } catch (error) {
-          console.log('🔍 Visits query failed, trying fallback method...')
-          // Fallback: load all visits and filter client-side
+          console.log('🔍 Visits query failed, trying backup method...')
+          // Backup: load all visits and filter client-side
           try {
             const allVisits = await FirebaseClientService.getAllVisits()
             console.log(`🔍 Total visits loaded: ${allVisits.length}`)
             console.log(`🔍 All visit customer_ids:`, allVisits.map((visit: any) => visit.customer_id))
             
             v = allVisits.filter((visit: any) => visit.customer_id === params.id)
-            console.log(`✅ Loaded ${v.length} visits via fallback method for customer ${params.id}`)
-          } catch (fallbackError) {
-            console.log('❌ Fallback method also failed:', fallbackError.message)
+            console.log(`✅ Loaded ${v.length} visits via backup method for customer ${params.id}`)
+          } catch (backupError) {
+            console.log('❌ Backup method also failed:', backupError.message)
             v = []
           }
         } finally {
@@ -99,33 +99,33 @@ export default function CustomerDashboardPage() {
           cm = await FirebaseClientService.getContactMoments(decodedId)
           console.log(`✅ Loaded ${cm.length} contact moments via normal query`)
           
-          // If no contact moments found, try fallback method
+          // If no contact moments found, try backup method
           if (cm.length === 0) {
-            console.log('🔍 No contact moments found via normal query, trying fallback method...')
+            console.log('🔍 No contact moments found via normal query, trying backup method...')
             try {
               const allContacts = await FirebaseClientService.getAllContactMoments()
               console.log(`🔍 Total contact moments loaded: ${allContacts.length}`)
               console.log(`🔍 All contact customer_ids:`, allContacts.map((contact: any) => contact.customer_id))
               
               cm = allContacts.filter((contact: any) => contact.customer_id === decodedId)
-              console.log(`✅ Loaded ${cm.length} contact moments via fallback method for customer ${params.id}`)
-            } catch (fallbackError) {
-              console.log('❌ Fallback method also failed:', fallbackError.message)
+              console.log(`✅ Loaded ${cm.length} contact moments via backup method for customer ${params.id}`)
+            } catch (backupError) {
+              console.log('❌ Backup method also failed:', backupError.message)
               cm = []
             }
           }
         } catch (error) {
-          console.log('🔍 Contact moments query failed, trying fallback method...')
-          // Fallback: load all contact moments and filter client-side
+          console.log('🔍 Contact moments query failed, trying backup method...')
+          // Backup: load all contact moments and filter client-side
           try {
             const allContacts = await FirebaseClientService.getAllContactMoments()
             console.log(`🔍 Total contact moments loaded: ${allContacts.length}`)
             console.log(`🔍 All contact customer_ids:`, allContacts.map((contact: any) => contact.customer_id))
             
             cm = allContacts.filter((contact: any) => contact.customer_id === params.id)
-            console.log(`✅ Loaded ${cm.length} contact moments via fallback method for customer ${params.id}`)
-          } catch (fallbackError) {
-            console.log('❌ Fallback method also failed:', fallbackError.message)
+            console.log(`✅ Loaded ${cm.length} contact moments via backup method for customer ${params.id}`)
+          } catch (backupError) {
+            console.log('❌ Backup method also failed:', backupError.message)
             cm = []
           }
         } finally {

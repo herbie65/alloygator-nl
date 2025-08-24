@@ -26,58 +26,9 @@ export default function CmsPage() {
         const all = await FirebaseClientService.getCmsPages()
         const found = (all as any[]).find(p => (p.slug || '').toLowerCase() === String(slug).toLowerCase())
         if (mounted) setPage(found || null)
-        // If Firestore version is missing critical links, try static HTML override
-        try {
-          const res = await fetch(`/cms/${slug}.html`)
-          if (res.ok) {
-            const html = await res.text()
-            const needsLink = !(found?.content || '').includes('/returns')
-            const hasLinkInStatic = html.includes('/returns')
-            if (mounted && hasLinkInStatic && needsLink) {
-              const override = {
-                id: found?.id || `static-${slug}`,
-                title: found?.title || slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                slug: String(slug),
-                content: html,
-                is_published: true,
-              } as any
-              setPage(override)
-              // Try to update Firestore so CMS shows the corrected version next time
-              try {
-                if (found?.id) {
-                  await FirebaseClientService.updateDocumentInCollection('cms_pages', found.id, {
-                    content: html,
-                    updated_at: new Date().toISOString(),
-                  })
-                }
-              } catch (_) {}
-            }
-          }
-        } catch (_) {}
-        // Fallback: try static HTML in /public/cms/{slug}.html when not found in Firestore
+        // Geen fallback meer - alleen Firestore data gebruiken
         if (mounted && !found) {
-          try {
-            const res = await fetch(`/cms/${slug}.html`)
-            if (res.ok) {
-              const html = await res.text()
-              if (html && html.trim().length > 0) {
-                // Derive a reasonable title from first heading or slug
-                const headingMatch = html.match(/<h1[^>]*>(.*?)<\/h1>/i) || html.match(/<h2[^>]*>(.*?)<\/h2>/i)
-                const derivedTitle = headingMatch ? headingMatch[1].replace(/<[^>]+>/g, '') : undefined
-                const fallback: CmsPage = {
-                  id: `static-${slug}`,
-                  title: derivedTitle || slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                  slug: String(slug),
-                  content: html,
-                  is_published: true,
-                }
-                if (mounted) setPage(fallback)
-                // Do not auto-seed here to prevent duplicate entries; CMS admin seeds if missing.
-              }
-            }
-          } catch (_) {
-            // ignore fallback errors
-          }
+          setPage(null)
         }
       } catch (e) {
         if (mounted) setPage(null)
@@ -104,7 +55,32 @@ export default function CmsPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-white rounded-lg shadow-md p-8 text-gray-600">Pagina niet gevonden.</div>
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="text-4xl mb-4">⚠️</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Pagina niet gevonden</h1>
+            <p className="text-gray-600 mb-4">
+              De pagina "{slug}" bestaat niet in het CMS.
+            </p>
+            <div className="space-y-2 mb-6">
+              <p className="text-sm text-gray-500">
+                • Controleer of de pagina bestaat in het CMS
+              </p>
+              <p className="text-sm text-gray-500">
+                • Zorg ervoor dat de status op "Gepubliceerd" staat
+              </p>
+              <p className="text-sm text-gray-500">
+                • Controleer je database verbinding
+              </p>
+            </div>
+            <div className="mt-6">
+              <a 
+                href="/admin/cms" 
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              >
+                CMS Beheren
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     )

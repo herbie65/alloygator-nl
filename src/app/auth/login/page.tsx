@@ -46,6 +46,11 @@ export default function LoginPage() {
         dealer_group: data.user.dealer_group || ''
       }))
       
+      // Verwijder oude dealerDiscount uit localStorage als die er nog staat
+      try {
+        localStorage.removeItem('dealerDiscount')
+      } catch {}
+      
       // Trigger custom event to notify Header component
       window.dispatchEvent(new Event('user-login'))
       
