@@ -106,12 +106,13 @@ export default function SettingsPage() {
     dhlTestMode: true,
     mollieApiKey: '',
     mollieTestMode: true,
-    smtpHost: 'mail.whserver.nl',
-    smtpPort: '587',
-    smtpUser: '',
-    smtpPass: '',
-    adminEmail: '',
-    emailNotifications: false
+    // E-mail instellingen komen nu uit .env - alleen configuratie in database
+    adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
+    emailNotifications: process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === 'true',
+    smtpHost: process.env.NEXT_PUBLIC_SMTP_HOST || '',
+    smtpPort: process.env.NEXT_PUBLIC_SMTP_PORT || '',
+    smtpUser: process.env.NEXT_PUBLIC_SMTP_USER || '',
+    smtpPass: process.env.NEXT_PUBLIC_SMTP_PASS || ''
   })
   // Google Calendar settings (persisted in Firestore settings doc)
   const [gcalEmail, setGcalEmail] = useState('')
@@ -181,7 +182,14 @@ export default function SettingsPage() {
           shippingMethods: fixedShippingMethods, // Geen hardcoded fallbacks meer
           enabledCarriers: Array.from(new Set([...(enabledCarriers || []), 'local'])),
           mollieApiKey: savedSettings.mollieApiKey || savedSettings.mollie_api_key || prev.mollieApiKey,
-          mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode
+          mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
+          // E-mail instellingen uit database
+          adminEmail: savedSettings.adminEmail || '',
+          emailNotifications: savedSettings.emailNotifications || false,
+          smtpHost: savedSettings.smtpHost || '',
+          smtpPort: savedSettings.smtpPort || '',
+          smtpUser: savedSettings.smtpUser || '',
+          smtpPass: savedSettings.smtpPass || ''
         }));
         // Load Google Calendar config if present
         setGcalEmail(savedSettings.gcal_service_account_email || savedSettings.gcalServiceAccountEmail || '')
@@ -348,7 +356,15 @@ export default function SettingsPage() {
         google_maps_api_key: settings.googleMapsApiKey,
         gcal_service_account_email: gcalEmail,
         gcal_service_account_key: gcalKey,
-        gcal_calendar_id: gcalCalendarId
+        gcal_calendar_id: gcalCalendarId,
+        // Alleen niet-gevoelige e-mail instellingen opslaan
+        // SMTP instellingen komen uit .env
+        adminEmail: settings.adminEmail,
+        emailNotifications: settings.emailNotifications,
+        smtpHost: settings.smtpHost || '',
+        smtpPort: settings.smtpPort || '',
+        smtpUser: settings.smtpUser || '',
+        smtpPass: settings.smtpPass || ''
       }
       
       const response = await fetch('/api/settings', {
@@ -407,7 +423,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleEmailTest = async () => {
+  const testEmailConfiguration = async () => {
     try {
       setEmailTestStatus('testing')
       setEmailTestMessage('')
@@ -418,10 +434,14 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          // Alle SMTP instellingen uit de database
           smtpHost: settings.smtpHost,
           smtpPort: settings.smtpPort,
           smtpUser: settings.smtpUser,
-          smtpPass: settings.smtpPass
+          smtpPass: settings.smtpPass,
+          // Admin instellingen
+          adminEmail: settings.adminEmail,
+          emailNotifications: settings.emailNotifications
         }),
       })
 
@@ -432,7 +452,7 @@ export default function SettingsPage() {
         setEmailTestMessage('✅ E-mail configuratie werkt correct!')
       } else {
         setEmailTestStatus('error')
-        setEmailTestMessage(`❌ E-mail configuratie gefaald: ${result.message}`)
+        setEmailTestMessage(`❌ ${result.message}`)
       }
     } catch (error) {
       console.error('Error testing email configuration:', error)
@@ -1198,69 +1218,71 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900">E-mail Instellingen</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Host
-              </label>
-              <input
-                type="text"
-                value={settings.smtpHost}
-                onChange={(e) => setSettings({...settings, smtpHost: e.target.value})}
-                placeholder="smtp.gmail.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                SMTP server hostname
-              </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-medium text-blue-900 mb-2">SMTP Instellingen</h3>
+            <p className="text-blue-700 text-sm mb-3">
+              De SMTP instellingen kunnen hier worden gewijzigd. Wijzigingen worden opgeslagen in de database.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Host</label>
+                <input
+                  type="text"
+                  value={settings.smtpHost || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpHost: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="mail.whserver.nl"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Port</label>
+                <input
+                  type="number"
+                  value={settings.smtpPort || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpPort: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="587"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Gebruiker</label>
+                <input
+                  type="email"
+                  value={settings.smtpUser || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpUser: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="info@tesland.com"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Wachtwoord</label>
+                <input
+                  type="password"
+                  value={settings.smtpPass || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpPass: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="Je wachtwoord"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Port
-              </label>
-              <input
-                type="number"
-                value={settings.smtpPort}
-                onChange={(e) => setSettings({...settings, smtpPort: e.target.value})}
-                placeholder="587"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                SMTP server poort
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Gebruikersnaam
-              </label>
-              <input
-                type="email"
-                value={settings.smtpUser}
-                onChange={(e) => setSettings({...settings, smtpUser: e.target.value})}
-                placeholder="jouw@email.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Je e-mail adres voor SMTP authenticatie
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Wachtwoord
-              </label>
-              <input
-                type="password"
-                value={settings.smtpPass}
-                onChange={(e) => setSettings({...settings, smtpPass: e.target.value})}
-                placeholder="Je wachtwoord of app-wachtwoord"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Je wachtwoord of app-wachtwoord voor SMTP
-              </p>
+            <div className="mt-3 text-xs text-blue-600">
+              <strong>Let op:</strong> Wachtwoorden worden versleuteld opgeslagen in de database.
             </div>
           </div>
 
@@ -1295,8 +1317,8 @@ export default function SettingsPage() {
 
           <div className="flex items-center space-x-4">
             <button
-              onClick={handleEmailTest}
-              disabled={!settings.smtpUser || !settings.smtpPass || emailTestStatus === 'testing'}
+              onClick={testEmailConfiguration}
+              disabled={!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPass || emailTestStatus === 'testing'}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {emailTestStatus === 'testing' ? 'Testen...' : 'Test E-mail Configuratie'}

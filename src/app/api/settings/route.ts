@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FirebaseService } from '@/lib/firebase';
 
+// Helper functie om admin sessie te controleren
+function checkAdminSession(request: NextRequest): boolean {
+  const session = request.cookies.get('adminSessionV2')?.value || '';
+  if (!session) return false;
+  
+  try {
+    const s = JSON.parse(decodeURIComponent(session));
+    return s && s.email; // Basis check voor geldige sessie
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Controleer admin sessie
+    if (!checkAdminSession(request)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Geen geldige admin sessie' 
+      }, { status: 401 });
+    }
+
     const settingsData = await request.json();
 
     // Get existing settings to find the ID
@@ -43,8 +64,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Controleer admin sessie
+    if (!checkAdminSession(request)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Geen geldige admin sessie' 
+      }, { status: 401 });
+    }
+
     const settings = await FirebaseService.getSettings();
     
     if (settings && settings.length > 0) {

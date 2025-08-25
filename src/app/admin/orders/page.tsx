@@ -657,7 +657,7 @@ export default function OrdersPage() {
       case 'approved': return 'Goedgekeurd'
       case 'received': return 'Ontvangen'
       case 'inspected': return 'Geïnspecteerd'
-      case 'credited': return 'Gegrediteerd'
+      case 'credited': return 'Gecrediteerd'
       default: return status
     }
   }
@@ -851,11 +851,6 @@ export default function OrdersPage() {
                         <div className="text-sm font-semibold text-gray-900">
                           #{order.order_number}
                         </div>
-                        {order.rma_number && (
-                          <div className="text-xs text-orange-600 font-medium">
-                            RMA#
-                          </div>
-                        )}
                       </div>
                     </div>
                   </td>

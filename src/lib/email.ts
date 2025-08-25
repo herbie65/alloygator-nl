@@ -49,6 +49,11 @@ export class EmailService {
   constructor(settings?: EmailSettings) {
     this.settings = settings
     
+    // Als geen settings worden meegegeven, probeer .env te gebruiken
+    if (!settings) {
+      settings = EmailService.getEnvSettings()
+    }
+    
     if (!settings?.smtpHost || !settings?.smtpPort || !settings?.smtpUser || !settings?.smtpPass) {
       throw new Error('EmailService requires complete SMTP settings: smtpHost, smtpPort, smtpUser, smtpPass');
     }
@@ -63,6 +68,47 @@ export class EmailService {
         pass: settings.smtpPass
       }
     })
+  }
+
+  // Statische methode om EmailService te maken met .env instellingen
+  static createFromEnv(): EmailService {
+    const envSettings = EmailService.getEnvSettings()
+    if (!envSettings) {
+      throw new Error('SMTP instellingen niet gevonden in .env bestand. Controleer of SMTP_HOST, SMTP_PORT, SMTP_USER en SMTP_PASS zijn ingesteld.')
+    }
+    return new EmailService(envSettings)
+  }
+
+  // Publieke methode om .env instellingen te controleren
+  static checkEnvSettings(): { valid: boolean; missing: string[] } {
+    const required = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS']
+    const missing = required.filter(key => !process.env[key])
+    
+    return {
+      valid: missing.length === 0,
+      missing
+    }
+  }
+
+  // Privé methode om .env instellingen te laden
+  private static getEnvSettings(): EmailSettings | null {
+    const smtpHost = process.env.SMTP_HOST
+    const smtpPort = process.env.SMTP_PORT
+    const smtpUser = process.env.SMTP_USER
+    const smtpPass = process.env.SMTP_PASS
+
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      return null
+    }
+
+    return {
+      smtpHost,
+      smtpPort,
+      smtpUser,
+      smtpPass,
+      adminEmail: process.env.ADMIN_EMAIL || smtpUser,
+      emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true'
+    }
   }
 
   // Publieke methode om e-mails te versturen

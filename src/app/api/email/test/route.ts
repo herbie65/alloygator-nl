@@ -3,23 +3,36 @@ import { EmailService } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
-    const { smtpHost, smtpPort, smtpUser, smtpPass } = await request.json();
+    const { adminEmail, emailNotifications, smtpHost, smtpPort, smtpUser, smtpPass } = await request.json();
 
+    // Debug: Log alle ontvangen instellingen
+    console.log('🔍 Debug ontvangen instellingen:');
+    console.log('smtpHost:', smtpHost);
+    console.log('smtpPort:', smtpPort);
+    console.log('smtpUser:', smtpUser);
+    console.log('smtpPass:', smtpPass ? '***' : 'Niet ingesteld');
+
+    // Controleer of alle SMTP instellingen aanwezig zijn
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Alle SMTP velden zijn verplicht' 
+        message: `SMTP instellingen ontbreken: ${[
+          !smtpHost && 'SMTP Host',
+          !smtpPort && 'SMTP Port', 
+          !smtpUser && 'SMTP Gebruiker',
+          !smtpPass && 'SMTP Wachtwoord'
+        ].filter(Boolean).join(', ')}. Vul alle velden in en sla de instellingen op.` 
       }, { status: 400 });
     }
 
-    // Initialize email service with provided settings
+    // Maak EmailService aan met database instellingen
     const emailService = new EmailService({
       smtpHost,
       smtpPort,
       smtpUser,
       smtpPass,
-      adminEmail: smtpUser,
-      emailNotifications: true
+      adminEmail: adminEmail || smtpUser,
+      emailNotifications: emailNotifications || false
     });
 
     // Test the connection
@@ -41,7 +54,7 @@ export async function POST(request: NextRequest) {
     console.error('Email test error:', error);
     return NextResponse.json({ 
       success: false, 
-      message: 'Er is een fout opgetreden bij het testen van de e-mail configuratie' 
+      message: error instanceof Error ? error.message : 'Er is een fout opgetreden bij het testen van de e-mail configuratie' 
     }, { status: 500 });
   }
 }
