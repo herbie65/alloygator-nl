@@ -16,11 +16,13 @@ interface Product {
   image?: string // Backward compatibility
   category: string
   slug?: string
+  vat_category?: string
 }
 
 export default function MontageHulpmiddelenPage() {
   const [allProducts, loading, error] = useFirebaseRealtime<Product>('products')
   const dealer = useDealerPricing()
+  const [vatSettings, setVatSettings] = useState<any[]>([])
 
   // Filter products for this category
   const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
@@ -32,7 +34,131 @@ export default function MontageHulpmiddelenPage() {
     return product.image_url || product.image || null
   }
 
-  useEffect(() => {}, [])
+  // Functie om prijzen inclusief BTW te berekenen op basis van database instellingen
+  const getPriceIncludingVat = (basePrice: number, vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard 21%')
+      const priceIncludingVat = basePrice * 1.21
+      return Math.round(priceIncludingVat * 100) / 100
+    }
+    
+    // Zoek BTW instellingen voor Nederland
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard 21%')
+      const priceIncludingVat = basePrice * 1.21
+      return Math.round(priceIncludingVat * 100) / 100
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    const priceIncludingVat = basePrice * (1 + vatRate / 100)
+    
+    return Math.round(priceIncludingVat * 100) / 100 // Afronden op 2 decimalen
+  }
+  
+  // Functie om BTW tekst te genereren op basis van database instellingen
+  const getVatText = (vatCategory: string = 'standard'): string => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    return `incl. ${vatRate}% BTW`
+  }
+
+  // Functie om de juiste weergave prijs te bepalen op basis van gebruikerstype
+  const getDisplayPrice = (product: Product): { price: number; vatText: string } => {
+    const basePrice = Number(product.price || 0)
+    
+    // Voor dealers: toon prijs exclusief BTW met korting toegepast
+    if (dealer.isDealer) {
+      const discountedPrice = applyDealerDiscount(basePrice, dealer.discountPercent)
+      return {
+        price: discountedPrice,
+        vatText: 'excl. BTW'
+      }
+    }
+    
+    // Voor particuliere klanten en niet-ingelogde gebruikers: toon prijs inclusief BTW
+    const priceIncludingVat = getPriceIncludingVat(basePrice, product.vat_category || 'standard')
+    const vatText = getVatText(product.vat_category || 'standard')
+    
+    return {
+      price: priceIncludingVat,
+      vatText: vatText
+    }
+  }
+
+  useEffect(() => {
+    // Load VAT settings from database
+    const loadVatSettings = async () => {
+      try {
+        const { FirebaseService } = await import('@/lib/firebase')
+        const vatData = await FirebaseService.getVatSettings()
+        if (vatData && Array.isArray(vatData)) {
+          setVatSettings(vatData)
+        }
+      } catch (error) {
+        console.error('Fout bij laden BTW instellingen:', error)
+      }
+    }
+    
+    loadVatSettings()
+  }, [])
 
   const addToCart = (product: Product) => {
     const cart = JSON.parse(localStorage.getItem('alloygator-cart') || '[]')
@@ -41,10 +167,11 @@ export default function MontageHulpmiddelenPage() {
     const itemToStore = {
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : getPriceIncludingVat(product.price, product.vat_category || 'standard'),
       quantity: 1,
       image: getProductImage(product),
-      category: product.category
+      category: product.category,
+      vat_category: product.vat_category
     }
 
     if (existingItem) {
@@ -155,8 +282,8 @@ export default function MontageHulpmiddelenPage() {
                 <p className="text-gray-600 mb-4 line-clamp-3">{product.description}</p>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold text-green-600">
-                    €{(dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : product.price).toFixed(2)}
-                    <span className="text-sm text-gray-500 ml-2">{dealer.isDealer ? 'excl. BTW' : 'incl. BTW'}</span>
+                    €{getDisplayPrice(product).price.toFixed(2)}
+                    <span className="text-sm text-gray-500 ml-2">{getDisplayPrice(product).vatText}</span>
                   </div>
                   <button
                     onClick={() => addToCart(product)}

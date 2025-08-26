@@ -217,62 +217,16 @@ export default function CRMPage() {
         if (groupsData && groupsData.length > 0) {
           setCustomerGroups(groupsData)
         } else {
-          // Fallback to dummy groups
-          const dummyGroups: CustomerGroup[] = [
-            {
-              id: '1',
-              name: 'Premium Dealers',
-              discount_percentage: 15,
-              description: 'Hoogste korting voor premium dealers',
-              created_at: '2023-01-01'
-            },
-            {
-              id: '2',
-              name: 'Standard Dealers',
-              discount_percentage: 10,
-              description: 'Standaard korting voor dealers',
-              created_at: '2023-01-01'
-            },
-            {
-              id: '3',
-              name: 'Retail Klanten',
-              discount_percentage: 5,
-              description: 'Korting voor particuliere klanten',
-              created_at: '2023-01-01'
-            }
-          ]
-          setCustomerGroups(dummyGroups)
+          // Geen fallback meer - toon lege lijst als er geen data is
+          setCustomerGroups([])
         }
       } catch (error) {
         console.error('Error loading data:', error)
         setError('Fout bij het laden van data')
         
-        console.log('Firebase data not available, using dummy data')
-        // Use dummy data if Firebase fails
-        const dummyGroups: CustomerGroup[] = [
-          {
-            id: '1',
-            name: 'Premium Dealers',
-            discount_percentage: 15,
-            description: 'Hoogste korting voor premium dealers',
-            created_at: '2023-01-01'
-          },
-          {
-            id: '2',
-            name: 'Standard Dealers',
-            discount_percentage: 10,
-            description: 'Standaard korting voor dealers',
-            created_at: '2023-01-01'
-          },
-          {
-            id: '3',
-            name: 'Retail Klanten',
-            discount_percentage: 5,
-            description: 'Korting voor particuliere klanten',
-            created_at: '2023-01-01'
-          }
-        ]
-        setCustomerGroups(dummyGroups)
+        console.log('Firebase data not available, toon lege lijst')
+        // Geen fallback meer - toon lege lijst als er geen data is
+        setCustomerGroups([])
       } finally {
         setLoading(false)
       }
@@ -281,7 +235,7 @@ export default function CRMPage() {
     loadData()
   }, [])
 
-  // Build groupTargets map from loaded customer groups (prefers 'annual_target_sets', fallback 'target')
+  // Build groupTargets map from loaded customer groups (prefers 'annual_target_sets', backup 'target')
   useEffect(() => {
     const map: Record<string, number> = {}
     for (const g of customerGroups || []) {

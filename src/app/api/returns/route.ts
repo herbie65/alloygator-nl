@@ -1,154 +1,135 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
-import { EmailService } from '@/lib/email'
 
-type ReturnRequestPayload = {
-  orderNumber: string
-  customerName: string
-  email: string
-  phone?: string
-  address?: string
-  postalCode?: string
-  city?: string
-  item?: string
-  quantity?: number
-  purchaseDate?: string
-  reason?: string
-  condition?: string
-  preferredResolution?: 'refund' | 'exchange' | 'repair' | 'other'
-  iban?: string
-  accountHolder?: string
-  notes?: string
-}
-
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const data = (await req.json()) as Partial<ReturnRequestPayload>
-
-    // Basic validation
-    if (!data.orderNumber || !data.customerName || !data.email) {
-      return NextResponse.json({ ok: false, error: 'orderNumber, customerName en email zijn verplicht' }, { status: 400 })
+    const rmaData = await request.json()
+    
+    if (!rmaData || !rmaData.orderNumber) {
+      return NextResponse.json({ error: 'Order number is required' }, { status: 400 })
     }
 
-    const payload: ReturnRequestPayload = {
-      orderNumber: String(data.orderNumber).trim(),
-      customerName: String(data.customerName).trim(),
-      email: String(data.email).trim(),
-      phone: (data.phone || '').toString().trim(),
-      address: (data.address || '').toString().trim(),
-      postalCode: (data.postalCode || '').toString().trim(),
-      city: (data.city || '').toString().trim(),
-      item: (data.item || '').toString().trim(),
-      quantity: typeof data.quantity === 'number' ? data.quantity : Number(data.quantity || 1) || 1,
-      purchaseDate: (data.purchaseDate || '').toString().trim(),
-      reason: (data.reason || '').toString().trim(),
-      condition: (data.condition || '').toString().trim(),
-      preferredResolution: (data.preferredResolution as any) || 'refund',
-      iban: (data.iban || '').toString().trim(),
-      accountHolder: (data.accountHolder || '').toString().trim(),
-      notes: (data.notes || '').toString().trim(),
+    // Genereer een uniek RMA nummer
+    const rmaNumber = await generateRmaNumber()
+    
+    // Haal order op uit database om klantgegevens te krijgen
+    const orders = await FirebaseService.getDocuments('orders')
+    const order = orders.find((o: any) => o.order_number === rmaData.orderNumber)
+    
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // Generate RMA number (yearly sequence)
-    const now = new Date()
-    const year = now.getFullYear()
-    let seq = 0
-    try {
-      const counter = await FirebaseService.getDocument('counters', 'rma') as any
-      if (!counter || counter.year !== year) {
-        await FirebaseService.updateDocument('counters', 'rma', { year, seq: 1 })
-        seq = 1
-      } else {
-        seq = Number(counter.seq || 0) + 1
-        await FirebaseService.updateDocument('counters', 'rma', { year, seq })
-      }
-    } catch (_) {
-      // Initialize if missing
-      try { await FirebaseService.updateDocument('counters', 'rma', { year, seq: 1 }); seq = 1 } catch {}
-    }
-    const rmaNumber = `RMA-${year}-${String(seq).padStart(5, '0')}`
-
-    // Persist to Firestore
-    const record = await FirebaseService.addDocument('return_requests', {
-      ...payload,
-      rmaNumber,
+    // Maak RMA object - alleen essentiële referenties
+    const rma = {
+      rma_number: rmaNumber,
+      rmaNumber: rmaNumber, // Voor compatibiliteit met UI
+      order_id: order.id,
+      order_number: order.order_number,
+      orderNumber: order.order_number, // Voor compatibiliteit met UI
+      customer_id: order.customer.id || order.customer.email, // Alleen ID of email als referentie
+      customer_name: rmaData.customerName,
+      customerName: rmaData.customerName, // Voor compatibiliteit met UI
+      email: rmaData.email,
+      status: 'open',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      reason: 'Retouraanvraag gestart',
+      // Alleen essentiële item referenties
+      items: (order.items || []).map(item => ({
+        product_id: item.id || item.product_id,
+        quantity: item.quantity,
+        // Verwijder onnodige velden zoals name, price, vat_category
+      })),
+      total_amount: order.total || 0
+    }
+
+    // Sla RMA op in Firestore
+    const rmaResult = await FirebaseService.addDocument('returns', rma)
+    
+    if (!rmaResult || !rmaResult.id) {
+      return NextResponse.json({ error: 'Failed to create RMA' }, { status: 500 })
+    }
+    
+    const rmaId = rmaResult.id
+
+    // Update order met RMA nummer
+    await FirebaseService.updateDocument('orders', order.id, {
+      rma_number: rmaNumber,
+      rma_id: rmaId,
+      updated_at: new Date().toISOString()
     })
 
-    // Email admin and customer
-    const email = new EmailService()
-    const subject = `Retouraanvraag ${rmaNumber} – ${payload.customerName}`
-    const adminRecipients = Array.from(new Set([
-      process.env.ADMIN_EMAIL,
-      process.env.RMA_EMAIL,
-      process.env.SMTP_USER,
-      'info@alloygator.nl',
-    ].filter(Boolean))) as string[]
-    const html = `
-      <h2>Nieuwe retouraanvraag</h2>
-      <p><strong>RMA:</strong> ${rmaNumber}</p>
-      <p><strong>Ordernummer:</strong> ${payload.orderNumber}</p>
-      <p><strong>Klant:</strong> ${payload.customerName}</p>
-      <p><strong>E-mail:</strong> ${payload.email}</p>
-      ${payload.phone ? `<p><strong>Telefoon:</strong> ${payload.phone}</p>` : ''}
-      ${payload.address || payload.postalCode || payload.city ? `<p><strong>Adres:</strong> ${payload.address || ''}, ${payload.postalCode || ''} ${payload.city || ''}</p>` : ''}
-      ${payload.item ? `<p><strong>Artikel:</strong> ${payload.item} (${payload.quantity || 1}x)</p>` : ''}
-      ${payload.purchaseDate ? `<p><strong>Aankoopdatum:</strong> ${payload.purchaseDate}</p>` : ''}
-      ${payload.reason ? `<p><strong>Reden:</strong> ${payload.reason}</p>` : ''}
-      ${payload.condition ? `<p><strong>Staat/conditie:</strong> ${payload.condition}</p>` : ''}
-      ${payload.preferredResolution ? `<p><strong>Voorkeur afhandeling:</strong> ${payload.preferredResolution}</p>` : ''}
-      ${payload.iban ? `<p><strong>IBAN:</strong> ${payload.iban}</p>` : ''}
-      ${payload.accountHolder ? `<p><strong>Tenaamstelling:</strong> ${payload.accountHolder}</p>` : ''}
-      ${payload.notes ? `<p><strong>Opmerkingen:</strong><br/>${payload.notes}</p>` : ''}
-      <hr/>
-      <p>Request ID: ${record.id}</p>
-    `
-
-    if (adminRecipients.length > 0) {
-      try {
-        await (email as any).transporter.sendMail({
-          from: `AlloyGator <${process.env.SMTP_USER || ''}>`,
-          to: adminRecipients[0],
-          bcc: adminRecipients.slice(1),
-          subject,
-          html,
-          replyTo: payload.email,
-        })
-      } catch (e) {
-        console.error('Failed to email admin return request', e)
-      }
-    }
-
-    try {
-      await (email as any).transporter.sendMail({
-        from: `AlloyGator <${process.env.SMTP_USER || ''}>`,
-        to: payload.email,
-        subject: `Ontvangstbevestiging retouraanvraag ${rmaNumber}`,
-        html: `<p>Hallo ${payload.customerName},</p><p>We hebben je retouraanvraag ontvangen en nemen zo snel mogelijk contact met je op.</p><p><strong>RMA:</strong> ${rmaNumber}<br/>Referentie: ${record.id}</p>`,
-        replyTo: 'info@alloygator.nl',
-      })
-    } catch (e) {
-      console.error('Failed to email customer return request', e)
-    }
-
-    return NextResponse.json({ ok: true, id: record.id, rmaNumber })
+    // Return success response
+    return NextResponse.json({ 
+      success: true, 
+      rma_id: rmaId,
+      rma_number: rmaNumber,
+      message: 'RMA succesvol aangemaakt'
+    })
+    
   } catch (error) {
-    console.error('Return request error', error)
-    return NextResponse.json({ ok: false, error: 'Serverfout' }, { status: 500 })
+    console.error('Error creating RMA:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const list = await FirebaseService.getDocuments('return_requests')
-    // Sort newest first
-    const rows = Array.isArray(list) ? list.sort((a:any,b:any)=> new Date(b.created_at||0).getTime() - new Date(a.created_at||0).getTime()) : []
-    return NextResponse.json(rows)
-  } catch (e) {
-    console.error('Return list error', e)
-    return NextResponse.json({ ok: false, error: 'Serverfout' }, { status: 500 })
+    // Haal alle RMA's op uit de database
+    const returns = await FirebaseService.getDocuments('returns')
+    
+    if (!returns || returns.length === 0) {
+      return NextResponse.json([])
+    }
+    
+    // Sorteer op datum (nieuwste eerst)
+    returns.sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    
+    return NextResponse.json(returns)
+    
+  } catch (error) {
+    console.error('Error fetching returns:', error)
+    return NextResponse.json({ error: 'Failed to fetch returns' }, { status: 500 })
   }
 }
 
-
+// Functie om een uniek RMA nummer te genereren
+async function generateRmaNumber(): Promise<string> {
+  try {
+    // Haal alle bestaande RMA's op om het hoogste nummer te vinden
+    const existingRmas = await FirebaseService.getDocuments('returns')
+    
+    let highestNumber = 0
+    
+    if (existingRmas && Array.isArray(existingRmas)) {
+      // Zoek naar bestaande RMA nummers in het formaat RMA-XXXX
+      existingRmas.forEach(rma => {
+        if (rma.rma_number && rma.rma_number.startsWith('RMA-')) {
+          const numberPart = rma.rma_number.replace('RMA-', '')
+          const number = parseInt(numberPart, 10)
+          if (!isNaN(number) && number > highestNumber) {
+            highestNumber = number
+          }
+        }
+      })
+    }
+    
+    // Genereer het volgende nummer
+    const nextNumber = highestNumber + 1
+    
+    // Formatteer naar 4 cijfers met leading zeros
+    const formattedNumber = nextNumber.toString().padStart(4, '0')
+    
+    return `RMA-${formattedNumber}`
+  } catch (error) {
+    console.error('Error generating RMA number:', error)
+    // Fallback naar timestamp-gebaseerd nummer als database lookup faalt
+    const timestamp = Date.now()
+    const randomPart = Math.random().toString(36).substr(2, 9)
+    return `RMA-${timestamp.toString().slice(-4)}-${randomPart}`
+  }
+}

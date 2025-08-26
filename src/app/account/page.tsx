@@ -29,14 +29,14 @@ ChartJS.register(
 
 interface User {
   id: string
-  voornaam: string
-  achternaam: string
+  contact_first_name: string
+  contact_last_name: string
   email: string
-  telefoon: string
-  adres: string
-  postcode: string
-  plaats: string
-  land: string
+  phone: string
+  address: string
+  postal_code: string
+  city: string
+  country: string
   is_dealer: boolean
   dealer_group?: string
   company_name?: string
@@ -74,13 +74,13 @@ export default function AccountPage() {
   const [showDocModal, setShowDocModal] = useState(false)
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [addrForm, setAddrForm] = useState({
-    voornaam: '',
-    achternaam: '',
-    telefoon: '',
-    adres: '',
-    postcode: '',
-    plaats: '',
-    land: 'NL'
+    contact_first_name: '',
+    contact_last_name: '',
+    phone: '',
+    address: '',
+    postal_code: '',
+    city: '',
+    country: 'NL'
   })
 
   useEffect(() => {
@@ -95,18 +95,18 @@ export default function AccountPage() {
           if (record) {
             setUser({
               id: record.id || '',
-              voornaam: record.first_name || record.voornaam || '-',
-              achternaam: record.last_name || record.achternaam || '-',
+              contact_first_name: record.contact_first_name || record.first_name || record.voornaam || '-',
+              contact_last_name: record.contact_last_name || record.last_name || record.achternaam || '-',
               email: record.email || email,
-              telefoon: record.phone || record.telefoon || '-',
-              adres: record.address || '-',
-              postcode: record.postal_code || '-',
-              plaats: record.city || '-',
-              land: record.country || 'Nederland',
+              phone: record.phone || record.telefoon || '-',
+              address: record.address || record.adres || '-',
+              postal_code: record.postal_code || record.postcode || '-',
+              city: record.city || record.plaats || '-',
+              country: record.country || record.land || 'Nederland',
               is_dealer: !!record.is_dealer,
               dealer_group: record.dealer_group || '',
-              company_name: record.company_name || record.company || record.name || '',
-              created_at: record.created_at || new Date().toISOString(),
+              company_name: record.company_name || record.bedrijfsnaam || '',
+              created_at: record.created_at || new Date().toISOString()
             })
             setLoading(false)
             return
@@ -147,7 +147,30 @@ export default function AccountPage() {
         if (!user) return
         // Load all orders for this user from Firestore
         const allOrders = await FirebaseClientService.getOrders()
-        const myOrders = (allOrders as any[]).filter(o => (o.customer?.email === user.email)) as any[]
+        console.log('Debug: Alle orders geladen:', allOrders.length)
+        console.log('Debug: User email:', user.email)
+        console.log('Debug: User ID:', user.id)
+        
+        // Filter orders op basis van customer email, customer_id, of user_email
+        const myOrders = (allOrders as any[]).filter(o => {
+          const orderEmail = o.customer?.email || o.user_email || ''
+          const orderCustomerId = o.customer_id || o.user_id || ''
+          const userEmail = user.email || ''
+          const userId = user.id || ''
+          
+          console.log('Debug: Order filtering:', {
+            orderNumber: o.order_number || o.orderNumber,
+            orderEmail,
+            orderCustomerId,
+            userEmail,
+            userId,
+            matches: orderEmail === userEmail || orderCustomerId === userId
+          })
+          
+          return orderEmail === userEmail || orderCustomerId === userId
+        }) as any[]
+        
+        console.log('Debug: Gefilterde orders:', myOrders.length)
         // Map to Account Order interface
         const mapped: Order[] = myOrders.map((o:any)=> ({
           id: o.id,
@@ -312,7 +335,7 @@ export default function AccountPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Niet ingelogd</h1>
           <p className="text-gray-600 mb-6">U moet ingelogd zijn om uw account te bekijken.</p>
           <Link
-            href="/login"
+            href="/auth/login"
             className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition-colors font-medium"
           >
             Inloggen
@@ -326,7 +349,7 @@ export default function AccountPage() {
   const getInitials = () => {
     const companyInitial = (user.company_name || '').trim().charAt(0)
     if (companyInitial) return companyInitial.toUpperCase()
-    const a = (user.voornaam || '').trim().charAt(0)
+    const a = (user.contact_first_name || '').trim().charAt(0)
     if (a) return a.toUpperCase()
     const mail = (user.email || 'a@b').split('@')[0]
     return (mail.charAt(0) || 'A').toUpperCase()
@@ -334,8 +357,8 @@ export default function AccountPage() {
 
   const displayName = (() => {
     if (user.company_name) return user.company_name
-    const a = (user.voornaam || '').trim()
-    const b = (user.achternaam || '').trim()
+    const a = (user.contact_first_name || '').trim()
+    const b = (user.contact_last_name || '').trim()
     if ((a && a !== '-') || (b && b !== '-')) return `${a !== '-' ? a : ''} ${b !== '-' ? b : ''}`.trim()
     return user.email
   })()
@@ -346,7 +369,7 @@ export default function AccountPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Mijn Account</h1>
-          <p className="text-gray-600">Welkom terug, {user.voornaam || displayName}!</p>
+          <p className="text-gray-600">Welkom terug, {user.contact_first_name || displayName}!</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -752,7 +775,7 @@ export default function AccountPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Voornaam</label>
                     <input
                       type="text"
-                      value={user.voornaam}
+                      value={user.contact_first_name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       readOnly
                     />
@@ -762,7 +785,7 @@ export default function AccountPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Achternaam</label>
                     <input
                       type="text"
-                      value={user.achternaam}
+                      value={user.contact_last_name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       readOnly
                     />
@@ -782,7 +805,7 @@ export default function AccountPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Telefoon</label>
                     <input
                       type="tel"
-                      value={user.telefoon}
+                      value={user.phone}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       readOnly
                     />
@@ -853,22 +876,22 @@ export default function AccountPage() {
                       </span>
                     </div>
                     <p className="text-gray-600">
-                      {user.adres}<br />
-                      {user.postcode} {user.plaats}<br />
-                      {user.land}
+                      {user.address}<br />
+                      {user.postal_code} {user.city}<br />
+                      {user.country}
                     </p>
                     <div className="mt-4 flex space-x-2">
                       <button
                         className="text-green-600 hover:text-green-700 text-sm font-medium"
                         onClick={() => {
                           setAddrForm({
-                            voornaam: user.voornaam || '',
-                            achternaam: user.achternaam || '',
-                            telefoon: user.telefoon || '',
-                            adres: user.adres || '',
-                            postcode: user.postcode || '',
-                            plaats: user.plaats || '',
-                            land: user.land || 'NL'
+                            contact_first_name: user.contact_first_name || '',
+                            contact_last_name: user.contact_last_name || '',
+                            phone: user.phone || '',
+                            address: user.address || '',
+                            postal_code: user.postal_code || '',
+                            city: user.city || '',
+                            country: user.country || 'NL'
                           })
                           setShowAddressModal(true)
                         }}
@@ -884,7 +907,7 @@ export default function AccountPage() {
                   <button
                     className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-gray-700 hover:border-gray-400 transition-colors"
                     onClick={() => {
-                      setAddrForm({ voornaam: '', achternaam: '', telefoon: '', adres: '', postcode: '', plaats: '', land: 'NL' })
+                      setAddrForm({ contact_first_name: '', contact_last_name: '', phone: '', address: '', postal_code: '', city: '', country: 'NL' })
                       setShowAddressModal(true)
                     }}
                   >
@@ -902,31 +925,31 @@ export default function AccountPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">Voornaam</label>
-                      <input value={addrForm.voornaam} onChange={e=>setAddrForm({...addrForm, voornaam: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.contact_first_name} onChange={e=>setAddrForm({...addrForm, contact_first_name: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">Achternaam</label>
-                      <input value={addrForm.achternaam} onChange={e=>setAddrForm({...addrForm, achternaam: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.contact_last_name} onChange={e=>setAddrForm({...addrForm, contact_last_name: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm text-gray-700 mb-1">Adres</label>
-                      <input value={addrForm.adres} onChange={e=>setAddrForm({...addrForm, adres: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.address} onChange={e=>setAddrForm({...addrForm, address: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">Postcode</label>
-                      <input value={addrForm.postcode} onChange={e=>setAddrForm({...addrForm, postcode: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.postal_code} onChange={e=>setAddrForm({...addrForm, postal_code: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">Plaats</label>
-                      <input value={addrForm.plaats} onChange={e=>setAddrForm({...addrForm, plaats: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.city} onChange={e=>setAddrForm({...addrForm, city: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">Land</label>
-                      <input value={addrForm.land} onChange={e=>setAddrForm({...addrForm, land: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.country} onChange={e=>setAddrForm({...addrForm, country: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">Telefoon</label>
-                      <input value={addrForm.telefoon} onChange={e=>setAddrForm({...addrForm, telefoon: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                      <input value={addrForm.phone} onChange={e=>setAddrForm({...addrForm, phone: e.target.value})} className="w-full px-3 py-2 border rounded" />
                     </div>
                   </div>
                   <div className="mt-6 flex justify-end gap-2">
@@ -945,13 +968,13 @@ export default function AccountPage() {
                           })
                           // Update local user state
                           setUser({ ...user, ...{
-                            voornaam: addrForm.voornaam,
-                            achternaam: addrForm.achternaam,
-                            telefoon: addrForm.telefoon,
-                            adres: addrForm.adres,
-                            postcode: addrForm.postcode,
-                            plaats: addrForm.plaats,
-                            land: addrForm.land,
+                            contact_first_name: addrForm.contact_first_name,
+                            contact_last_name: addrForm.contact_last_name,
+                            phone: addrForm.phone,
+                            address: addrForm.address,
+                            postal_code: addrForm.postal_code,
+                            city: addrForm.city,
+                            country: addrForm.country,
                           }})
                           setShowAddressModal(false)
                         } catch (e) {

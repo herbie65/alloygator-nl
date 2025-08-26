@@ -159,97 +159,8 @@ export default function CMSPage() {
               } catch (_) {}
             }
           } else {
-            // Fallback to dummy data
-            const dummyPages: CMSPage[] = [
-              {
-                id: '1',
-                title: 'Over Ons',
-                slug: 'over-ons',
-                content: '<h1>Over AlloyGator</h1><p>AlloyGator is de specialist in velgbescherming...</p>',
-                meta_description: 'Leer meer over AlloyGator en onze innovatieve velgbescherming oplossingen.',
-                is_published: true,
-                created_at: '2024-01-01',
-                updated_at: '2024-01-01'
-              },
-              {
-                id: '2',
-                title: 'Contact',
-                slug: 'contact',
-                content: '<h1>Contact</h1><p>Neem contact met ons op...</p>',
-                meta_description: 'Contact informatie voor AlloyGator.',
-                is_published: true,
-                created_at: '2024-01-01',
-                updated_at: '2024-01-01'
-              },
-              {
-                id: '3',
-                title: 'Privacy Policy',
-                slug: 'privacy-policy',
-                content: '<h1>Privacy Policy</h1><p>Onze privacy policy...</p>',
-                meta_description: 'Privacy policy van AlloyGator.',
-                is_published: true,
-                created_at: '2024-01-01',
-                updated_at: '2024-01-01'
-              }
-            ]
-            setPages(dummyPages)
-            // Also try to seed 'algemene-voorwaarden' from static HTML when Firestore returned empty
-            try {
-              const res = await fetch('/cms/algemene-voorwaarden.html')
-              if (res.ok) {
-                const html = await res.text()
-                const newPage: CMSPage = {
-                  id: `seed-${Date.now()}-av`,
-                  title: 'Algemene voorwaarden',
-                  slug: 'algemene-voorwaarden',
-                  content: html,
-                  meta_description: 'Algemene voorwaarden AlloyGator',
-                  is_published: true,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-                try { await FirebaseService.createCMSPage(newPage) } catch (_) {}
-                setPages(prev => [...prev, newPage])
-              }
-            } catch (_) {}
-
-            // And seed 'privacy-policy' similarly
-            try {
-              const res2 = await fetch('/cms/privacy-policy.html')
-              if (res2.ok) {
-                const html2 = await res2.text()
-                const newPage2: CMSPage = {
-                  id: `seed-${Date.now()}-privacy`,
-                  title: 'Privacy Policy',
-                  slug: 'privacy-policy',
-                  content: html2,
-                  meta_description: 'Privacyverklaring AlloyGator',
-                  is_published: true,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-                try { const created2 = await FirebaseService.createCMSPage(newPage2); setPages(prev => [...(prev||[]), created2 as any]) } catch (_) {}
-              }
-            } catch (_) {}
-
-            // And seed 'wat-zijn-onze-retourvoorwaarden' similarly
-            try {
-              const res3 = await fetch('/cms/wat-zijn-onze-retourvoorwaarden.html')
-              if (res3.ok) {
-                const html3 = await res3.text()
-                const newPage3: CMSPage = {
-                  id: `seed-${Date.now()}-retour`,
-                  title: 'Ruilen en retourneren',
-                  slug: 'wat-zijn-onze-retourvoorwaarden',
-                  content: html3,
-                  meta_description: 'Ruilen en retourneren bij AlloyGator',
-                  is_published: true,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-                try { const created3 = await FirebaseService.createCMSPage(newPage3); setPages(prev => [...(prev||[]), created3 as any]) } catch (_) {}
-              }
-            } catch (_) {}
+            // Geen fallback meer - toon lege lijst als er geen data is
+            setPages([])
           }
 
           // Load header/footer data
@@ -257,22 +168,8 @@ export default function CMSPage() {
           if (headerFooterData && headerFooterData.length > 0) {
             setHeaderFooter(headerFooterData)
           } else {
-            // Fallback to dummy header/footer
-            const dummyHeaderFooter: HeaderFooter[] = [
-              {
-                id: 'header',
-                type: 'header',
-                content: '<header class="bg-white shadow-lg"><nav class="max-w-7xl mx-auto px-4">...</nav></header>',
-                updated_at: '2024-01-01'
-              },
-              {
-                id: 'footer',
-                type: 'footer',
-                content: '<footer class="bg-gray-800 text-white"><div class="max-w-7xl mx-auto px-4">...</div></footer>',
-                updated_at: '2024-01-01'
-              }
-            ]
-            setHeaderFooter(dummyHeaderFooter)
+            // Geen fallback meer - toon lege lijst als er geen data is
+            setHeaderFooter([])
           }
         } catch (firebaseError) {
           console.log('Firebase data not available, using dummy data')

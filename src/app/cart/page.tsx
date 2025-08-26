@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { calculatePriceWithVat, getVatDisplayText } from '@/lib/vat-utils';
 import { useDealerPricing, applyDealerDiscount } from '@/hooks/useDealerPricing'
+import { FirebaseService } from '@/lib/firebase'
 
 interface CartItem {
   id: string;
@@ -17,12 +17,127 @@ interface CartItem {
   stock_quantity?: number;
 }
 
+interface VatSettings {
+  id: string
+  country_code: string
+  standard_rate: number
+  reduced_rate: number
+  zero_rate: number
+  description: string
+  is_eu_member: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface CustomerDetails {
+  contact_first_name: string;
+  contact_last_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  postal_code: string;
+  city: string;
+  country: string;
+  vat_number?: string;
+  company_name?: string;
+  invoice_email?: string;
+  vat_verified?: boolean;
+  vat_reverse_charge?: boolean;
+  separate_shipping_address?: boolean;
+  shipping_address?: string;
+  shipping_postal_code?: string;
+  shipping_city?: string;
+  shipping_country?: string;
+}
+
 export default function CartPage() {
   const dealer = useDealerPricing()
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savedItems, setSavedItems] = useState<CartItem[]>([]);
+  const [settings, setSettings] = useState<any>(null);
+  const [vatSettings, setVatSettings] = useState<VatSettings[]>([]);
   const router = useRouter();
+
+  // BTW functies voor database-gebaseerde BTW berekening
+  const getVatRate = (vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard 21%')
+      return 21 // Standaard BTW rate als database niet geladen is
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard 21%')
+      return 21 // Standaard BTW rate als Nederland niet gevonden is
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        return 21
+      }
+      return vatSetting.reduced_rate
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        return 0
+      }
+      return vatSetting.zero_rate
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        return 21
+      }
+      return vatSetting.standard_rate
+    }
+  }
+  
+  const getPriceIncludingVat = (basePrice: number, vatCategory: string = 'standard'): number => {
+    const vatRate = getVatRate(vatCategory)
+    const priceIncludingVat = basePrice * (1 + vatRate / 100)
+    return Math.round(priceIncludingVat * 100) / 100
+  }
+  
+  const getVatText = (vatCategory: string = 'standard'): string => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    return `incl. ${vatRate}% BTW`
+  }
 
   useEffect(() => {
     // Load cart from localStorage
@@ -35,8 +150,63 @@ export default function CartPage() {
     if (savedForLater) {
       setSavedItems(JSON.parse(savedForLater));
     }
+    
+    // Load settings from database
+    loadSettings();
+    
+    // Load VAT settings from database
+    loadVatSettings();
+    
     setLoading(false);
   }, []);
+
+  // Herbereken totalen wanneer gebruikerstype verandert
+  useEffect(() => {
+    if (!loading && cartItems.length > 0) {
+      // De BTW logica wordt nu correct toegepast in de calculateTotals functie
+      // Geen extra herberekening van prijzen nodig
+    }
+  }, [dealer.isDealer, dealer.discountPercent]);
+
+  const loadSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      if (data && data.length > 0) {
+        setSettings(data[0]);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }
+
+  const loadVatSettings = async () => {
+    try {
+      const vatData = await FirebaseService.getVatSettings()
+      if (vatData && Array.isArray(vatData)) {
+        setVatSettings(vatData)
+      } else {
+        setVatSettings([])
+      }
+    } catch (error) {
+      console.error('Fout bij laden BTW instellingen:', error)
+      // Fallback naar standaard BTW instellingen
+      setVatSettings([{
+        id: 'fallback',
+        country_code: 'NL',
+        standard_rate: 21,
+        reduced_rate: 9,
+        zero_rate: 0,
+        description: 'Standaard BTW Nederland',
+        is_eu_member: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+    }
+  }
+
+  // Deze functie is niet meer nodig omdat prijzen correct worden opgeslagen
+  // De BTW logica wordt nu correct toegepast in de calculateTotals functie
 
   const updateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -100,19 +270,87 @@ export default function CartPage() {
   };
 
   // Calculate totals with dealer discounts if applicable
+  // Gebruik alleen database waarden, geen hardcoded fallbacks
   const subtotal = cartItems.reduce((sum, item) => {
-    const base = dealer.isDealer ? applyDealerDiscount(item.price, dealer.discountPercent) : item.price
-    return sum + (base * item.quantity)
+    if (dealer.isDealer) {
+      // Voor dealers: prijs is al exclusief BTW met korting toegepast
+      // GEEN korting opnieuw toepassen - item.price bevat al de dealer korting
+      return sum + (item.price * item.quantity)
+    } else {
+      // Voor particuliere klanten: prijs is al inclusief BTW (geen conversie nodig)
+      return sum + (item.price * item.quantity)
+    }
   }, 0);
+  
+  // BTW berekening - alleen voor dealers
   const vatAmount = cartItems.reduce((sum, item) => {
-    const base = dealer.isDealer ? applyDealerDiscount(item.price, dealer.discountPercent) : item.price
-    const priceWithVat = calculatePriceWithVat(base, 21);
-    const vatOnItem = priceWithVat - base;
-    return sum + (vatOnItem * item.quantity);
+    if (dealer.isDealer) {
+      // Voor dealers: item.price is al exclusief BTW met korting
+      // Bereken BTW op basis van deze prijs
+      const priceWithVat = getPriceIncludingVat(item.price, item.vat_category)
+      const vatOnItem = priceWithVat - item.price
+      return sum + (vatOnItem * item.quantity)
+    } else {
+      // Voor particuliere klanten: geen BTW berekening nodig
+      return sum
+    }
   }, 0);
-  const shippingCost = subtotal > 50 ? 0 : 4.95; // Free shipping over €50
-  const total = subtotal + vatAmount + shippingCost;
-
+  
+  // Verzendkosten berekening - gebruik database instellingen
+  let shippingCostWithVat = 0;
+  
+  if (settings && settings.freeShippingThreshold) {
+    const threshold = parseFloat(settings.freeShippingThreshold);
+    if (subtotal >= threshold) {
+      shippingCostWithVat = 0; // Gratis verzending
+    } else if (settings.shippingCost) {
+      const baseShippingCost = parseFloat(settings.shippingCost);
+      if (dealer.isDealer) {
+        // Voor dealers: verzendkosten ex BTW
+        shippingCostWithVat = baseShippingCost;
+      } else {
+        // Voor particuliere klanten: converteer naar inclusief BTW
+        shippingCostWithVat = getPriceIncludingVat(baseShippingCost, 'standard');
+      }
+    }
+  }
+  
+  const total = subtotal + vatAmount + shippingCostWithVat;
+  
+  // Debug logging voor totalen
+  // console.log('Winkelwagen totalen berekend:', {
+  //   dealer: dealer.isDealer,
+  //   subtotal: subtotal,
+  //   vatAmount: vatAmount,
+  //   shippingCost: shippingCost,
+  //   shippingCostWithVat: shippingCostWithVat,
+  //   total: total,
+  //   cartItems: cartItems.map(item => ({
+  //     name: item.name,
+  //     price: item.price,
+  //     vat_category: item.vat_category,
+  //     quantity: item.quantity
+  //   }))
+  // })
+  
+  // Test BTW functies
+  // if (vatSettings && vatSettings.length > 0) {
+  //   const testVatRate = getVatRate('standard')
+  //   const testPrice = 100
+  //   const testResult = getPriceIncludingVat(testPrice, 'standard')
+  //   console.log('BTW functies test:', {
+  //     testVatRate,
+  //     testPrice,
+  //     testResult,
+  //     vatSettings: vatSettings.map(v => ({
+  //       country_code: v.country_code,
+  //       standard_rate: v.standard_rate,
+  //       reduced_rate: v.reduced_rate,
+  //       zero_rate: v.zero_rate
+  //     }))
+  //   })
+  // }
+  
   const handleCheckout = () => {
     if (cartItems.length > 0) {
       // Prefill customer details from currentUser if available
@@ -122,22 +360,22 @@ export default function CartPage() {
           const u = JSON.parse(sessionStr)
           const existing = JSON.parse(localStorage.getItem('customerDetails') || '{}')
           const merged = {
-            voornaam: existing.voornaam || u.voornaam || u.name || '',
-            achternaam: existing.achternaam || u.achternaam || '',
+            contact_first_name: existing.contact_first_name || u.contact_first_name || u.first_name || '',
+            contact_last_name: existing.contact_last_name || u.contact_last_name || u.last_name || '',
             email: existing.email || u.email || '',
-            telefoon: existing.telefoon || u.telefoon || u.phone || '',
-            adres: existing.adres || u.adres || u.address || '',
-            postcode: existing.postcode || u.postcode || u.postal_code || '',
-            plaats: existing.plaats || u.plaats || u.city || '',
-            land: existing.land || u.land || u.country || 'NL',
-            bedrijfsnaam: existing.bedrijfsnaam || u.company_name || '',
-            factuurEmail: existing.factuurEmail || u.invoice_email || u.email || '',
-            btwNummer: existing.btwNummer || u.vat_number || '',
-            separateShippingAddress: existing.separateShippingAddress ?? !!u.separate_shipping_address,
-            shippingAdres: existing.shippingAdres || u.shipping_address || '',
-            shippingPostcode: existing.shippingPostcode || u.shipping_postal_code || '',
-            shippingPlaats: existing.shippingPlaats || u.shipping_city || '',
-            shippingLand: existing.shippingLand || u.shipping_country || 'NL'
+            phone: existing.phone || u.phone || u.contact_phone || '',
+            address: existing.address || u.address || u.contact_address || '',
+            postal_code: existing.postal_code || u.postal_code || u.contact_postal_code || '',
+            city: existing.city || u.city || u.contact_city || '',
+            country: existing.country || u.country || u.contact_country || 'NL',
+            company_name: existing.company_name || u.company_name || '',
+            invoice_email: existing.invoice_email || u.invoice_email || u.email || '',
+            vat_number: existing.vat_number || u.vat_number || '',
+            separate_shipping_address: existing.separate_shipping_address ?? !!u.separate_shipping_address,
+            shipping_address: existing.shipping_address || u.shipping_address || '',
+            shipping_postal_code: existing.shipping_postal_code || u.shipping_postal_code || '',
+            shipping_city: existing.shipping_city || u.shipping_city || '',
+            shipping_country: existing.shipping_country || u.shipping_country || 'NL'
           }
           localStorage.setItem('customerDetails', JSON.stringify(merged))
         }
@@ -251,7 +489,8 @@ export default function CartPage() {
                         <div className="flex-1">
                           <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
                           <p className="text-sm text-gray-500">
-                            €{(dealer.isDealer ? applyDealerDiscount(item.price, dealer.discountPercent) : item.price).toFixed(2)} per stuk{dealer.isDealer ? ' (excl. BTW)' : ''}
+                            €{item.price.toFixed(2)} per stuk
+                            {dealer.isDealer ? ' (excl. BTW)' : ' (incl. BTW)'}
                           </p>
                           {item.sku && (
                             <p className="text-xs text-gray-400">SKU: {item.sku}</p>
@@ -286,11 +525,11 @@ export default function CartPage() {
                         
                         <div className="text-right min-w-[100px]">
                           <p className="text-lg font-medium text-gray-900">
-                            €{((dealer.isDealer ? applyDealerDiscount(item.price, dealer.discountPercent) : item.price) * item.quantity).toFixed(2)}
+                            €{(item.price * item.quantity).toFixed(2)}
                           </p>
                           {!dealer.isDealer && (
                             <p className="text-sm text-gray-500">
-                              €{calculatePriceWithVat(item.price, 21).toFixed(2)} incl. BTW
+                              {getVatText(item.vat_category)}
                             </p>
                           )}
                         </div>
@@ -330,25 +569,27 @@ export default function CartPage() {
               
               <div className="space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span>Subtotaal ({cartItems.length} items)</span>
+                  <span>{dealer.isDealer ? 'Subtotaal' : 'Producten inclusief BTW'} ({cartItems.length} items)</span>
                   <span>€{subtotal.toFixed(2)}</span>
                 </div>
                 
-                <div className="flex justify-between text-sm">
-                  <span>BTW (21%)</span>
-                  <span>€{vatAmount.toFixed(2)}</span>
-                </div>
+                {dealer.isDealer && vatAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>BTW ({getVatRate('standard')}%)</span>
+                    <span>€{vatAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 
                 <div className="flex justify-between text-sm">
-                  <span>Verzendkosten</span>
-                  <span className={shippingCost === 0 ? 'text-green-600' : ''}>
-                    {shippingCost === 0 ? 'Gratis' : `€${shippingCost.toFixed(2)}`}
+                  <span>Verzendkosten {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}</span>
+                  <span className={shippingCostWithVat === 0 ? 'text-green-600' : ''}>
+                    {shippingCostWithVat === 0 ? 'Gratis' : `€${shippingCostWithVat.toFixed(2)}`}
                   </span>
                 </div>
                 
-                {shippingCost > 0 && (
+                {shippingCostWithVat > 0 && settings && settings.freeShippingThreshold && (
                   <div className="text-xs text-gray-500 bg-green-50 p-2 rounded">
-                    Voeg nog €{(50 - subtotal).toFixed(2)} toe voor gratis verzending
+                    Voeg nog €{(parseFloat(settings.freeShippingThreshold) - subtotal).toFixed(2)} toe voor gratis verzending
                   </div>
                 )}
                 

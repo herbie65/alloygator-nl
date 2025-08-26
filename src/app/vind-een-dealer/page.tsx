@@ -41,84 +41,7 @@ interface Dealer {
 }
 
 // Static dealer data (in real app, this would come from Firebase)
-const staticDealers: Dealer[] = [
-  {
-    id: '1',
-    name: 'Auto Service Amsterdam',
-    company_name: 'Auto Service Amsterdam B.V.',
-    address: 'Amstelstraat 123',
-    city: 'Amsterdam',
-    postal_code: '1011 AB',
-    phone: '020-1234567',
-    email: 'info@autoserviceamsterdam.nl',
-    website: 'https://autoserviceamsterdam.nl',
-    latitude: 52.3676,
-    longitude: 4.9041,
-    is_active: true,
-    show_on_map: true,
-    rating: 4.5,
-    reviews: 127,
-    services: ['AlloyGator montage', 'Velg reparatie', 'Auto onderhoud'],
-    created_at: '2024-01-01'
-  },
-  {
-    id: '2',
-    name: 'Velg Specialist Rotterdam',
-    company_name: 'Velg Specialist Rotterdam',
-    address: 'Rotterdamstraat 456',
-    city: 'Rotterdam',
-    postal_code: '3000 AA',
-    phone: '010-9876543',
-    email: 'info@velgspecialistrotterdam.nl',
-    website: 'https://velgspecialistrotterdam.nl',
-    latitude: 51.9225,
-    longitude: 4.4792,
-    is_active: true,
-    show_on_map: true,
-    rating: 4.8,
-    reviews: 89,
-    services: ['AlloyGator montage', 'Velg bescherming', 'Tire service'],
-    created_at: '2024-01-01'
-  },
-  {
-    id: '3',
-    name: 'Den Haag Auto Center',
-    company_name: 'Den Haag Auto Center B.V.',
-    address: 'Haagseweg 789',
-    city: 'Den Haag',
-    postal_code: '2500 BB',
-    phone: '070-5551234',
-    email: 'info@denhaagautocenter.nl',
-    website: 'https://denhaagautocenter.nl',
-    latitude: 52.0705,
-    longitude: 4.3007,
-    is_active: true,
-    show_on_map: true,
-    rating: 4.2,
-    reviews: 156,
-    services: ['AlloyGator montage', 'Auto onderhoud', 'Velg service'],
-    created_at: '2024-01-01'
-  },
-  {
-    id: '4',
-    name: 'Utrecht Velg Service',
-    company_name: 'Utrecht Velg Service',
-    address: 'Utrechtseweg 321',
-    city: 'Utrecht',
-    postal_code: '3500 CC',
-    phone: '030-7778889',
-    email: 'info@utrechtvelgservice.nl',
-    website: 'https://utrechtvelgservice.nl',
-    latitude: 52.0907,
-    longitude: 5.1214,
-    is_active: true,
-    show_on_map: true,
-    rating: 4.6,
-    reviews: 203,
-    services: ['AlloyGator montage', 'Velg reparatie', 'Tire fitting'],
-    created_at: '2024-01-01'
-  }
-]
+const staticDealers: Dealer[] = []
 
 export default function VindEenDealerPage() {
   const [dealers, setDealers] = useState<Dealer[]>([])
@@ -176,7 +99,7 @@ export default function VindEenDealerPage() {
           setDealers(customerDealers)
           setFilteredDealers(customerDealers)
         } else {
-          // Try separate dealers collection as fallback
+          // Try separate dealers collection as backup data source
           const firebaseDealers = await FirebaseService.getDealers()
           
           if (firebaseDealers && firebaseDealers.length > 0) {
@@ -184,7 +107,7 @@ export default function VindEenDealerPage() {
             setDealers(filteredDealers)
             setFilteredDealers(filteredDealers)
           } else {
-            // No fallback: show empty list
+            // No dealers found in either collection
             console.log('No dealers found in customers or dealers collection')
             setDealers([])
             setFilteredDealers([])

@@ -120,7 +120,7 @@ export default function CreditInvoicesPage() {
                   {r.pdf_url ? (
                     <a href={r.pdf_url} target="_blank" className="text-green-600 hover:text-green-800">Download</a>
                   ) : (
-                    <span className="text-gray-400">—</span>
+                    <a href={`/api/credit-invoices/${r.id}/pdf`} target="_blank" className="text-blue-600 hover:text-blue-800">Genereer PDF</a>
                   )}
                 </td>
               </tr>

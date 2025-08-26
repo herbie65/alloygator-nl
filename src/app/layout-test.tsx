@@ -35,94 +35,19 @@ type CMSHomeData = {
 };
 
 // ---- CMS fetch (optioneel). Valt terug op defaults als er geen endpoint is. ----
-async function getHomeData(): Promise<CMSHomeData> {
-  // Probeer je eigen CMS endpoint. Laat dit gerust zo — als de endpoint (nog) niet bestaat,
-  // gebruiken we automatisch de fallback hieronder.
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
-
+async function getHomeData(): Promise<CMSHomeData | null> {
   try {
-    if (!origin) throw new Error("No origin known");
-    const res = await fetch(`${origin}/api/cms/home`, {
-      // In Next.js App Router kun je revalidate hier ook aansturen:
-      // next: { revalidate: 60 },
+    const res = await fetch("/api/cms/home", {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) throw new Error(`CMS ${res.status}`);
-    const data = (await res.json()) as Partial<CMSHomeData>;
-
-    // Heel lichte normalisatie + fallback merge:
-    return {
-      ...fallbackData,
-      ...data,
-      hero: { ...fallbackData.hero, ...(data.hero || {}) },
-      usps: data.usps?.length ? data.usps : fallbackData.usps,
-      products: data.products?.length ? data.products : fallbackData.products,
-      testimonials: data.testimonials?.length
-        ? data.testimonials
-        : fallbackData.testimonials,
-      faq: data.faq?.length ? data.faq : fallbackData.faq,
-    };
-  } catch {
-    // Fallback als CMS niet beschikbaar is
-    return fallbackData;
+    const data = (await res.json()) as CMSHomeData;
+    return data;
+  } catch (error) {
+    console.error('Error loading CMS data:', error);
+    return null;
   }
 }
-
-// ---- Fallback content (toonbaar zonder CMS) ----
-const fallbackData: CMSHomeData = {
-  hero: {
-    title: "Bescherming met stijl.",
-    subtitle:
-      "Premium velgrandbescherming en accessoires — ontworpen voor dagelijks gebruik.",
-    ctaLabel: "Bekijk assortiment",
-    ctaHref: "/winkel",
-    image: {
-      url: "/hero.jpg",
-      alt: "AlloyGator product hero",
-      width: 1920,
-      height: 1080,
-    },
-  },
-  usps: [
-    { title: "Snelle levering", description: "Binnen 1–2 werkdagen." },
-    { title: "Eenvoudige montage", description: "Geleverd met duidelijke uitleg." },
-    { title: "Topkwaliteit", description: "Getest en duurzaam in gebruik." },
-  ],
-  products: [
-    {
-      id: 1,
-      name: "AlloyGator Set",
-      slug: "alloygator-set",
-      price: 119.0,
-      image: { url: "/products/set.jpg", alt: "AlloyGator Set", width: 800, height: 800 },
-      badge: "Bestseller",
-    },
-    {
-      id: 2,
-      name: "Montagehulpmiddelen",
-      slug: "montagehulpmiddelen",
-      price: 19.95,
-      image: { url: "/products/tools.jpg", alt: "Montage Tools", width: 800, height: 800 },
-    },
-    {
-      id: 3,
-      name: "Accessoires",
-      slug: "accessoires",
-      price: 9.95,
-      image: { url: "/products/accessories.jpg", alt: "Accessoires", width: 800, height: 800 },
-    },
-  ],
-  testimonials: [
-    { quote: "Snel geleverd en precies wat ik nodig had.", author: "Martijn" },
-    { quote: "Ziet er strak uit en beschermt goed!", author: "Fatima" },
-  ],
-  faq: [
-    { q: "Past het op mijn auto?", a: "De meeste velgmaten worden ondersteund. Check de productpagina voor details." },
-    { q: "Kan ik het zelf monteren?", a: "Ja. Met de meegeleverde instructies is montage goed te doen." },
-  ],
-};
 
 // ---- UI helpers ----
 function formatPrice(n?: number) {
@@ -141,6 +66,18 @@ function formatPrice(n?: number) {
 // ---- PAGE ----
 export default async function HomePage() {
   const data = await getHomeData();
+
+  // Geen fallback meer - toon foutmelding als er geen data is
+  if (!data || !data.hero) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Geen content beschikbaar</h1>
+          <p className="text-gray-600">De CMS data kon niet worden geladen. Controleer je database verbinding.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-16">

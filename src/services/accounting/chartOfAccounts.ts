@@ -1,35 +1,37 @@
-// Centrale configuratie voor grootboekrekeningen en BTW-codes
+// Geen hardcoded grootboekrekeningen meer - deze komen uit de database
+// TODO: Vervang door database calls naar chart_of_accounts collection
 export const COA = {
-  debiteuren: '1300',        // Debiteuren
-  omzetHoog:  '8000',        // Omzet hoog (21% BTW)
-  omzetLaag:  '8001',        // Omzet laag (9% BTW) - indien nodig
-  btwHoog:    '1630',        // Af te dragen BTW 21%
-  btwLaag:    '1631',        // Af te dragen BTW 9%
-  cogs:       '7000',        // Kostprijs verkopen
-  voorraad:   '3000',        // Voorraad
-  kruispost:  '1100',        // Kruispost (indien nodig)
+  debiteuren: '',        // Debiteuren
+  omzetHoog:  '',        // Omzet hoog (BTW uit database)
+  omzetLaag:  '',        // Omzet laag (BTW uit database) - indien nodig
+  btwHoog:    '',        // Af te dragen BTW (percentage uit database)
+  btwLaag:    '',        // Af te dragen BTW (percentage uit database)
+  cogs:       '',        // Kostprijs verkopen
+  voorraad:   '',        // Voorraad
+  kruispost:  '',        // Kruispost (indien nodig)
 };
 
 export const BTW = {
   GEEN: 'GEEN',
-  // Voor AddFactuur regels gebruik je e-Boekhouden BTW-codes
+  // Voor AddFactuur regels gebruik je e-Boekhouden BTW-codes - komen uit database
   FACTUUR: { 
-    HOOG: 'HOOG_VERK_21', 
-    LAAG: 'LAAG_VERK_9' 
+    HOOG: '', // BTW percentage uit database
+    LAAG: ''  // BTW percentage uit database
   }
 };
 
 // Helper functie om BTW percentage naar BTW code te mappen
 export function getBTWCode(percentage: number): string {
-  switch (percentage) {
-    case 21:
-      return BTW.FACTUUR.HOOG;
-    case 9:
-      return BTW.FACTUUR.LAAG;
-    case 0:
-      return BTW.GEEN;
-    default:
-      return BTW.FACTUUR.HOOG; // Default naar hoog
+  // TODO: Vervang door database lookup naar BTW codes
+  // Voorlopig gebruiken we generieke codes
+  if (percentage === 0) {
+    return BTW.GEEN;
+  } else if (percentage > 15) {
+    return 'HOOG_VERK'; // Hoog tarief
+  } else if (percentage > 0) {
+    return 'LAAG_VERK'; // Laag tarief
+  } else {
+    return BTW.GEEN;
   }
 }
 

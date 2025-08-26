@@ -20,17 +20,26 @@ export default function Header() {
   const [dealerGroupLabel, setDealerGroupLabel] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log('🔍 Header useEffect started');
+    
     // Check if user is logged in
     const isLoggedIn = localStorage.getItem('isLoggedIn')
     const userData = localStorage.getItem('currentUser')
     
-    if (isLoggedIn && userData) {
+    console.log('🔍 localStorage check:', { isLoggedIn, userData });
+    
+    if ((isLoggedIn === 'true' || isLoggedIn === '1') && userData) {
       try {
         const user = JSON.parse(userData)
+        console.log('🔍 Setting user state:', user);
         setUser(user)
       } catch (error) {
         console.error('Error parsing user data:', error)
+        setUser(null)
       }
+    } else {
+      console.log('🔍 No valid login found, setting user to null');
+      setUser(null)
     }
 
     // Load cart count
@@ -46,43 +55,46 @@ export default function Header() {
     // Load wishlist count
     const savedWishlist = localStorage.getItem('alloygator-wishlist')
     if (savedWishlist) {
-      const wishlist = JSON.parse(savedWishlist)
-      setWishlistCount(wishlist.length)
+      try {
+        const wishlist = JSON.parse(savedWishlist)
+        setWishlistCount(wishlist.length)
+      } catch {}
     }
 
-    // Dealer badge (prefer live DB)
-    ;(async () => {
-      try {
-        const session = localStorage.getItem('currentUser')
-        const email = session ? (JSON.parse(session)?.email) : null
-        if (email) {
-          const customers = await FirebaseClientService.getCustomersByEmail(email)
-          const record = Array.isArray(customers) && customers.length ? (customers[0] as any) : null
-          if (record && record.is_dealer) {
-            setDealerName(record.company_name || record.name || record.voornaam || 'Dealer')
-            const g = String(record.dealer_group || '').toLowerCase().replace(/dealers?|groep|group/g,'').trim()
-            if (g.includes('goud') || g.includes('gold')) setDealerGroupLabel('Goud')
-            else if (g.includes('zilver') || g.includes('silver')) setDealerGroupLabel('Zilver')
-            else if (g.includes('brons') || g.includes('bronze')) setDealerGroupLabel('Brons')
-            else if (g.includes('platina') || g.includes('platinum')) setDealerGroupLabel('Platina')
-            return
+    // Dealer badge - alleen tonen als gebruiker is ingelogd
+    if ((isLoggedIn === 'true' || isLoggedIn === '1') && userData) {
+      ;(async () => {
+        try {
+          const user = JSON.parse(userData)
+          const email = user.email
+          
+          if (email) {
+            const customers = await FirebaseClientService.getCustomersByEmail(email)
+            const record = Array.isArray(customers) && customers.length ? (customers[0] as any) : null
+            
+            if (record && record.is_dealer) {
+              setDealerName(record.company_name || record.name || record.voornaam || 'Dealer')
+              const g = String(record.dealer_group || '').toLowerCase().replace(/dealers?|groep|group/g,'').trim()
+              if (g.includes('goud') || g.includes('gold')) setDealerGroupLabel('Goud')
+              else if (g.includes('zilver') || g.includes('silver')) setDealerGroupLabel('Zilver')
+              else if (g.includes('brons') || g.includes('bronze')) setDealerGroupLabel('Brons')
+              else if (g.includes('platina') || g.includes('platinum')) setDealerGroupLabel('Platina')
+              console.log('🔍 Dealer badge set:', record.company_name, g)
+            } else {
+              setDealerName(null)
+              setDealerGroupLabel(null)
+            }
           }
+        } catch (err) {
+          console.error('Error setting dealer badge:', err)
+          setDealerName(null)
+          setDealerGroupLabel(null)
         }
-        // Fallback to localStorage
-        const dn = localStorage.getItem('dealerName')
-        const dg = localStorage.getItem('dealerGroup')
-        setDealerName(dn)
-        if (dg) {
-          const gl = dg.toLowerCase()
-          if (gl.includes('goud')||gl.includes('gold')) setDealerGroupLabel('Goud')
-          else if (gl.includes('zilver')||gl.includes('silver')) setDealerGroupLabel('Zilver')
-          else if (gl.includes('brons')||gl.includes('bronze')) setDealerGroupLabel('Brons')
-          else if (gl.includes('platina')||gl.includes('platinum')) setDealerGroupLabel('Platina')
-        }
-      } catch (err) {
-        // ignore
-      } finally { setLoading(false) }
-    })()
+      })()
+    } else {
+      setDealerName(null)
+      setDealerGroupLabel(null)
+    }
 
     // Keep cart and wishlist counters in sync via storage and light polling
     const syncCart = () => {
@@ -111,7 +123,62 @@ export default function Header() {
     }, 600)
     window.addEventListener('storage', onStorage)
     window.addEventListener('cart-updated', onCartUpdated as EventListener)
+
+    // Add storage event listener to update user state when localStorage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'isLoggedIn' || e.key === 'currentUser') {
+        console.log('🔍 Storage changed, updating user state');
+        const newIsLoggedIn = localStorage.getItem('isLoggedIn')
+        const newUserData = localStorage.getItem('currentUser')
+        
+        if ((newIsLoggedIn === 'true' || newIsLoggedIn === '1') && newUserData) {
+          try {
+            const newUser = JSON.parse(newUserData)
+            console.log('🔍 Updating user state from storage event:', newUser);
+            setUser(newUser)
+          } catch (error) {
+            console.error('Error parsing user data from storage event:', error)
+            setUser(null)
+          }
+        } else {
+          console.log('🔍 Clearing user state from storage event');
+          setUser(null)
+        }
+      }
+    }
+
+    // Add custom event listener for login/logout events in the same tab
+    const handleLoginEvent = () => {
+      console.log('🔍 Login event received, updating user state');
+      const newIsLoggedIn = localStorage.getItem('isLoggedIn')
+      const newUserData = localStorage.getItem('currentUser')
+      
+      if ((newIsLoggedIn === 'true' || newIsLoggedIn === '1') && newUserData) {
+        try {
+          const newUser = JSON.parse(newUserData)
+          console.log('🔍 Updating user state from login event:', newUser);
+          setUser(newUser)
+        } catch (error) {
+          console.error('Error parsing user data from login event:', error)
+          setUser(null)
+        }
+      } else {
+        console.log('🔍 Clearing user state from login event');
+        setUser(null)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('user-login', handleLoginEvent)
+    window.addEventListener('user-logout', handleLoginEvent)
+
+    setLoading(false)
+    console.log('🔍 Header useEffect completed');
+
     return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('user-login', handleLoginEvent)
+      window.removeEventListener('user-logout', handleLoginEvent)
       window.clearInterval(interval)
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('cart-updated', onCartUpdated as EventListener)
@@ -119,6 +186,9 @@ export default function Header() {
   }, [])
 
   const handleLogout = () => {
+    // Trigger custom event to notify other components
+    window.dispatchEvent(new Event('user-logout'))
+    
     localStorage.removeItem('currentUser')
     localStorage.removeItem('isLoggedIn')
     setUser(null)
@@ -177,6 +247,25 @@ export default function Header() {
 
           {/* Right side buttons */}
           <div className="flex items-center space-x-4">
+              {/* Temporary debug button */}
+              <button 
+                onClick={() => {
+                  console.log('🔍 Current localStorage state:');
+                  console.log('isLoggedIn:', localStorage.getItem('isLoggedIn'));
+                  console.log('currentUser:', localStorage.getItem('currentUser'));
+                  console.log('dealerName:', localStorage.getItem('dealerName'));
+                  console.log('dealerGroup:', localStorage.getItem('dealerGroup'));
+                  console.log('🔍 Current React state:');
+                  console.log('user state:', user);
+                  console.log('loading state:', loading);
+                  console.log('dealerName state:', dealerName);
+                  console.log('dealerGroupLabel state:', dealerGroupLabel);
+                }}
+                className="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300"
+              >
+                Debug
+              </button>
+              
               {dealerName && (
                 <span className="text-xs text-green-700 bg-green-100 px-2 py-1 rounded">Dealer: {dealerName}{dealerGroupLabel ? ` — ${dealerGroupLabel}` : ''}</span>
               )}
@@ -207,26 +296,27 @@ export default function Header() {
             {/* User Account / Login */}
             {user ? (
               <div className="relative group">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors">
-                  <span className="hidden md:inline">Hallo, {user.voornaam}</span>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <button className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-md border border-gray-200">
+                  <span className="hidden md:inline font-medium">Hallo, {user.voornaam}</span>
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 
                 {/* Dropdown menu */}
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <Link href="/account" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Mijn Account
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 border border-gray-200">
+                  <Link href="/account" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors">
+                    👤 Mijn Account
                   </Link>
-                  <Link href="/account?tab=orders" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Mijn Bestellingen
+                  <Link href="/account?tab=orders" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors">
+                    📦 Mijn Bestellingen
                   </Link>
+                  <hr className="my-1 border-gray-200" />
                   <button
                     onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
-                    Uitloggen
+                    🚪 Uitloggen
                   </button>
                 </div>
               </div>

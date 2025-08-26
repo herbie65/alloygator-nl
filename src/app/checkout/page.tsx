@@ -17,24 +17,24 @@ interface CartItem {
 }
 
 interface CustomerDetails {
-  voornaam: string;
-  achternaam: string;
+  contact_first_name: string;
+  contact_last_name: string;
   email: string;
-  telefoon: string;
-  adres: string;
-  postcode: string;
-  plaats: string;
-  land: string;
-  btwNummer?: string;
-  bedrijfsnaam?: string;
-  factuurEmail?: string;
-  btwVerified?: boolean;
-  btwReverseCharge?: boolean;
-  separateShippingAddress?: boolean;
-  shippingAdres?: string;
-  shippingPostcode?: string;
-  shippingPlaats?: string;
-  shippingLand?: string;
+  phone: string;
+  address: string;
+  postal_code: string;
+  city: string;
+  country: string;
+  vat_number?: string;
+  company_name?: string;
+  invoice_email?: string;
+  vat_verified?: boolean;
+  vat_reverse_charge?: boolean;
+  separate_shipping_address?: boolean;
+  shipping_address?: string;
+  shipping_postal_code?: string;
+  shipping_city?: string;
+  shipping_country?: string;
 }
 
 interface ShippingMethod {
@@ -88,23 +88,23 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('customer');
   const [customer, setCustomer] = useState<CustomerDetails>({
-    voornaam: "",
-    achternaam: "",
+    contact_first_name: "",
+    contact_last_name: "",
     email: "",
-    telefoon: "",
-    adres: "",
-    postcode: "",
-    plaats: "",
-    land: "NL",
-    bedrijfsnaam: "",
-    factuurEmail: "",
-    btwVerified: false,
-    btwReverseCharge: false,
-    separateShippingAddress: false,
-    shippingAdres: "",
-    shippingPostcode: "",
-    shippingPlaats: "",
-    shippingLand: "NL",
+    phone: "",
+    address: "",
+    postal_code: "",
+    city: "",
+    country: "NL",
+    company_name: "",
+    invoice_email: "",
+    vat_verified: false,
+    vat_reverse_charge: false,
+    separate_shipping_address: false,
+    shipping_address: "",
+    shipping_postal_code: "",
+    shipping_city: "",
+    shipping_country: "NL",
   });
   const [createAccount, setCreateAccount] = useState(false)
   const [accountPassword, setAccountPassword] = useState('')
@@ -124,6 +124,8 @@ export default function CheckoutPage() {
     enabledCarriers: ['dhl']
   });
 
+  const [vatSettings, setVatSettings] = useState<any[]>([])
+
   const [vatCalculation, setVatCalculation] = useState<VatCalculation>({
     vat_rate: 0,
     vat_amount: 0,
@@ -131,6 +133,47 @@ export default function CheckoutPage() {
     vat_exempt: false,
     vat_reason: ''
   });
+  
+  // BTW functies voor database-gebaseerde BTW berekening
+  const getVatRate = (vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen in checkout, gebruik standaard 21%')
+      return 21 // Standaard BTW rate als database niet geladen is
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden in checkout, gebruik standaard 21%')
+      return 21 // Standaard BTW rate als Nederland niet gevonden is
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        return 21 // Fallback naar standaard rate
+      }
+      return vatSetting.reduced_rate
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        return 0 // Logische fallback voor zero BTW
+      }
+      return vatSetting.zero_rate
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        return 21 // Standaard BTW rate als fallback
+      }
+      return vatSetting.standard_rate
+    }
+  }
+  
+  const getPriceIncludingVat = (basePrice: number, vatCategory: string = 'standard'): number => {
+    const vatRate = getVatRate(vatCategory)
+    const priceIncludingVat = basePrice * (1 + vatRate / 100)
+    return Math.round(priceIncludingVat * 100) / 100
+  }
   const [termsAccepted, setTermsAccepted] = useState(false)
 
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
@@ -176,8 +219,14 @@ export default function CheckoutPage() {
     { code: 'NZ', name: 'Nieuw-Zeeland' },
   ].sort((a, b) => a.name.localeCompare(b.name, 'nl'))
 
-  const getDiscountedPrice = (price: number) => {
-    return dealer.isDealer ? applyDealerDiscount(price, dealer.discountPercent) : price
+  const getDiscountedPrice = (price: number, vatCategory: string = 'standard') => {
+    if (dealer.isDealer) {
+      // Voor dealers: item.price bevat al de dealer korting (geen opnieuw toepassen)
+      return price // Geen korting opnieuw toepassen
+    } else {
+      // Voor particuliere klanten: prijs is al inclusief BTW, geen wijziging nodig
+      return price
+    }
   }
 
   useEffect(() => {
@@ -200,23 +249,49 @@ export default function CheckoutPage() {
         const u = JSON.parse(sessionStr)
         setCustomer(prev => ({
           ...prev,
-          voornaam: prev.voornaam || u.voornaam || u.name || '',
-          achternaam: prev.achternaam || u.achternaam || '',
+          contact_first_name: prev.contact_first_name || u.contact_first_name || u.name || '',
+          contact_last_name: prev.contact_last_name || u.contact_last_name || '',
           email: prev.email || u.email || '',
-          telefoon: prev.telefoon || u.telefoon || u.phone || '',
-          adres: prev.adres || u.adres || u.address || '',
-          postcode: prev.postcode || u.postcode || u.postal_code || '',
-          plaats: prev.plaats || u.plaats || u.city || '',
-          land: prev.land || u.land || u.country || 'NL',
-          bedrijfsnaam: prev.bedrijfsnaam || u.company_name || '',
-          factuurEmail: prev.factuurEmail || u.invoice_email || u.email || '',
-          btwNummer: prev.btwNummer || u.vat_number || '',
-          separateShippingAddress: prev.separateShippingAddress ?? !!u.separate_shipping_address,
-          shippingAdres: prev.shippingAdres || u.shipping_address || '',
-          shippingPostcode: prev.shippingPostcode || u.shipping_postal_code || '',
-          shippingPlaats: prev.shippingPlaats || u.shipping_city || '',
-          shippingLand: prev.shippingLand || u.shipping_country || 'NL',
+          phone: prev.phone || u.phone || u.telefoon || '',
+          address: prev.address || u.address || u.adres || '',
+          postal_code: prev.postal_code || u.postal_code || u.postcode || '',
+          city: prev.city || u.city || u.plaats || '',
+          country: prev.country || u.country || u.land || 'NL',
+          company_name: prev.company_name || u.company_name || '',
+          invoice_email: prev.invoice_email || u.invoice_email || u.email || '',
+          vat_number: prev.vat_number || u.vat_number || '',
+          separate_shipping_address: prev.separate_shipping_address ?? !!u.separate_shipping_address,
+          shipping_address: prev.shipping_address || u.shipping_address || '',
+          shipping_postal_code: prev.shipping_postal_code || u.shipping_postal_code || '',
+          shipping_city: prev.shipping_city || u.shipping_city || '',
+          shipping_country: prev.shipping_country || u.shipping_country || 'NL',
         }))
+        
+        // Als we een email hebben, direct de database raadplegen voor de meest recente gegevens
+        if (u.email) {
+          // Direct de database raadplegen voor de meest recente klantgegevens
+          setTimeout(async () => {
+            try {
+              const customers = await FirebaseClientService.getCustomersByEmail(u.email)
+              const record = Array.isArray(customers) && customers.length ? customers[0] as any : null
+              if (record) {
+                setCustomer(prev => ({
+                  ...prev,
+                  contact_first_name: record.contact_first_name || record.first_name || record.voornaam || prev.contact_first_name || '',
+                  contact_last_name: record.contact_last_name || record.last_name || record.achternaam || prev.contact_last_name || '',
+                  phone: record.phone || record.telefoon || prev.phone || '',
+                  address: record.address || record.adres || prev.address || '',
+                  postal_code: record.postal_code || record.postcode || prev.postal_code || '',
+                  city: record.city || record.plaats || prev.city || '',
+                  country: record.country || record.land || prev.country || 'NL',
+                  company_name: record.company_name || prev.company_name || '',
+                }))
+              }
+            } catch (error) {
+              console.error('Fout bij laden klantgegevens uit database:', error)
+            }
+          }, 100)
+        }
       }
     } catch {}
 
@@ -233,8 +308,14 @@ export default function CheckoutPage() {
     // Load payment methods
     loadPaymentMethods();
 
-    // Calculate initial totals
-    calculateTotals();
+    // Calculate initial totals - direct berekenen zonder afhankelijkheden
+    setTimeout(() => {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen initiële totalen:', error);
+      }
+    }, 100);
 
     // Prevent accidental form submit by Enter on non-review steps
     const handler = (e: KeyboardEvent) => {
@@ -250,6 +331,16 @@ export default function CheckoutPage() {
     return () => { try { window.removeEventListener('keydown', handler) } catch {} }
   }, []);
 
+  // Recalculate totals when cart changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      console.log('Cart veranderd, totalen herberekenen:', cart);
+      calculateTotals();
+    } else {
+      console.log('Cart is leeg, geen totalen te berekenen');
+    }
+  }, [cart]);
+
   // When we have an email, fetch the latest customer record from DB and merge missing fields
   useEffect(() => {
     const mergeFromDb = async () => {
@@ -262,13 +353,13 @@ export default function CheckoutPage() {
         if (!dbCustomer) return
         setCustomer(prev => ({
           ...prev,
-          voornaam: prev.voornaam || dbCustomer.contact_first_name || dbCustomer.first_name || '',
-          achternaam: prev.achternaam || dbCustomer.contact_last_name || dbCustomer.last_name || '',
-          telefoon: prev.telefoon || dbCustomer.phone || dbCustomer.telefoon || '',
-          adres: prev.adres || dbCustomer.address || dbCustomer.adres || '',
-          postcode: prev.postcode || dbCustomer.postal_code || dbCustomer.postcode || '',
-          plaats: prev.plaats || dbCustomer.city || dbCustomer.plaats || '',
-          land: prev.land || dbCustomer.country || dbCustomer.land || 'NL',
+          contact_first_name: prev.contact_first_name || dbCustomer.contact_first_name || dbCustomer.first_name || '',
+          contact_last_name: prev.contact_last_name || dbCustomer.contact_last_name || dbCustomer.last_name || '',
+          phone: prev.phone || dbCustomer.phone || dbCustomer.telefoon || '',
+          address: prev.address || dbCustomer.address || dbCustomer.adres || '',
+          postal_code: prev.postal_code || dbCustomer.postal_code || dbCustomer.postcode || '',
+          city: prev.city || dbCustomer.city || dbCustomer.plaats || '',
+          country: prev.country || dbCustomer.country || dbCustomer.land || 'NL',
         }))
       } catch {}
     }
@@ -296,7 +387,7 @@ export default function CheckoutPage() {
         if (allowed && match?.invoice_payment_terms_days) {
           // Store per-order terms for invoice selection
           // We'll send this when creating the order
-          setCustomer(prev => ({ ...prev, factuurEmail: prev.factuurEmail || email }))
+          setCustomer(prev => ({ ...prev, invoice_email: prev.invoice_email || email }))
         }
         // If not allowed but currently selected is invoice, switch to first available non-invoice
         if (!allowed && paymentMethod === 'invoice') {
@@ -332,6 +423,23 @@ export default function CheckoutPage() {
           setShippingMethod(availableMethods[0].id);
         }
       }
+      
+      // Laad BTW instellingen uit database
+      try {
+        const vatData = await FirebaseClientService.getVatSettings()
+        if (vatData && Array.isArray(vatData)) {
+          setVatSettings(vatData)
+        }
+      } catch (error) {
+        console.error('Fout bij laden BTW instellingen in checkout:', error)
+        // Fallback naar standaard BTW instellingen
+        setVatSettings([{
+          country_code: 'NL',
+          standard_rate: 21,
+          reduced_rate: 9,
+          zero_rate: 0
+        }])
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -340,138 +448,136 @@ export default function CheckoutPage() {
   const loadPaymentMethods = async () => {
     try {
       const res = await fetch('/api/payment-methods')
-      if (!res.ok) return
+      if (!res.ok) {
+        console.warn('Payment methods API niet beschikbaar')
+        return
+      }
       const list = await res.json()
       const all = (Array.isArray(list) ? list : [])
       
-      // Add hardcoded cash and pin payment methods for pickup orders
-      const hardcodedMethods = [
-        {
-          id: 'cash-pickup',
-          name: 'Contant 💰',
-          description: 'Betaling bij afhalen',
-          mollie_id: 'cash',
-          is_active: true,
-          fee_percent: 0,
-          available_for_pickup: true,
-          available_for_delivery: false
-        },
-        {
-          id: 'pin-pickup',
-          name: 'Pinnen 💳',
-          description: 'Betaling bij afhalen',
-          mollie_id: 'pin',
-          is_active: true,
-          fee_percent: 0,
-          available_for_pickup: true,
-          available_for_delivery: false
-        }
-      ]
-      
-      // Combine API methods with hardcoded methods
-      const allMethods = [...all, ...hardcodedMethods]
-      
-      // Dedup by mollie_id to avoid duplicates like double iDEAL
-      const dedupMap: Record<string, any> = {}
-      allMethods.forEach((m:any) => {
-        if (!dedupMap[m.mollie_id]) dedupMap[m.mollie_id] = m
-      })
-      const deduped = Object.values(dedupMap)
-      // Stable sort: invoice (if allowed) last, then iDEAL, bancontact, paypal, creditcard
-      const order: string[] = ['ideal', 'bancontact', 'paypal', 'creditcard', 'invoice']
-      deduped.sort((a:any,b:any)=> order.indexOf(a.mollie_id) - order.indexOf(b.mollie_id))
-      setAvailablePaymentMethods(deduped as any)
-      const firstActive = (deduped as any[]).find((m:any)=>m.is_active && m.mollie_id !== 'invoice') || (deduped as any[]).find((m:any)=>m.is_active)
-      if (firstActive) setPaymentMethod(firstActive.mollie_id || 'ideal')
-    } catch {}
+      if (all.length > 0) {
+        // Dedup by mollie_id to avoid duplicates like double iDEAL
+        const dedupMap: Record<string, any> = {}
+        all.forEach((m:any) => {
+          if (!dedupMap[m.mollie_id]) dedupMap[m.mollie_id] = m
+        })
+        const deduped = Object.values(dedupMap)
+        // Stable sort: invoice (if allowed) last, then iDEAL, bancontact, paypal, creditcard
+        const order: string[] = ['ideal', 'bancontact', 'paypal', 'creditcard', 'invoice']
+        deduped.sort((a:any,b:any)=> order.indexOf(a.mollie_id) - order.indexOf(b.mollie_id))
+        setAvailablePaymentMethods(deduped as any)
+        const firstActive = (deduped as any[]).find((m:any)=>m.is_active && m.mollie_id !== 'invoice') || (deduped as any[]).find((m:any)=>m.is_active)
+        if (firstActive) setPaymentMethod(firstActive.mollie_id || 'ideal')
+      }
+    } catch (error) {
+      console.error('Fout bij laden payment methods:', error)
+    }
   }
 
   const calculateTotals = () => {
-    const subtotalPre = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discount = dealer.isDealer ? (subtotalPre * (dealer.discountPercent || 0)) / 100 : 0;
-    const netItems = subtotalPre - discount; // netto items excl. BTW
-
-    // Shipping cost excl. VAT
-    const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-    let shippingCost = 0;
-    if (selectedMethod) shippingCost = selectedMethod.price; else shippingCost = parseFloat(settings.shippingCost) || 0;
-
-    const finalShippingCost = netItems >= parseFloat(settings.freeShippingThreshold) ? 0 : shippingCost;
-
-    // Determine VAT rates
-    const std = Number(settings.vatHighRate ?? settings.defaultVatRate ?? 21);
-    const low = Number(settings.vatLowRate ?? 9);
-    const zero = Number(settings.vatZeroRate ?? 0);
-
-    const rateForCategory = (cat?: string) => {
-      if (cat === 'reduced') return low;
-      if (cat === 'zero') return zero;
-      return std;
-    };
-
-    // Reverse charge? then VAT = 0
-    if (customer.btwReverseCharge) {
-      const paymentFee = (() => {
-        const currentPm = availablePaymentMethods.find(m => m.mollie_id === paymentMethod)
-        const feePercent = currentPm ? Number(currentPm.fee_percent || 0) : 0
-        return paymentMethod === 'invoice' ? 0 : (netItems * feePercent) / 100
-      })();
-      const total = netItems + finalShippingCost + paymentFee;
-      setVatCalculation({ vat_rate: 0, vat_amount: 0, total_amount: total, vat_exempt: true, vat_reason: 'BTW verlegd (EU)' });
+    // Bescherm tegen lege cart
+    if (!cart || cart.length === 0) {
+      console.log('Cart is leeg, geen totalen te berekenen');
       return;
     }
-
-    // Compute VAT per item
-    let itemsVat = 0;
-    cart.forEach(item => {
-      const netUnit = dealer.isDealer ? applyDealerDiscount(item.price, dealer.discountPercent) : item.price;
-      const rate = rateForCategory(item.vat_category);
-      itemsVat += netUnit * item.quantity * (rate / 100);
-    });
-
-    // VAT on shipping at standard rate
-    const shippingVat = finalShippingCost * (std / 100);
-
-    const vatAmount = itemsVat + shippingVat;
-
-    // Payment fee/discount by selected method (% on net items subtotal)
-    const currentPm = availablePaymentMethods.find(m => m.mollie_id === paymentMethod)
-    const feePercent = currentPm ? Number(currentPm.fee_percent || 0) : 0
-    const paymentFee = paymentMethod === 'invoice' ? 0 : (netItems * feePercent) / 100
-
-    const total = netItems + finalShippingCost + vatAmount + paymentFee;
-
+    
+    // Simpele berekening: subtotaal + verzendkosten
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Verzendkosten bepalen
+    let shippingCost = 0;
+    
+    // Als subtotaal boven drempel: gratis verzending
+    if (subtotal >= 50) {
+      shippingCost = 0;
+    } else {
+      // Anders: standaard verzendkosten
+      shippingCost = 5.95; // Standaard verzendkosten
+    }
+    
+    // Totaal = subtotaal + verzendkosten
+    const total = subtotal + shippingCost;
+    
+    // BTW berekening (voor particuliere klanten is prijs al inclusief BTW)
+    const vatRate = 21; // Nederlandse BTW
+    const vatAmount = (subtotal * vatRate) / (100 + vatRate); // BTW uit prijs halen
+    
     setVatCalculation({
-      vat_rate: std,
+      vat_rate: vatRate,
       vat_amount: vatAmount,
       total_amount: total,
       vat_exempt: false,
       vat_reason: ''
     });
+    
+    console.log('Totals berekend:', { subtotal, shippingCost, total, vatAmount, cartLength: cart.length });
   };
 
   // Recalculate totals when shipping method changes
   useEffect(() => {
-    calculateTotals();
-  }, [shippingMethod, cart, dealer.discountPercent, dealer.isDealer, settings]);
+    // Alleen berekenen als BTW instellingen geladen zijn
+    if (vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen totalen bij wijziging verzendmethode:', error);
+      }
+    }
+  }, [shippingMethod, cart, dealer.discountPercent, dealer.isDealer, settings, vatSettings]);
+
+  // Recalculate totals when VAT settings change
+  useEffect(() => {
+    // Alleen berekenen als BTW instellingen geladen zijn
+    if (vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen totalen:', error);
+      }
+    }
+  }, [vatSettings]);
+
+  // Initial calculation when component mounts and cart is available
+  useEffect(() => {
+    if (cart.length > 0 && vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij initiële berekening totalen:', error);
+      }
+    }
+  }, [cart, vatSettings]);
+
+
+
+  // Recalculate totals when cart changes
+  useEffect(() => {
+    if (cart.length > 0 && vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen totalen bij wijziging winkelwagen:', error);
+      }
+    }
+  }, [cart, vatSettings]);
 
   const validateStep = (step: CheckoutStep): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (step === 'customer') {
-      if (!customer.voornaam) newErrors.voornaam = 'Voornaam is verplicht';
-      if (!customer.achternaam) newErrors.achternaam = 'Achternaam is verplicht';
+      if (!customer.contact_first_name) newErrors.contact_first_name = 'Voornaam is verplicht';
+      if (!customer.contact_last_name) newErrors.contact_last_name = 'Achternaam is verplicht';
       if (!customer.email) newErrors.email = 'E-mail is verplicht';
-      if (!customer.telefoon) newErrors.telefoon = 'Telefoon is verplicht';
-      if (!customer.adres) newErrors.adres = 'Adres is verplicht';
-      if (!customer.postcode) newErrors.postcode = 'Postcode is verplicht';
-      if (!customer.plaats) newErrors.plaats = 'Plaats is verplicht';
+      if (!customer.phone) newErrors.phone = 'Telefoon is verplicht';
+      if (!customer.address) newErrors.address = 'Adres is verplicht';
+      if (!customer.postal_code) newErrors.postal_code = 'Postcode is verplicht';
+      if (!customer.city) newErrors.city = 'Plaats is verplicht';
     }
 
-    if (step === 'shipping' && customer.separateShippingAddress) {
-      if (!customer.shippingAdres) newErrors.shippingAdres = 'Verzendadres is verplicht';
-      if (!customer.shippingPostcode) newErrors.shippingPostcode = 'Verzendpostcode is verplicht';
-      if (!customer.shippingPlaats) newErrors.shippingPlaats = 'Verzendplaats is verplicht';
+    if (step === 'shipping' && customer.separate_shipping_address) {
+      if (!customer.shipping_address) newErrors.shipping_address = 'Verzendadres is verplicht';
+      if (!customer.shipping_postal_code) newErrors.shipping_postal_code = 'Verzendpostcode is verplicht';
+      if (!customer.shipping_city) newErrors.shipping_city = 'Verzendplaats is verplicht';
     }
 
     // Validate pickup location if pickup method is selected
@@ -509,13 +615,13 @@ export default function CheckoutPage() {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-    if (field === 'separateShippingAddress' && value === false) {
+    if (field === 'separate_shipping_address' && value === false) {
       setCustomer(prev => ({
         ...prev,
-        shippingAdres: '',
-        shippingPostcode: '',
-        shippingPlaats: '',
-        shippingLand: 'NL'
+        shipping_address: '',
+        shipping_postal_code: '',
+        shipping_city: '',
+        shipping_country: 'NL'
       }))
     }
   };
@@ -534,7 +640,13 @@ export default function CheckoutPage() {
       localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
       try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
     }
-    calculateTotals();
+    if (vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen totalen bij wijziging hoeveelheid:', error);
+      }
+    }
   };
 
   const removeItem = (id: string) => {
@@ -542,7 +654,13 @@ export default function CheckoutPage() {
     setCart(updatedCart);
     localStorage.setItem("alloygator-cart", JSON.stringify(updatedCart));
     try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: updatedCart } })) } catch {}
-    calculateTotals();
+    if (vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen totalen bij verwijderen item:', error);
+      }
+    }
   };
 
   const handleShippingMethodChange = (methodId: string) => {
@@ -558,10 +676,13 @@ export default function CheckoutPage() {
 
   const loadPickupLocations = async () => {
     try {
-      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-      if (!selectedMethod || selectedMethod.delivery_type !== 'pickup') return;
+      // Check if pickup is selected (either hardcoded or from database)
+      const isPickupSelected = shippingMethod === 'pickup' || 
+        (settings.shippingMethods.find(method => method.id === shippingMethod)?.delivery_type === 'pickup');
+      
+      if (!isPickupSelected) return;
 
-      const postalCode = customer.separateShippingAddress ? customer.shippingPostcode : customer.postcode;
+      const postalCode = customer.separate_shipping_address ? customer.shipping_postal_code : customer.postal_code;
       if (!postalCode) {
         alert('Vul eerst een postcode in om afhaalpunten te laden.');
         return;
@@ -571,16 +692,20 @@ export default function CheckoutPage() {
       setPickupLocations([]);
       setShowPickupLocations(true);
 
-      console.log(`Loading pickup locations for ${selectedMethod.carrier} in ${postalCode}`);
+      // For hardcoded pickup, use DHL as default carrier
+      const carrier = shippingMethod === 'pickup' ? 'dhl' : 
+        settings.shippingMethods.find(method => method.id === shippingMethod)?.carrier || 'dhl';
+
+      console.log(`Loading pickup locations for ${carrier} in ${postalCode}`);
 
       let response;
-      if (selectedMethod.carrier === 'dhl') {
+      if (carrier === 'dhl') {
         response = await fetch(
           `/api/dhl/pickup-locations?postal_code=${postalCode}&country=NL`
         );
       } else {
         // Voor andere carriers (PostNL, etc.) kunnen we hier later andere endpoints toevoegen
-        alert(`${selectedMethod.carrier.toUpperCase()} afhaalpunten worden nog niet ondersteund. Kies een andere verzendmethode.`);
+        alert(`${carrier.toUpperCase()} afhaalpunten worden nog niet ondersteund. Kies een andere verzendmethode.`);
         setShowPickupLocations(false);
         return;
       }
@@ -591,7 +716,7 @@ export default function CheckoutPage() {
           console.log(`Found ${data.data.length} pickup locations`);
           setPickupLocations(data.data);
         } else {
-          alert(`Geen afhaalpunten gevonden voor ${selectedMethod.carrier} in postcode ${postalCode}. Probeer een andere postcode of kies een andere verzendmethode.`);
+          alert(`Geen afhaalpunten gevonden voor ${carrier} in postcode ${postalCode}. Probeer een andere postcode of kies een andere verzendmethode.`);
           setShowPickupLocations(false);
         }
       } else {
@@ -610,7 +735,7 @@ export default function CheckoutPage() {
           } else if (errorData.details.includes('DHL API access denied')) {
             errorMessage = 'Toegang tot DHL API geweigerd. Controleer of je API key voldoende rechten heeft.';
           } else if (errorData.details.includes('No pickup locations found')) {
-            errorMessage = `Geen afhaalpunten gevonden voor ${selectedMethod.carrier} in postcode ${postalCode}. Probeer een andere postcode.`;
+            errorMessage = `Geen afhaalpunten gevonden voor ${carrier} in postcode ${postalCode}. Probeer een andere postcode.`;
           } else {
             errorMessage = `Fout bij het laden van afhaalpunten: ${errorData.details}`;
           }
@@ -642,21 +767,21 @@ export default function CheckoutPage() {
         const email = (customer.email || '').trim().toLowerCase()
         if (email) {
           // If shipping is not separate and shipping fields empty, default to billing
-          const shippingDefaults = customer.separateShippingAddress ? {} : {
-            shippingAdres: customer.shippingAdres || customer.adres,
-            shippingPostcode: customer.shippingPostcode || customer.postcode,
-            shippingPlaats: customer.shippingPlaats || customer.plaats,
-            shippingLand: customer.shippingLand || customer.land,
+          const shippingDefaults = customer.separate_shipping_address ? {} : {
+            shipping_address: customer.shipping_address || customer.address,
+            shipping_postal_code: customer.shipping_postal_code || customer.postal_code,
+            shipping_city: customer.shipping_city || customer.city,
+            shipping_country: customer.shipping_country || customer.country,
           }
           await fetch('/api/customers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             email,
-            voornaam: customer.voornaam,
-            achternaam: customer.achternaam,
-            telefoon: customer.telefoon,
-            adres: customer.adres,
-            postcode: customer.postcode,
-            plaats: customer.plaats,
-            land: customer.land,
+            contact_first_name: customer.contact_first_name,
+            contact_last_name: customer.contact_last_name,
+            phone: customer.phone,
+            address: customer.address,
+            postal_code: customer.postal_code,
+            city: customer.city,
+            country: customer.country,
             ...shippingDefaults,
           }) })
           if (createAccount) {
@@ -664,7 +789,7 @@ export default function CheckoutPage() {
             await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
               email,
               password: accountPassword,
-              name: `${customer.voornaam || ''} ${customer.achternaam || ''}`.trim()
+              name: `${customer.contact_first_name || ''} ${customer.contact_last_name || ''}`.trim()
             }) })
           }
         }
@@ -675,16 +800,24 @@ export default function CheckoutPage() {
       // Prepare items with dealer discount applied for dealers
       const itemsForOrder = cart.map((item) => ({
         ...item,
-        price: getDiscountedPrice(item.price)
+        price: getDiscountedPrice(item.price, item.vat_category)
       }))
 
       const netSubtotal = itemsForOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
+      // Haal customer ID op uit localStorage of gebruik email als fallback
+      const currentUser = localStorage.getItem('currentUser')
+      const customerId = currentUser ? JSON.parse(currentUser).id : customer.email
+
       const order = {
         customer: customer,
+        customer_id: customerId, // Belangrijk: koppelt order aan gebruiker
+        user_email: customer.email, // Email voor extra koppeling
         items: itemsForOrder,
         shipping_method: selectedMethod?.name || 'Standaard verzending',
-        shipping_cost: selectedMethod?.price || parseFloat(settings.shippingCost),
+        shipping_cost: dealer.isDealer ? 
+          (selectedMethod?.price || parseFloat(settings.shippingCost)) : 
+          getPriceIncludingVat(selectedMethod?.price || parseFloat(settings.shippingCost), 'standard'),
         shipping_carrier: selectedMethod?.carrier || 'postnl',
         shipping_delivery_type: selectedMethod?.delivery_type || 'standard',
         pickup_location: selectedPickupLocation,
@@ -692,7 +825,7 @@ export default function CheckoutPage() {
         vat_amount: vatCalculation.vat_amount,
         total: vatCalculation.total_amount,
         dealer_group: dealerGroup,
-          dealer_discount: dealer.discountPercent || 0,
+        dealer_discount: dealer.discountPercent || 0,
         created_at: new Date().toISOString(),
         status: 'pending',
         payment_status: 'open',
@@ -708,9 +841,12 @@ export default function CheckoutPage() {
       })
       if (!orderRes.ok) throw new Error('Failed to create order')
       const created = await orderRes.json()
-      const orderId: string = created?.id || created?.orderId
-      const orderNumber: string = created?.orderNumber || created?.order_number || created?.id
-      if (!orderId) throw new Error('Order ID ontbreekt na aanmaken')
+      const orderId: string = created?.order_id || created?.id || created?.orderId
+      const orderNumber: string = created?.order_number || created?.orderNumber || created?.id
+      if (!orderId) {
+        console.error('Order creation response:', created)
+        throw new Error('Order ID ontbreekt na aanmaken')
+      }
 
       // 2) If paymentMethod is invoice (op rekening), skip Mollie and mark as pending
       if (paymentMethod === 'invoice') {
@@ -721,6 +857,14 @@ export default function CheckoutPage() {
           body: JSON.stringify({ id: orderId, payment_method: 'invoice', payment_status: 'pending', status: 'pending' })
         }).catch(()=>{})
 
+        // Sla order data op in localStorage voor order confirmation pagina
+        const orderForConfirmation = {
+          ...order,
+          id: orderId,
+          order_number: orderNumber
+        };
+        localStorage.setItem('lastOrder', JSON.stringify(orderForConfirmation));
+        
         localStorage.removeItem("alloygator-cart");
         setCart([]);
         try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
@@ -742,6 +886,14 @@ export default function CheckoutPage() {
           })
         }).catch(()=>{})
 
+        // Sla order data op in localStorage voor order confirmation pagina
+        const orderForConfirmation = {
+          ...order,
+          id: orderId,
+          order_number: orderNumber
+        };
+        localStorage.setItem('lastOrder', JSON.stringify(orderForConfirmation));
+        
         localStorage.removeItem("alloygator-cart");
         setCart([]);
         try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
@@ -804,12 +956,21 @@ export default function CheckoutPage() {
     );
   }
 
+  // Gebruik de calculateTotals functie voor alle berekeningen
+  // Deze variabelen worden alleen gebruikt voor weergave en worden overschreven door calculateTotals
   const subtotalPre = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discount = dealer.isDealer ? (subtotalPre * (dealer.discountPercent || 0)) / 100 : 0;
-  const netItems = subtotalPre - discount;
+  // GEEN korting opnieuw toepassen - item.price bevat al de dealer korting
+  const discount = 0; // Dealer korting is al toegepast in item.price
+  const netItems = subtotalPre; // Geen korting aftrekken - al toegepast
   const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-  const shippingCost = selectedMethod ? selectedMethod.price : parseFloat(settings.shippingCost);
-  const finalShippingCost = netItems >= parseFloat(settings.freeShippingThreshold) ? 0 : shippingCost;
+  
+  // Voor dealers: verzendkosten ex BTW, voor particuliere klanten inclusief BTW
+  let finalShippingCost = netItems >= parseFloat(settings.freeShippingThreshold) ? 0 : selectedMethod?.price || parseFloat(settings.shippingCost) || 0;
+  
+  if (!dealer.isDealer && finalShippingCost > 0) {
+    // Voor particuliere klanten: converteer verzendkosten naar inclusief BTW
+    finalShippingCost = getPriceIncludingVat(finalShippingCost, 'standard');
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -869,14 +1030,14 @@ export default function CheckoutPage() {
                         </label>
                         <input
                           type="text"
-                          value={customer.voornaam}
-                          onChange={(e) => handleCustomerChange('voornaam', e.target.value)}
+                          value={customer.contact_first_name}
+                          onChange={(e) => handleCustomerChange('contact_first_name', e.target.value)}
                           className={`w-full px-3 py-2 border rounded-md ${
-                            errors.voornaam ? 'border-red-500' : 'border-gray-300'
+                            errors.contact_first_name ? 'border-red-500' : 'border-gray-300'
                           }`}
                         />
-                        {errors.voornaam && (
-                          <p className="text-red-500 text-sm mt-1">{errors.voornaam}</p>
+                        {errors.contact_first_name && (
+                          <p className="text-red-500 text-sm mt-1">{errors.contact_first_name}</p>
                         )}
                       </div>
                       
@@ -886,14 +1047,14 @@ export default function CheckoutPage() {
                         </label>
                         <input
                           type="text"
-                          value={customer.achternaam}
-                          onChange={(e) => handleCustomerChange('achternaam', e.target.value)}
+                          value={customer.contact_last_name}
+                          onChange={(e) => handleCustomerChange('contact_last_name', e.target.value)}
                           className={`w-full px-3 py-2 border rounded-md ${
-                            errors.achternaam ? 'border-red-500' : 'border-gray-300'
+                            errors.contact_last_name ? 'border-red-500' : 'border-gray-300'
                           }`}
                         />
-                        {errors.achternaam && (
-                          <p className="text-red-500 text-sm mt-1">{errors.achternaam}</p>
+                        {errors.contact_last_name && (
+                          <p className="text-red-500 text-sm mt-1">{errors.contact_last_name}</p>
                         )}
                       </div>
                     </div>
@@ -922,14 +1083,14 @@ export default function CheckoutPage() {
                         </label>
                         <input
                           type="tel"
-                          value={customer.telefoon}
-                          onChange={(e) => handleCustomerChange('telefoon', e.target.value)}
+                          value={customer.phone}
+                          onChange={(e) => handleCustomerChange('phone', e.target.value)}
                           className={`w-full px-3 py-2 border rounded-md ${
-                            errors.telefoon ? 'border-red-500' : 'border-gray-300'
+                            errors.phone ? 'border-red-500' : 'border-gray-300'
                           }`}
                         />
-                        {errors.telefoon && (
-                          <p className="text-red-500 text-sm mt-1">{errors.telefoon}</p>
+                        {errors.phone && (
+                          <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
                         )}
                       </div>
                     </div>
@@ -940,14 +1101,14 @@ export default function CheckoutPage() {
                       </label>
                       <input
                         type="text"
-                        value={customer.adres}
-                        onChange={(e) => handleCustomerChange('adres', e.target.value)}
+                        value={customer.address}
+                        onChange={(e) => handleCustomerChange('address', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md ${
-                          errors.adres ? 'border-red-500' : 'border-gray-300'
+                          errors.address ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
-                      {errors.adres && (
-                        <p className="text-red-500 text-sm mt-1">{errors.adres}</p>
+                      {errors.address && (
+                        <p className="text-red-500 text-sm mt-1">{errors.address}</p>
                       )}
                     </div>
 
@@ -958,20 +1119,20 @@ export default function CheckoutPage() {
                         </label>
                         <input
                           type="text"
-                          value={customer.postcode}
-                          onChange={(e) => handleCustomerChange('postcode', e.target.value)}
+                          value={customer.postal_code}
+                          onChange={(e) => handleCustomerChange('postal_code', e.target.value)}
                           className={`w-full px-3 py-2 border rounded-md ${
-                            errors.postcode ? 'border-red-500' : 'border-gray-300'
+                            errors.postal_code ? 'border-red-500' : 'border-gray-300'
                           }`}
                         />
-                        {errors.postcode && (
-                          <p className="text-red-500 text-sm mt-1">{errors.postcode}</p>
+                        {errors.postal_code && (
+                          <p className="text-red-500 text-sm mt-1">{errors.postal_code}</p>
                         )}
-                        {customer.land === 'NL' && (
+                        {customer.country === 'NL' && (
                           <button
                             type="button"
                             onClick={async () => {
-                              const pc = (customer.postcode || '').trim()
+                              const pc = (customer.postal_code || '').trim()
                               if (!pc) return
                               try {
                                 setIsResolvingPostcode(true)
@@ -989,12 +1150,12 @@ export default function CheckoutPage() {
                                 const res = await fetch(`/api/geocode?postalCode=${encodeURIComponent(pc)}&houseNumber=${encodeURIComponent(huisnummer)}`)
                                 const data = await res.json()
                                 if (res.ok && data?.address) {
-                                  handleCustomerChange('plaats', data.address.city)
+                                  handleCustomerChange('city', data.address.city)
                                   if (data.address.street || data.address.house_number) {
                                     const street = data.address.street || ''
                                     const hn = data.address.house_number || huisnummer
                                     const addr = `${street} ${hn}`.trim()
-                                    if (addr) handleCustomerChange('adres', addr)
+                                    if (addr) handleCustomerChange('address', addr)
                                   }
                                 } else {
                                   alert('Geen adres gevonden voor deze postcode')
@@ -1019,14 +1180,14 @@ export default function CheckoutPage() {
                         </label>
                         <input
                           type="text"
-                          value={customer.plaats}
-                          onChange={(e) => handleCustomerChange('plaats', e.target.value)}
+                          value={customer.city}
+                          onChange={(e) => handleCustomerChange('city', e.target.value)}
                           className={`w-full px-3 py-2 border rounded-md ${
-                            errors.plaats ? 'border-red-500' : 'border-gray-300'
+                            errors.city ? 'border-red-500' : 'border-gray-300'
                           }`}
                         />
-                        {errors.plaats && (
-                          <p className="text-red-500 text-sm mt-1">{errors.plaats}</p>
+                        {errors.city && (
+                          <p className="text-red-500 text-sm mt-1">{errors.city}</p>
                         )}
                       </div>
                     </div>
@@ -1037,8 +1198,8 @@ export default function CheckoutPage() {
                           Land
                         </label>
                         <select
-                          value={customer.land}
-                          onChange={(e) => handleCustomerChange('land', e.target.value)}
+                          value={customer.country}
+                          onChange={(e) => handleCustomerChange('country', e.target.value)}
                           className="w-full px-3 py-2 border rounded-md border-gray-300 bg-white"
                         >
                           {/* Priority countries */}
@@ -1060,8 +1221,8 @@ export default function CheckoutPage() {
                       <input
                         type="checkbox"
                         id="separateShipping"
-                        checked={customer.separateShippingAddress}
-                        onChange={(e) => handleCustomerChange('separateShippingAddress', e.target.checked)}
+                        checked={customer.separate_shipping_address}
+                        onChange={(e) => handleCustomerChange('separate_shipping_address', e.target.checked)}
                         className="rounded border-gray-300"
                       />
                       <label htmlFor="separateShipping" className="text-sm text-gray-700">
@@ -1070,10 +1231,13 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="mt-2">
-                      <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
-                        <input type="checkbox" checked={createAccount} onChange={(e)=>setCreateAccount(e.target.checked)} />
-                        <span>Maak ook een account aan</span>
-                      </label>
+                      {/* Only show account creation checkbox if user is not logged in */}
+                      {!localStorage.getItem('currentUser') && (
+                        <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={createAccount} onChange={(e)=>setCreateAccount(e.target.checked)} />
+                          <span>Maak ook een account aan</span>
+                        </label>
+                      )}
                       {createAccount && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           <div>
@@ -1096,50 +1260,93 @@ export default function CheckoutPage() {
                     <h2 className="text-xl font-semibold text-gray-900">Verzendmethode</h2>
                     
                     <div className="space-y-4">
-                      {settings.shippingMethods
-                        .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
-                        .map((method) => {
-                          // Calculate if this method would be free (based on net items subtotal)
-                          const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                          const discountTmp = dealer.isDealer ? (subtotal * (dealer.discountPercent || 0)) / 100 : 0;
-                          const netTmp = subtotal - discountTmp;
-                          const isFree = netTmp >= parseFloat(settings.freeShippingThreshold);
-                          
-                          return (
-                            <div key={method.id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <input
-                                    type="radio"
-                                    id={method.id}
-                                    name="shippingMethod"
-                                    value={method.id}
-                                    checked={shippingMethod === method.id}
-                                    onChange={(e) => handleShippingMethodChange(e.target.value)}
-                                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
-                                  />
-                                  <div>
-                                    <label htmlFor={method.id} className="font-medium text-gray-900 cursor-pointer">
-                                      {method.name}
-                                    </label>
-                                    <p className="text-sm text-gray-600">{method.description}</p>
+                      {/* Hardcoded pickup option - always available */}
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="radio"
+                              id="pickup"
+                              name="shippingMethod"
+                              value="pickup"
+                              checked={shippingMethod === 'pickup'}
+                              onChange={(e) => handleShippingMethodChange(e.target.value)}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                            />
+                            <div>
+                              <label htmlFor="pickup" className="font-medium text-gray-900 cursor-pointer">
+                                Afhalen bij dealer
+                              </label>
+                              <p className="text-sm text-gray-600">Haal je bestelling op bij een dealer in de buurt</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-green-600">Gratis</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Database shipping methods */}
+                      {settings.shippingMethods && settings.shippingMethods.length > 0 ? (
+                        settings.shippingMethods
+                          .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
+                          .map((method) => {
+                            // Calculate if this method would be free (based on net items subtotal)
+                            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                            // GEEN korting opnieuw toepassen - item.price bevat al de dealer korting
+                            const discountTmp = 0; // Dealer korting is al toegepast in item.price
+                            const netTmp = subtotal; // Geen korting aftrekken - al toegepast
+                            const isFree = netTmp >= parseFloat(settings.freeShippingThreshold);
+                            
+                            return (
+                              <div key={method.id} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="radio"
+                                      id={method.id}
+                                      name="shippingMethod"
+                                      value={method.id}
+                                      checked={shippingMethod === method.id}
+                                      onChange={(e) => handleShippingMethodChange(e.target.value)}
+                                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                    />
+                                    <div>
+                                      <label htmlFor={method.id} className="font-medium text-gray-900 cursor-pointer">
+                                        {method.name}
+                                      </label>
+                                      <p className="text-sm text-gray-600">{method.description}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium text-gray-900">
+                                      {isFree ? 'Gratis' : `€${method.price.toFixed(2)}`}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-medium text-gray-900">
-                                    {isFree ? 'Gratis' : `€${method.price.toFixed(2)}`}
-                                  </p>
-                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-gray-500">Geen extra verzendmethodes beschikbaar</p>
+                          <div className="mt-2 p-3 bg-gray-50 rounded-md text-left">
+                            <p className="text-xs text-gray-600 mb-1">Debug info:</p>
+                            <p className="text-xs text-gray-500">Settings loaded: {settings.shippingMethods ? 'Yes' : 'No'}</p>
+                            <p className="text-xs text-gray-500">Shipping methods count: {settings.shippingMethods?.length || 0}</p>
+                            <p className="text-xs text-gray-500">Enabled carriers: {settings.enabledCarriers?.join(', ') || 'None'}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Pickup Location Selection */}
                     {(() => {
-                      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-                      return selectedMethod?.delivery_type === 'pickup' && (
+                      // Check if pickup is selected (either hardcoded or from database)
+                      const isPickupSelected = shippingMethod === 'pickup' || 
+                        (settings.shippingMethods.find(method => method.id === shippingMethod)?.delivery_type === 'pickup');
+                      
+                      return isPickupSelected && (
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <h3 className="text-lg font-medium text-gray-900">Afhaalpunt Selecteren</h3>
@@ -1195,7 +1402,7 @@ export default function CheckoutPage() {
                       );
                     })()}
 
-                    {customer.separateShippingAddress && (
+                    {customer.separate_shipping_address && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-medium text-gray-900">Verzendadres</h3>
                         
@@ -1205,14 +1412,14 @@ export default function CheckoutPage() {
                           </label>
                           <input
                             type="text"
-                            value={customer.shippingAdres}
-                            onChange={(e) => handleCustomerChange('shippingAdres', e.target.value)}
+                            value={customer.shipping_address}
+                            onChange={(e) => handleCustomerChange('shipping_address', e.target.value)}
                             className={`w-full px-3 py-2 border rounded-md ${
-                              errors.shippingAdres ? 'border-red-500' : 'border-gray-300'
+                              errors.shipping_address ? 'border-red-500' : 'border-gray-300'
                             }`}
                           />
-                          {errors.shippingAdres && (
-                            <p className="text-red-500 text-sm mt-1">{errors.shippingAdres}</p>
+                          {errors.shipping_address && (
+                            <p className="text-red-500 text-sm mt-1">{errors.shipping_address}</p>
                           )}
                         </div>
 
@@ -1223,14 +1430,14 @@ export default function CheckoutPage() {
                             </label>
                             <input
                               type="text"
-                              value={customer.shippingPostcode}
-                              onChange={(e) => handleCustomerChange('shippingPostcode', e.target.value)}
+                              value={customer.shipping_postal_code}
+                              onChange={(e) => handleCustomerChange('shipping_postal_code', e.target.value)}
                               className={`w-full px-3 py-2 border rounded-md ${
-                                errors.shippingPostcode ? 'border-red-500' : 'border-gray-300'
+                                errors.shipping_postal_code ? 'border-red-500' : 'border-gray-300'
                               }`}
                             />
-                            {errors.shippingPostcode && (
-                              <p className="text-red-500 text-sm mt-1">{errors.shippingPostcode}</p>
+                            {errors.shipping_postal_code && (
+                              <p className="text-red-500 text-sm mt-1">{errors.shipping_postal_code}</p>
                             )}
                           </div>
                           
@@ -1240,14 +1447,14 @@ export default function CheckoutPage() {
                             </label>
                             <input
                               type="text"
-                              value={customer.shippingPlaats}
-                              onChange={(e) => handleCustomerChange('shippingPlaats', e.target.value)}
+                              value={customer.shipping_city}
+                              onChange={(e) => handleCustomerChange('shipping_city', e.target.value)}
                               className={`w-full px-3 py-2 border rounded-md ${
-                                errors.shippingPlaats ? 'border-red-500' : 'border-gray-300'
+                                errors.shipping_city ? 'border-red-500' : 'border-gray-300'
                               }`}
                             />
-                            {errors.shippingPlaats && (
-                              <p className="text-red-500 text-sm mt-1">{errors.shippingPlaats}</p>
+                            {errors.shipping_city && (
+                              <p className="text-red-500 text-sm mt-1">{errors.shipping_city}</p>
                             )}
                           </div>
                         </div>
@@ -1358,7 +1565,7 @@ export default function CheckoutPage() {
                               <p className="font-medium text-gray-900">{item.name}</p>
                              <p className="text-sm text-gray-600">Aantal: {item.quantity}</p>
                             </div>
-                             <p className="font-medium text-gray-900">€{(getDiscountedPrice(item.price) * item.quantity).toFixed(2)}</p>
+                             <p className="font-medium text-gray-900">€{(getDiscountedPrice(item.price, item.vat_category) * item.quantity).toFixed(2)}</p>
                           </div>
                         ))}
                       </div>
@@ -1366,11 +1573,11 @@ export default function CheckoutPage() {
                       <div className="border border-gray-200 rounded-lg p-4">
                         <h3 className="font-medium text-gray-900 mb-3">Klantgegevens</h3>
                         <p className="text-sm text-gray-600">
-                          {customer.voornaam} {customer.achternaam}<br />
+                          {customer.contact_first_name} {customer.contact_last_name}<br />
                           {customer.email}<br />
-                          {customer.telefoon}<br />
-                          {customer.adres}<br />
-                          {customer.postcode} {customer.plaats}
+                          {customer.phone}<br />
+                          {customer.address}<br />
+                          {customer.postal_code} {customer.city}
                         </p>
                       </div>
 
@@ -1389,12 +1596,12 @@ export default function CheckoutPage() {
                             </p>
                           </div>
                         )}
-                        {customer.separateShippingAddress && (
+                        {customer.separate_shipping_address && (
                           <div className="mt-2 p-3 bg-gray-50 rounded">
                             <p className="text-sm font-medium text-gray-900">Verzendadres:</p>
                             <p className="text-sm text-gray-600">
-                              {customer.shippingAdres}<br />
-                              {customer.shippingPostcode} {customer.shippingPlaats}
+                              {customer.shipping_address}<br />
+                              {customer.shipping_postal_code} {customer.shipping_city}
                             </p>
                           </div>
                         )}
@@ -1501,7 +1708,7 @@ export default function CheckoutPage() {
                         <p className="text-sm text-gray-600">Aantal: {item.quantity}</p>
                       </div>
                     </div>
-                    <p className="font-medium text-gray-900">€{(getDiscountedPrice(item.price) * item.quantity).toFixed(2)}</p>
+                    <p className="font-medium text-gray-900">€{(getDiscountedPrice(item.price, item.vat_category) * item.quantity).toFixed(2)}</p>
                   </div>
                 ))}
               </div>
@@ -1509,20 +1716,22 @@ export default function CheckoutPage() {
                <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotaal:</span>
-                   <span>€{(dealer.isDealer ? netItems : subtotalPre).toFixed(2)} {dealer.isDealer ? '(excl. BTW)' : ''}</span>
+                   <span>€{(dealer.isDealer ? netItems : subtotalPre).toFixed(2)} {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}</span>
                 </div>
                 
-                {/* Verzendkosten altijd excl. BTW tonen */}
+                {/* Verzendkosten tonen op basis van gebruikerstype */}
                 <div className="flex justify-between text-sm">
-                  <span>Verzendkosten (excl. BTW):</span>
+                  <span>Verzendkosten {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}:</span>
                   <span>{(finalShippingCost === 0 ? 'Gratis' : `€${finalShippingCost.toFixed(2)}`)}</span>
                 </div>
 
-                {/* BTW altijd als laatste regel vóór totaal */}
-                <div className="flex justify-between text-sm">
-                  <span>BTW:</span>
-                  <span>€{vatCalculation.vat_amount.toFixed(2)}</span>
-                </div>
+                {/* BTW alleen tonen wanneer er daadwerkelijk BTW is */}
+                {vatCalculation.vat_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>BTW:</span>
+                    <span>€{vatCalculation.vat_amount.toFixed(2)}</span>
+                  </div>
+                )}
                 
                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
                   <span>Totaal:</span>

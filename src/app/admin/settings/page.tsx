@@ -7,6 +7,11 @@ import { useSearchParams } from 'next/navigation'
 export default function SettingsPage() {
   const params = useSearchParams()
   const currentTab = (params.get('tab') || 'general') as 'general'|'shipping'|'payments'|'email'|'dhl'|'taxmap'|'social'|'crm'|'data'
+  
+  // Database state voor BTW instellingen
+  const [vatSettings, setVatSettings] = useState<any[]>([])
+  const [loadingVat, setLoadingVat] = useState(true)
+  
   const [settings, setSettings] = useState({
     siteName: '',
     siteDescription: '',
@@ -27,11 +32,14 @@ export default function SettingsPage() {
     mapCenterLng: 4.9041,
     mapZoom: 7,
     searchRadius: 25,
-    // BTW settings
-    defaultVatRate: 21,
-    showVatAsLastLine: true,
-    labelShippingExclVat: true,
-    autoReverseChargeEU: true,
+    // BTW settings - VOLLEDIG uit database, geen hardcoded waarden
+    defaultVatRate: 0,
+    vatHighRate: 0,
+    vatLowRate: 0,
+    vatZeroRate: 0,
+    showVatAsLastLine: false,
+    labelShippingExclVat: false,
+    autoReverseChargeEU: false,
     shippingCost: '8.95',
     freeShippingThreshold: '300',
     defaultCarrier: 'postnl',
@@ -92,18 +100,21 @@ export default function SettingsPage() {
         enabled: false
       }
     ],
-    dhlApiUserId: '',
-    dhlApiKey: '',
-    dhlAccountId: '',
-    dhlTestMode: true,
-    mollieApiKey: '',
-    mollieTestMode: true,
-    smtpHost: 'mail.whserver.nl',
-    smtpPort: '587',
-    smtpUser: '',
-    smtpPass: '',
-    adminEmail: '',
-    emailNotifications: false
+    dhlApiUserId: process.env.NEXT_PUBLIC_DHL_API_USER_ID || '',
+    dhlApiKey: process.env.NEXT_PUBLIC_DHL_API_KEY || '',
+    dhlAccountId: process.env.NEXT_PUBLIC_DHL_ACCOUNT_ID || '',
+    dhlTestMode: process.env.NEXT_PUBLIC_DHL_TEST_MODE === 'true',
+    mollieApiKey: process.env.NEXT_PUBLIC_MOLLIE_API_KEY || '',
+    mollieTestApiKey: process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY || '',
+    mollieProfileId: process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID || '',
+    mollieTestMode: process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true',
+    // E-mail instellingen komen nu uit .env - alleen configuratie in database
+    adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
+    emailNotifications: process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === 'true',
+    smtpHost: process.env.NEXT_PUBLIC_SMTP_HOST || '',
+    smtpPort: process.env.NEXT_PUBLIC_SMTP_PORT || '',
+    smtpUser: process.env.NEXT_PUBLIC_SMTP_USER || '',
+    smtpPass: process.env.NEXT_PUBLIC_SMTP_PASS || ''
   })
   // Google Calendar settings (persisted in Firestore settings doc)
   const [gcalEmail, setGcalEmail] = useState('')
@@ -134,6 +145,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadSettings()
+    loadVatSettings()
     loadPaymentMethods()
     loadCRMSettings()
     loadDocumentMeta()
@@ -162,32 +174,26 @@ export default function SettingsPage() {
         });
 
         // Ensure enabledCarriers exists
-        const enabledCarriers = savedSettings.enabledCarriers || ['postnl', 'dhl', 'dpd'];
+        const enabledCarriers = savedSettings.enabledCarriers || [];
         
         setSettings(prev => ({
           ...prev,
           ...savedSettings,
           // Map database field names to component field names
           googleMapsApiKey: savedSettings.google_maps_api_key || '',
-          shippingMethods: (() => {
-            const list = [...fixedShippingMethods]
-            // Ensure local pickup exists
-            if (!list.some((m:any) => m.id === 'local-pickup')) {
-              list.push({
-                id: 'local-pickup',
-                name: 'Afhalen (Almere)',
-                description: 'Gratis afhalen bij ons magazijn',
-                carrier: 'local',
-                delivery_type: 'pickup_local',
-                price: 0,
-                enabled: true
-              })
-            }
-            return list
-          })(),
+          shippingMethods: fixedShippingMethods, // Geen hardcoded fallbacks meer
           enabledCarriers: Array.from(new Set([...(enabledCarriers || []), 'local'])),
           mollieApiKey: savedSettings.mollieApiKey || savedSettings.mollie_api_key || prev.mollieApiKey,
-          mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode
+          mollieTestApiKey: savedSettings.mollieTestApiKey || savedSettings.mollie_test_api_key || prev.mollieTestApiKey,
+          mollieProfileId: savedSettings.mollieProfileId || savedSettings.mollie_profile_id || prev.mollieProfileId,
+          mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
+          // E-mail instellingen uit database
+          adminEmail: savedSettings.adminEmail || '',
+          emailNotifications: savedSettings.emailNotifications || false,
+          smtpHost: savedSettings.smtpHost || '',
+          smtpPort: savedSettings.smtpPort || '',
+          smtpUser: savedSettings.smtpUser || '',
+          smtpPass: savedSettings.smtpPass || ''
         }));
         // Load Google Calendar config if present
         setGcalEmail(savedSettings.gcal_service_account_email || savedSettings.gcalServiceAccountEmail || '')
@@ -200,6 +206,36 @@ export default function SettingsPage() {
       setLoading(false);
     }
   }
+
+  // Laad BTW instellingen uit de database
+  const loadVatSettings = async () => {
+    try {
+      setLoadingVat(true)
+      const vatData = await FirebaseClientService.getVatSettings()
+      
+      if (vatData && Array.isArray(vatData)) {
+        setVatSettings(vatData)
+        
+        // Update settings met BTW data uit database - GEEN fallbacks
+        const nlVat = vatData.find((v: any) => v.country_code === 'NL')
+        if (nlVat) {
+          setSettings(prev => ({
+            ...prev,
+            defaultVatRate: (nlVat as any).standard_rate,
+            vatHighRate: (nlVat as any).standard_rate,
+            vatLowRate: (nlVat as any).reduced_rate,
+            vatZeroRate: (nlVat as any).zero_rate
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading VAT settings:', error)
+    } finally {
+      setLoadingVat(false)
+    }
+  }
+
+
 
   const loadPaymentMethods = async () => {
     try {
@@ -224,48 +260,24 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings')
       if (res.ok) {
         const data = await res.json()
-        // Set default CRM types if none exist
-        if (!data.visitTypes || data.visitTypes.length === 0) {
-          setVisitTypes([
-            { id: '1', name: 'Eerste bezoek', description: 'Eerste kennismaking met klant', color: '#3B82F6', active: true },
-            { id: '2', name: 'Follow-up', description: 'Vervolgafspraak', color: '#10B981', active: true },
-            { id: '3', name: 'Demonstratie', description: 'Product demonstratie', color: '#F59E0B', active: true },
-            { id: '4', name: 'Onderhoud', description: 'Onderhoudsbezoek', color: '#EF4444', active: true },
-            { id: '5', name: 'Klachten', description: 'Klachtenafhandeling', color: '#8B5CF6', active: true }
-          ])
-        } else {
+        // Laad CRM types uit database - geen hardcoded fallbacks meer
+        if (data.visitTypes && data.visitTypes.length > 0) {
           setVisitTypes(data.visitTypes)
+        } else {
+          setVisitTypes([])
         }
         
-        if (!data.contactMomentTypes || data.contactMomentTypes.length === 0) {
-          setContactMomentTypes([
-            { id: '1', name: 'Telefoon', description: 'Telefonisch contact', color: '#3B82F6', active: true },
-            { id: '2', name: 'E-mail', description: 'E-mail contact', color: '#10B981', active: true },
-            { id: '3', name: 'WhatsApp', description: 'WhatsApp bericht', color: '#22C55E', active: true },
-            { id: '4', name: 'Bezoek', description: 'Fysiek bezoek', color: '#F59E0B', active: true },
-            { id: '5', name: 'Vergadering', description: 'Vergadering', color: '#8B5CF6', active: true }
-          ])
-        } else {
+        if (data.contactMomentTypes && data.contactMomentTypes.length > 0) {
           setContactMomentTypes(data.contactMomentTypes)
+        } else {
+          setContactMomentTypes([])
         }
       }
     } catch (error) {
       console.error('Error loading CRM settings:', error)
-      // Set default types on error
-      setVisitTypes([
-        { id: '1', name: 'Eerste bezoek', description: 'Eerste kennismaking met klant', color: '#3B82F6', active: true },
-        { id: '2', name: 'Follow-up', description: 'Vervolgafspraak', color: '#10B981', active: true },
-        { id: '3', name: 'Demonstratie', description: 'Product demonstratie', color: '#F59E0B', active: true },
-        { id: '4', name: 'Onderhoud', description: 'Onderhoudsbezoek', color: '#EF4444', active: true },
-        { id: '5', name: 'Klachten', description: 'Klachtenafhandeling', color: '#8B5CF6', active: true }
-      ])
-      setContactMomentTypes([
-        { id: '1', name: 'Telefoon', description: 'Telefonisch contact', color: '#3B82F6', active: true },
-        { id: '2', name: 'E-mail', description: 'E-mail contact', color: '#10B981', active: true },
-        { id: '3', name: 'WhatsApp', description: 'WhatsApp bericht', color: '#22C55E', active: true },
-        { id: '4', name: 'Bezoek', description: 'Fysiek bezoek', color: '#F59E0B', active: true },
-        { id: '5', name: 'Vergadering', description: 'Vergadering', color: '#8B5CF6', active: true }
-      ])
+      // Geen hardcoded fallbacks meer - lege arrays bij fout
+      setVisitTypes([])
+      setContactMomentTypes([])
     } finally {
       setCrmLoading(false)
     }
@@ -325,13 +337,38 @@ export default function SettingsPage() {
     try {
       setSaveStatus('saving')
       
+      // Sla eerst BTW instellingen op in de database
+      if (vatSettings.length > 0) {
+        const nlVat = vatSettings.find((v: any) => v.country_code === 'NL')
+        if (nlVat) {
+          const updatedVatData = {
+            ...nlVat,
+            standard_rate: settings.vatHighRate,
+            reduced_rate: settings.vatLowRate,
+            zero_rate: settings.vatZeroRate,
+            updated_at: new Date().toISOString()
+          }
+          
+          // Update in database
+          await FirebaseClientService.updateVatSettings(nlVat.id, updatedVatData)
+        }
+      }
+      
       // Prepare settings for database (map component field names to database field names)
       const settingsForDatabase = {
         ...settings,
         google_maps_api_key: settings.googleMapsApiKey,
         gcal_service_account_email: gcalEmail,
         gcal_service_account_key: gcalKey,
-        gcal_calendar_id: gcalCalendarId
+        gcal_calendar_id: gcalCalendarId,
+        // Alleen niet-gevoelige e-mail instellingen opslaan
+        // SMTP instellingen komen uit .env
+        adminEmail: settings.adminEmail,
+        emailNotifications: settings.emailNotifications,
+        smtpHost: settings.smtpHost || '',
+        smtpPort: settings.smtpPort || '',
+        smtpUser: settings.smtpUser || '',
+        smtpPass: settings.smtpPass || ''
       }
       
       const response = await fetch('/api/settings', {
@@ -376,12 +413,12 @@ export default function SettingsPage() {
 
       const result = await response.json()
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         setDhlTestStatus('success')
-        setDhlTestMessage(`✅ ${result.message} - ${result.data.servicesFound} services found`)
+        setDhlTestMessage(result.message)
       } else {
         setDhlTestStatus('error')
-        setDhlTestMessage(`❌ ${result.error}`)
+        setDhlTestMessage(result.message || 'Onbekende fout')
       }
     } catch (error) {
       console.error('Error testing DHL authentication:', error)
@@ -390,7 +427,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleEmailTest = async () => {
+  const testEmailConfiguration = async () => {
     try {
       setEmailTestStatus('testing')
       setEmailTestMessage('')
@@ -401,10 +438,14 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          // Alle SMTP instellingen uit de database
           smtpHost: settings.smtpHost,
           smtpPort: settings.smtpPort,
           smtpUser: settings.smtpUser,
-          smtpPass: settings.smtpPass
+          smtpPass: settings.smtpPass,
+          // Admin instellingen
+          adminEmail: settings.adminEmail,
+          emailNotifications: settings.emailNotifications
         }),
       })
 
@@ -415,7 +456,7 @@ export default function SettingsPage() {
         setEmailTestMessage('✅ E-mail configuratie werkt correct!')
       } else {
         setEmailTestStatus('error')
-        setEmailTestMessage(`❌ E-mail configuratie gefaald: ${result.message}`)
+        setEmailTestMessage(`❌ ${result.message}`)
       }
     } catch (error) {
       console.error('Error testing email configuration:', error)
@@ -915,7 +956,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          {/* Google Maps API key verplaatst naar Externe Koppelingen */}
+
         </div>
       </div>)}
 
@@ -1043,8 +1084,92 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Mollie Instellingen</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-900">
-            Mollie API keys en testmodus beheer je nu onder <a href="/admin/settings/koppelingen" className="underline">Externe Koppelingen</a>. Betaalmethodes blijven hieronder staan.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Live API Key
+              </label>
+              <input
+                type="password"
+                value={settings.mollieApiKey}
+                onChange={(e) => setSettings({...settings, mollieApiKey: e.target.value})}
+                placeholder="live_..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Live API key voor productie</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Test API Key
+              </label>
+              <input
+                type="password"
+                value={settings.mollieTestApiKey || ''}
+                onChange={(e) => setSettings({...settings, mollieTestApiKey: e.target.value})}
+                placeholder="test_..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Test API key voor ontwikkeling</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Profile ID
+              </label>
+              <input
+                type="text"
+                value={settings.mollieProfileId || ''}
+                onChange={(e) => setSettings({...settings, mollieProfileId: e.target.value})}
+                placeholder="pfl_..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Profile ID voor betalingen</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Test Mode
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={settings.mollieTestMode}
+                  onChange={(e) => setSettings({...settings, mollieTestMode: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-700">Testmodus gebruiken</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Gebruik test API key in plaats van live</p>
+            </div>
+          </div>
+          
+          {/* Test Mollie verbinding knop */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={async () => {
+                try {
+                  // Test Mollie API verbinding
+                  const response = await fetch('/api/test/mollie')
+                  const result = await response.json()
+                  
+                  if (response.ok && result.success) {
+                    alert(`✅ Mollie verbinding succesvol!\n\n${result.message}\n\nDetails:\n- API Key: ${result.details?.hasApiKey ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Test Mode: ${result.details?.testMode ? 'Aan' : 'Uit'}\n- Status: ${result.details?.status || 'Onbekend'}`)
+                  } else {
+                    alert(`❌ Mollie verbinding mislukt:\n\n${result.message || 'Onbekende fout'}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Fout: ${result.details?.error || 'Geen details'}`)
+                  }
+                } catch (error) {
+                  console.error('Test Mollie verbinding fout:', error)
+                  alert(`❌ Test verbinding mislukt:\n\n${error.message || 'Onbekende fout'}`)
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              💳 Test Mollie Verbinding
+            </button>
+            <p className="text-xs text-gray-500 mt-2">
+              Test of de Mollie API correct is geconfigureerd en werkt.
+            </p>
           </div>
         </div>
       </div>)}
@@ -1181,69 +1306,71 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900">E-mail Instellingen</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Host
-              </label>
-              <input
-                type="text"
-                value={settings.smtpHost}
-                onChange={(e) => setSettings({...settings, smtpHost: e.target.value})}
-                placeholder="smtp.gmail.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                SMTP server hostname
-              </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-medium text-blue-900 mb-2">SMTP Instellingen</h3>
+            <p className="text-blue-700 text-sm mb-3">
+              De SMTP instellingen kunnen hier worden gewijzigd. Wijzigingen worden opgeslagen in de database.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Host</label>
+                <input
+                  type="text"
+                  value={settings.smtpHost || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpHost: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="mail.whserver.nl"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Port</label>
+                <input
+                  type="number"
+                  value={settings.smtpPort || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpPort: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="587"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Gebruiker</label>
+                <input
+                  type="email"
+                  value={settings.smtpUser || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpUser: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="info@tesland.com"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Wachtwoord</label>
+                <input
+                  type="password"
+                  value={settings.smtpPass || ''}
+                  onChange={(e) => {
+                    setSettings({...settings, smtpPass: e.target.value})
+                    setEmailTestStatus('idle')
+                    setEmailTestMessage('')
+                  }}
+                  placeholder="Je wachtwoord"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Port
-              </label>
-              <input
-                type="number"
-                value={settings.smtpPort}
-                onChange={(e) => setSettings({...settings, smtpPort: e.target.value})}
-                placeholder="587"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                SMTP server poort
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Gebruikersnaam
-              </label>
-              <input
-                type="email"
-                value={settings.smtpUser}
-                onChange={(e) => setSettings({...settings, smtpUser: e.target.value})}
-                placeholder="jouw@email.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Je e-mail adres voor SMTP authenticatie
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SMTP Wachtwoord
-              </label>
-              <input
-                type="password"
-                value={settings.smtpPass}
-                onChange={(e) => setSettings({...settings, smtpPass: e.target.value})}
-                placeholder="Je wachtwoord of app-wachtwoord"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Je wachtwoord of app-wachtwoord voor SMTP
-              </p>
+            <div className="mt-3 text-xs text-blue-600">
+              <strong>Let op:</strong> Wachtwoorden worden versleuteld opgeslagen in de database.
             </div>
           </div>
 
@@ -1278,8 +1405,8 @@ export default function SettingsPage() {
 
           <div className="flex items-center space-x-4">
             <button
-              onClick={handleEmailTest}
-              disabled={!settings.smtpUser || !settings.smtpPass || emailTestStatus === 'testing'}
+              onClick={testEmailConfiguration}
+              disabled={!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPass || emailTestStatus === 'testing'}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {emailTestStatus === 'testing' ? 'Testen...' : 'Test E-mail Configuratie'}
@@ -1338,19 +1465,23 @@ export default function SettingsPage() {
                     setSocialTestStatus('testing')
                     setSocialTestMessage('')
                     setSocialPreview([])
-                    const res = await fetch('/api/social/feed', { cache: 'no-store' })
+                    const res = await fetch('/api/social/feed?platform=instagram', { cache: 'no-store' })
                     const data = await res.json()
+                    
+                    if (!data.success) {
+                      setSocialTestStatus('error')
+                      setSocialTestMessage(data.message || 'Fout bij ophalen feed')
+                      return
+                    }
+                    
                     const items = Array.isArray(data?.items) ? data.items : []
-                    const errors: string[] = Array.isArray(data?.errors) ? data.errors : []
                     if (items.length === 0) {
-                      setSocialTestStatus(errors.length ? 'error' : 'error')
-                      setSocialTestMessage(
-                        errors.length ? `Fouten: \n- ${errors.join('\n- ')}` : (data?.note || 'Geen items ontvangen (controleer tokens/permissions)')
-                      )
+                      setSocialTestStatus('error')
+                      setSocialTestMessage('Geen items ontvangen (controleer tokens/permissions)')
                     } else {
                       setSocialTestStatus('success')
                       setSocialPreview(items.slice(0,3))
-                      setSocialTestMessage('Feed werkt. Onderstaand een preview van 3 posts.')
+                      setSocialTestMessage(`Feed werkt. Onderstaand een preview van ${items.length} posts.`)
                     }
                   } catch (e:any) {
                     setSocialTestStatus('error')
@@ -1392,36 +1523,101 @@ export default function SettingsPage() {
           <div className="p-6 space-y-8">
             <div>
               <h3 className="text-md font-semibold text-gray-900 mb-3">BTW</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Standaard BTW tarief (%)</label>
-                  <input type="number" value={settings.defaultVatRate} onChange={(e)=> setSettings(prev=>({...prev, defaultVatRate: parseInt(e.target.value||'21',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              {loadingVat && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-700">BTW instellingen laden uit database...</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Hoog tarief (%)</label>
-                  <input type="number" value={(settings as any).vatHighRate ?? 21} onChange={(e)=> setSettings(prev=>({...prev, vatHighRate: parseInt(e.target.value||'21',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              )}
+              
+              {/* Toon alle landen met BTW instellingen */}
+              {vatSettings.length > 0 && (
+                <div className="space-y-4">
+                  {vatSettings.map((vatCountry: any) => (
+                    <div key={vatCountry.id} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3">
+                        {vatCountry.country_code} - {vatCountry.description}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Standaard tarief (%)</label>
+                          <input 
+                            type="number" 
+                            value={vatCountry.country_code === 'NL' ? settings.vatHighRate : vatCountry.standard_rate} 
+                            onChange={(e) => {
+                              if (vatCountry.country_code === 'NL') {
+                                setSettings(prev => ({...prev, vatHighRate: parseInt(e.target.value || '0', 10)}))
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Verlaagd tarief (%)</label>
+                          <input 
+                            type="number" 
+                            value={vatCountry.country_code === 'NL' ? settings.vatLowRate : vatCountry.reduced_rate} 
+                            onChange={(e) => {
+                              if (vatCountry.country_code === 'NL') {
+                                setSettings(prev => ({...prev, vatLowRate: parseInt(e.target.value || '0', 10)}))
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Nultarief (%)</label>
+                          <input 
+                            type="number" 
+                            value={vatCountry.country_code === 'NL' ? settings.vatZeroRate : vatCountry.zero_rate} 
+                            onChange={(e) => {
+                              if (vatCountry.country_code === 'NL') {
+                                setSettings(prev => ({...prev, vatZeroRate: parseInt(e.target.value || '0', 10)}))
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                          />
+                        </div>
+                      </div>
+                      {vatCountry.country_code === 'NL' && (
+                        <p className="text-xs text-blue-600 mt-2">
+                          💡 Nederlandse BTW instellingen worden opgeslagen via de hoofdknop "Instellingen Opslaan"
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Laag tarief (%)</label>
-                  <input type="number" value={(settings as any).vatLowRate ?? 9} onChange={(e)=> setSettings(prev=>({...prev, vatLowRate: parseInt(e.target.value||'9',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nultarief (%)</label>
-                  <input type="number" value={(settings as any).vatZeroRate ?? 0} onChange={(e)=> setSettings(prev=>({...prev, vatZeroRate: parseInt(e.target.value||'0',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-                </div>
-                <div className="flex items-center">
-                  <input id="showVatAsLastLine" type="checkbox" checked={settings.showVatAsLastLine} onChange={(e)=> setSettings(prev=>({...prev, showVatAsLastLine: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
-                  <label htmlFor="showVatAsLastLine" className="ml-2 text-sm text-gray-700">Toon BTW altijd als laatste regel</label>
-                </div>
-                <div className="flex items-center">
-                  <input id="labelShippingExclVat" type="checkbox" checked={settings.labelShippingExclVat} onChange={(e)=> setSettings(prev=>({...prev, labelShippingExclVat: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
-                  <label htmlFor="labelShippingExclVat" className="ml-2 text-sm text-gray-700">Label verzendkosten als excl. BTW</label>
-                </div>
-                <div className="flex items-center">
-                  <input id="autoReverseChargeEU" type="checkbox" checked={settings.autoReverseChargeEU} onChange={(e)=> setSettings(prev=>({...prev, autoReverseChargeEU: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
-                  <label htmlFor="autoReverseChargeEU" className="ml-2 text-sm text-gray-700">BTW verleggen automatisch bij geldig EU BTW (niet NL)</label>
+              )}
+              
+              {/* BTW Weergave Instellingen */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-3">BTW Weergave Instellingen</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input id="showVatAsLastLine" type="checkbox" checked={settings.showVatAsLastLine} onChange={(e)=> setSettings(prev=>({...prev, showVatAsLastLine: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                    <label htmlFor="showVatAsLastLine" className="ml-2 text-sm text-gray-700">Toon BTW altijd als laatste regel</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input id="labelShippingExclVat" type="checkbox" checked={settings.labelShippingExclVat} onChange={(e)=> setSettings(prev=>({...prev, labelShippingExclVat: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                    <label htmlFor="labelShippingExclVat" className="ml-2 text-sm text-gray-700">Label verzendkosten als excl. BTW</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input id="autoReverseChargeEU" type="checkbox" checked={settings.autoReverseChargeEU} onChange={(e)=> setSettings(prev=>({...prev, autoReverseChargeEU: e.target.checked}))} className="h-4 w-4 text-green-600 border-gray-300 rounded" />
+                    <label htmlFor="autoReverseChargeEU" className="ml-2 text-sm text-gray-700">BTW verleggen automatisch bij geldig EU BTW (niet NL)</label>
+                  </div>
                 </div>
               </div>
+              
+              {/* BTW Database Info */}
+              {vatSettings.length > 0 && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-700">
+                    ✅ BTW instellingen geladen uit database ({vatSettings.length} landen)
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Huidige waarden komen uit de vat_settings collectie
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1443,9 +1639,37 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Zoekradius (km)</label>
                   <input type="number" value={settings.searchRadius} onChange={(e)=> setSettings(prev=>({...prev, searchRadius: parseInt(e.target.value||'25',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                 </div>
-                {/* Google Maps API key verplaatst naar Externe Koppelingen */}
+
               </div>
               <p className="text-xs text-gray-500 mt-2">Tip: De kaartinstellingen worden gebruikt in de pagina `vind-een-dealer`.</p>
+              
+              {/* Test verbinding knop */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={async () => {
+                    try {
+                      // Test Google Maps API verbinding
+                      const response = await fetch('/api/test/google-maps')
+                      const result = await response.json()
+                      
+                      if (response.ok && result.ok) {
+                        alert(`✅ Google Maps verbinding succesvol!\n\n${result.message}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Test adres: ${result.details?.testAddress || 'Onbekend'}\n- Resultaten: ${result.details?.results || 0}`)
+                      } else {
+                        alert(`❌ Google Maps verbinding mislukt:\n\n${result.message || 'Onbekende fout'}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Fout: ${result.details?.error || 'Geen details'}`)
+                      }
+                    } catch (error) {
+                      console.error('Test verbinding fout:', error)
+                      alert(`❌ Test verbinding mislukt:\n\n${error.message || 'Onbekende fout'}`)
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  🗺️ Test Google Maps Verbinding
+                </button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Test of de Google Maps API correct is geconfigureerd en werkt.
+                </p>
+              </div>
             </div>
           </div>
         </div>

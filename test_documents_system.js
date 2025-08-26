@@ -1,14 +1,14 @@
 const { initializeApp } = require('firebase/app')
 const { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, query, where, orderBy } = require('firebase/firestore')
 
-// Firebase config
+// Firebase config uit environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyBvQvQvQvQvQvQvQvQvQvQvQvQvQvQvQvQ",
-  authDomain: "alloygator-nl.firebaseapp.com",
-  projectId: "alloygator-nl",
-  storageBucket: "alloygator-nl.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
 
 // Initialize Firebase

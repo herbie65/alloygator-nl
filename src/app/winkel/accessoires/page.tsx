@@ -16,11 +16,13 @@ interface Product {
   image?: string // Backward compatibility
   category: string
   slug?: string
+  vat_category?: string
 }
 
 export default function AccessoiresPage() {
   const [allProducts, loading, error] = useFirebaseRealtime<Product>('products')
   const dealer = useDealerPricing()
+  const [vatSettings, setVatSettings] = useState<any[]>([])
 
   // Filter products for this category
   const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-')
@@ -32,7 +34,94 @@ export default function AccessoiresPage() {
     return product.image_url || product.image || null
   }
 
-  useEffect(() => {}, [])
+  // Functie om prijzen inclusief BTW te berekenen op basis van database instellingen
+  const getPriceIncludingVat = (basePrice: number, vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      return basePrice
+    }
+    
+    // Zoek BTW instellingen voor Nederland
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      return basePrice
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      vatRate = vatSetting.reduced_rate || 0
+    } else if (vatCategory === 'zero') {
+      vatRate = vatSetting.zero_rate || 0
+    } else {
+      vatRate = vatSetting.standard_rate || 0
+    }
+    
+    const priceIncludingVat = basePrice * (1 + vatRate / 100)
+    
+    return Math.round(priceIncludingVat * 100) / 100 // Afronden op 2 decimalen
+  }
+  
+  // Functie om BTW tekst te genereren op basis van database instellingen
+  const getVatText = (vatCategory: string = 'standard'): string => {
+    if (!vatSettings || vatSettings.length === 0) {
+      return 'incl. BTW'
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      return 'incl. BTW'
+    }
+    
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      vatRate = vatSetting.reduced_rate || 0
+    } else if (vatCategory === 'zero') {
+      vatRate = vatSetting.zero_rate || 0
+    } else {
+      vatRate = vatSetting.standard_rate || 0
+    }
+    
+    return `incl. ${vatRate}% BTW`
+  }
+
+  // Functie om de juiste weergave prijs te bepalen op basis van gebruikerstype
+  const getDisplayPrice = (product: Product): { price: number; vatText: string } => {
+    const basePrice = Number(product.price || 0)
+    
+    // Voor dealers: toon prijs exclusief BTW
+    if (dealer.isDealer) {
+      return {
+        price: basePrice,
+        vatText: 'excl. BTW'
+      }
+    }
+    
+    // Voor particuliere klanten en niet-ingelogde gebruikers: toon prijs inclusief BTW
+    const priceIncludingVat = getPriceIncludingVat(basePrice, product.vat_category || 'standard')
+    const vatText = getVatText(product.vat_category || 'standard')
+    
+    return {
+      price: priceIncludingVat,
+      vatText: vatText
+    }
+  }
+
+  useEffect(() => {
+    // Load VAT settings from database
+    const loadVatSettings = async () => {
+      try {
+        const { FirebaseService } = await import('@/lib/firebase')
+        const vatData = await FirebaseService.getVatSettings()
+        if (vatData && Array.isArray(vatData)) {
+          setVatSettings(vatData)
+        }
+      } catch (error) {
+        console.error('Fout bij laden BTW instellingen:', error)
+      }
+    }
+    
+    loadVatSettings()
+  }, [])
 
   const addToCart = (product: Product) => {
     const cart = JSON.parse(localStorage.getItem('alloygator-cart') || '[]')
@@ -41,10 +130,11 @@ export default function AccessoiresPage() {
     const itemToStore = {
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: dealer.isDealer ? product.price : getPriceIncludingVat(product.price, product.vat_category || 'standard'),
       quantity: 1,
       image: getProductImage(product),
-      category: product.category
+      category: product.category,
+      vat_category: product.vat_category
     }
 
     if (existingItem) {
@@ -149,8 +239,8 @@ export default function AccessoiresPage() {
                 <p className="text-gray-600 mb-4 line-clamp-3">{product.description}</p>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold text-green-600">
-                    €{(dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : product.price).toFixed(2)}
-                    <span className="text-sm text-gray-500 ml-2">{dealer.isDealer ? 'excl. BTW' : 'incl. BTW'}</span>
+                    €{getDisplayPrice(product).price.toFixed(2)}
+                    <span className="text-sm text-gray-500 ml-2">{getDisplayPrice(product).vatText}</span>
                   </div>
                   <button
                     onClick={() => addToCart(product)}

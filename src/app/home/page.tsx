@@ -179,22 +179,22 @@ export default function HomePage() {
     )
   }
 
-  // Geen content beschikbaar - toon fallback
-  console.log('❌ Geen CMS content gevonden, toon fallback')
+  // Geen content beschikbaar - toon foutmelding
+  console.log('❌ Geen CMS content gevonden, toon foutmelding')
   return (
     <>
-              <SEO 
-          title="Velgen Bescherming - AlloyGator"
-          description="Bescherm én verfraai je velgen met AlloyGator velgbeschermers. Voorkom kostbare schade aan je lichtmetalen velgen. Effectieve bescherming tegen stoeprandschade in subtiele én opvallende kleuren."
-          keywords="velgen bescherming, alloygator, velgbeschermers, stoeprandschade voorkomen, lichtmetalen velgen, polymeer velgbescherming, professionele montage, velg accessoires"
-          canonical="/"
-          structuredData={generateLocalBusinessData()}
-        />
+      <SEO 
+        title="Velgen Bescherming - AlloyGator"
+        description="Bescherm én verfraai je velgen met AlloyGator velgbeschermers. Voorkom kostbare schade aan je lichtmetalen velgen. Effectieve bescherming tegen stoeprandschade in subtiele én opvallende kleuren."
+        keywords="velgen bescherming, alloygator, velgbeschermers, stoeprandschade voorkomen, lichtmetalen velgen, polymeer velgbescherming, professionele montage, velg accessoires"
+        canonical="/"
+        structuredData={generateLocalBusinessData()}
+      />
       <div className="min-h-screen bg-white">
         <div className="container mx-auto px-4 py-16 text-center">
-          <div className="text-4xl mb-4">🏠</div>
-          <h1 className="text-2xl md:text-5xl font-bebas uppercase tracking-wide text-gray-900 mb-4">Uw ultieme lichtmetalen schild</h1>
-          <h2 className="text-xl md:text-3xl font-bebas uppercase tracking-wide text-gray-700 mb-6">tegen kostbare stoeprandschade</h2>
+          <div className="text-4xl mb-4">⚠️</div>
+          <h1 className="text-2xl md:text-5xl font-bebas uppercase tracking-wide text-gray-900 mb-4">Geen content beschikbaar</h1>
+          <h2 className="text-xl md:text-3xl font-bebas uppercase tracking-wide text-gray-700 mb-6">CMS data kon niet worden geladen</h2>
           <p className="text-gray-600 mb-6">
             Er is geen home pagina content gevonden in het CMS.
           </p>
@@ -207,6 +207,9 @@ export default function HomePage() {
             </p>
             <p className="text-sm text-gray-500">
               • De slug moet exact "home" zijn
+            </p>
+            <p className="text-sm text-gray-500">
+              • Controleer je database verbinding
             </p>
           </div>
           <div className="mt-6">

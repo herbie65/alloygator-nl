@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { id, note } = body || {}
-    if (!id) return NextResponse.json({ ok: false, error: 'id is verplicht' }, { status: 400 })
+    const { rmaId } = await request.json()
+    
+    if (!rmaId) {
+      return NextResponse.json(
+        { error: 'Missing rmaId' },
+        { status: 400 }
+      )
+    }
 
-    const rma: any = await FirebaseService.getDocument('return_requests', id)
-    if (!rma) return NextResponse.json({ ok: false, error: 'RMA niet gevonden' }, { status: 404 })
-
-    const now = new Date().toISOString()
-    const status = 'approved'
-    const log = Array.isArray(rma.rma_log) ? rma.rma_log : []
-    log.push({ ts: now, action: 'approved', note: note || null })
-
-    await FirebaseService.updateDocument('return_requests', id, {
-      status,
-      approved_at: rma.approved_at || now,
-      updated_at: now,
-      rma_log: log
+    // Update RMA status naar 'approved'
+    await FirebaseService.updateDocument('returns', rmaId, {
+      status: 'approved',
+      approved_at: new Date().toISOString()
     })
-
-    return NextResponse.json({ ok: true, id, status })
-  } catch (e) {
-    console.error('RMA approve error', e)
-    return NextResponse.json({ ok: false, error: 'Serverfout' }, { status: 500 })
+    
+    return NextResponse.json({
+      success: true,
+      message: 'RMA approved successfully'
+    })
+  } catch (error) {
+    console.error('RMA approve error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
-
-

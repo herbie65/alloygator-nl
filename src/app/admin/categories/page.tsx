@@ -42,91 +42,12 @@ export default function CategoriesPage() {
       setLoading(true)
       setError('')
 
-      // Try to fetch from Firebase
       const firebaseCategories = await FirebaseService.getCategories()
-      
-      if (firebaseCategories && firebaseCategories.length > 0) {
-        setCategories(firebaseCategories)
-      } else {
-        // Fallback to dummy data
-        const dummyCategories: Category[] = [
-          {
-            id: '1',
-            name: 'AlloyGator Sets',
-            slug: 'alloygator-set',
-            description: 'Complete sets voor velgbescherming',
-            image_url: '/images/categories/alloygator-set.jpg',
-            is_active: true,
-            sort_order: 1,
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z'
-          },
-          {
-            id: '2',
-            name: 'Montagehulpmiddelen',
-            slug: 'montagehulpmiddelen',
-            description: 'Professionele tools voor eenvoudige montage',
-            image_url: '/images/categories/montagehulpmiddelen.jpg',
-            is_active: true,
-            sort_order: 2,
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z'
-          },
-          {
-            id: '3',
-            name: 'Accessoires',
-            slug: 'accessoires',
-            description: 'Extra onderdelen en accessoires',
-            image_url: '/images/categories/accessoires.jpg',
-            is_active: true,
-            sort_order: 3,
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z'
-          }
-        ]
-        setCategories(dummyCategories)
-      }
+      setCategories(firebaseCategories || [])
     } catch (err) {
       console.error('Error fetching categories:', err)
       setError('Fout bij het laden van categorieën')
-      
-      // Fallback to dummy data
-      const dummyCategories: Category[] = [
-        {
-          id: '1',
-          name: 'AlloyGator Sets',
-          slug: 'alloygator-set',
-          description: 'Complete sets voor velgbescherming',
-          image_url: '/images/categories/alloygator-set.jpg',
-          is_active: true,
-          sort_order: 1,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Montagehulpmiddelen',
-          slug: 'montagehulpmiddelen',
-          description: 'Professionele tools voor eenvoudige montage',
-          image_url: '/images/categories/montagehulpmiddelen.jpg',
-          is_active: true,
-          sort_order: 2,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        },
-        {
-          id: '3',
-          name: 'Accessoires',
-          slug: 'accessoires',
-          description: 'Extra onderdelen en accessoires',
-          image_url: '/images/categories/accessoires.jpg',
-          is_active: true,
-          sort_order: 3,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z'
-        }
-      ]
-      setCategories(dummyCategories)
+      setCategories([])
     } finally {
       setLoading(false)
     }

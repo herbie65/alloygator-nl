@@ -195,6 +195,21 @@ export class FirebaseClientService {
     }
   }
 
+  // Get invoices
+  static async getInvoices() {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'invoices'));
+      const invoices = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      return invoices;
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      return [];
+    }
+  }
+
   // Get customer by ID
   static async getCustomerById(id: string) {
     try {
@@ -275,6 +290,18 @@ export class FirebaseClientService {
     } catch (error) {
       console.error('Error fetching VAT settings:', error);
       return [];
+    }
+  }
+
+  // Update VAT settings
+  static async updateVatSettings(id: string, data: any) {
+    try {
+      const docRef = doc(db, 'vat_settings', id);
+      await updateDoc(docRef, data);
+      return true;
+    } catch (error) {
+      console.error('Error updating VAT settings:', error);
+      return false;
     }
   }
 
@@ -462,10 +489,81 @@ getCompanyInfo
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
-      return { id: logicalId, ...customerData };
+      return { id: logicalId, ...customerData }
+    } catch (e) { console.error('Error adding customer:', e); throw e }
+  }
+
+  // Update existing customer
+  static async updateCustomer(customerId: string, updateData: any) {
+    try {
+      const docRef = doc(db, 'customers', customerId)
+      await updateDoc(docRef, {
+        ...updateData,
+        updated_at: new Date().toISOString()
+      });
+      return true
+    } catch (e) { console.error('Error updating customer:', e); throw e }
+  }
+
+  // Add password reset token
+  static async addPasswordReset(resetData: any) {
+    try {
+      const logicalId = this.generateLogicalId('password_resets', resetData)
+      const docRef = doc(db, 'password_resets', logicalId)
+      await setDoc(docRef, {
+        ...resetData,
+        id: logicalId,
+        created_at: new Date().toISOString()
+      });
+      return { id: logicalId, ...resetData }
+    } catch (e) { console.error('Error adding password reset:', e); throw e }
+  }
+
+  // Get password reset by token
+  static async getPasswordResetByToken(token: string) {
+    try {
+      console.log('🔍 Searching for password reset token:', token);
+      
+      // Haal alle password resets op met deze token
+      const q = query(
+        collection(db, 'password_resets'),
+        where('token', '==', token),
+        where('used', '==', false)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        console.log('❌ No password reset found for token:', token);
+        return null;
+      }
+      
+      const resetDoc = querySnapshot.docs[0];
+      const resetData = { id: resetDoc.id, ...resetDoc.data() } as any;
+      
+      console.log('🔍 Password reset found:', {
+        id: resetData.id,
+        email: resetData.email,
+        expires_at: resetData.expires_at,
+        used: resetData.used
+      });
+      
+      // Controleer handmatig of de token is verlopen
+      const now = new Date();
+      const expiresAt = new Date(resetData.expires_at);
+      
+      if (now > expiresAt) {
+        console.log('❌ Password reset token expired:', {
+          now: now.toISOString(),
+          expires_at: expiresAt.toISOString()
+        });
+        return null;
+      }
+      
+      console.log('✅ Valid password reset token found');
+      return resetData;
     } catch (error) {
-      console.error('Error adding customer:', error);
-      throw error;
+      console.error('❌ Error fetching password reset:', error);
+      return null;
     }
   }
 

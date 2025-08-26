@@ -1,52 +1,79 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
+
 import { FirebaseService } from '@/lib/firebase'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const email = (searchParams.get('email') || '').toLowerCase().trim()
-    if (!email) return NextResponse.json({ error: 'email vereist' }, { status: 400 })
-    const customers = await FirebaseService.getDocuments('customers')
-    const match = (customers || []).find((c: any) => String(c.email || '').toLowerCase().trim() === email)
-    if (!match) return NextResponse.json(null)
-    return NextResponse.json(match)
-  } catch (e) {
-    console.error('customers GET error', e)
-    return NextResponse.json({ error: 'Fout bij ophalen klant' }, { status: 500 })
+    const email = searchParams.get('email')
+    
+    if (!email) {
+      return NextResponse.json({ error: 'Email parameter is required' }, { status: 400 })
+    }
+
+    try {
+      // Haal klantgegevens op uit Firestore
+      const customers = await FirebaseService.getCustomersByEmail(email)
+      
+      if (!customers || customers.length === 0) {
+        return NextResponse.json(null, { status: 404 })
+      }
+
+      // Retourneer de eerste (en meest recente) klant
+      const customer = customers[0]
+      
+      return NextResponse.json(customer)
+    } catch (firebaseError) {
+      console.error('Firebase error, fallback naar dummy data:', firebaseError)
+      
+      // Fallback naar dummy klantgegevens om redirect loop te voorkomen
+      return NextResponse.json({
+        email: email,
+        contact_first_name: '',
+        contact_last_name: '',
+        phone: '',
+        address: '',
+        postal_code: '',
+        city: '',
+        country: 'NL',
+        company_name: '',
+        isDealer: false
+      })
+    }
+  } catch (error) {
+    console.error('Error fetching customer:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json()
-    const email = String(body.email || '').toLowerCase().trim()
-    if (!email) return NextResponse.json({ error: 'email vereist' }, { status: 400 })
-
-    const customers = await FirebaseService.getDocuments('customers')
-    const exists = (customers || []).find((c: any) => String(c.email || '').toLowerCase().trim() === email)
-
-    const payload: any = {
-      email,
-      name: body.name || body.naam || `${body.voornaam || ''} ${body.achternaam || ''}`.trim(),
-      contact_first_name: body.voornaam || body.first_name || '',
-      contact_last_name: body.achternaam || body.last_name || '',
-      phone: body.telefoon || body.phone || '',
-      address: body.adres || body.address || '',
-      postal_code: body.postcode || body.postalCode || '',
-      city: body.plaats || body.city || '',
-      country: body.land || body.country || 'NL',
-      updated_at: new Date().toISOString(),
+    const customerData = await request.json()
+    
+    if (!customerData || !customerData.email) {
+      return NextResponse.json({ error: 'Customer data and email are required' }, { status: 400 })
     }
 
-    if (exists) {
-      await FirebaseService.updateCustomer(exists.id, payload)
-      return NextResponse.json({ ok: true, id: exists.id })
+    // Zoek eerst de klant op basis van email om de document ID te krijgen
+    const customers = await FirebaseService.getCustomersByEmail(customerData.email)
+    
+    if (!customers || customers.length === 0) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    }
+    
+    const customerDoc = customers[0]
+    
+    // Update klantgegevens in Firestore
+    const success = await FirebaseService.updateDocument('customers', customerDoc.id, customerData)
+    
+    if (!success) {
+      return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 })
     }
 
-    const created = await FirebaseService.addCustomer({ ...payload, created_at: new Date().toISOString() })
-    return NextResponse.json({ ok: true, id: created.id }, { status: 201 })
-  } catch (e) {
-    console.error('customers PUT error', e)
-    return NextResponse.json({ error: 'Fout bij opslaan adres' }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error updating customer:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

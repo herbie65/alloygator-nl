@@ -35,10 +35,12 @@ interface Product {
 
 interface VatSettings {
   id: string
-  country: string
-  vat_rate: number
-  customer_type: string
-  vat_category: string
+  country_code: string
+  standard_rate: number
+  reduced_rate: number
+  zero_rate: number
+  description: string
+  is_eu_member: boolean
   created_at: string
   updated_at: string
 }
@@ -53,47 +55,235 @@ interface CartItem {
   category?: string
 }
 
-
-
-// Static VAT settings
-const staticVatSettings: VatSettings[] = [
-  {
-    id: '1',
-    country: 'Nederland',
-    vat_rate: 21,
-    customer_type: 'consumer',
-    vat_category: 'standard',
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  }
-]
-
 export default function WinkelPage() {
   const dealer = useDealerPricing()
   const [products, loading, error] = useFirebaseRealtime<Product>('products')
-  const [vatSettings, setVatSettings] = useState<VatSettings[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [sortBy, setSortBy] = useState('name')
   const [showFilters, setShowFilters] = useState(false)
   const [wishlist, setWishlist] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 200 })
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 500 })
   const [availabilityFilter, setAvailabilityFilter] = useState('all')
   const [ratingFilter, setRatingFilter] = useState(0)
+  const [vatSettings, setVatSettings] = useState<any[]>([])
 
-  // Debug logging met veilige fallback
+  // Directe test om te zien of de component wordt gerenderd
+  console.log('=== WINKELPAGE TEST ===')
+  console.log('Component wordt gerenderd')
+  console.log('vatSettings:', vatSettings)
+  console.log('products:', products)
+  console.log('loading:', loading)
+  console.log('=======================')
+
+  // Test BTW instellingen direct laden
+  useEffect(() => {
+    console.log('=== DIRECTE BTW TEST ===')
+    const testVat = async () => {
+      try {
+        console.log('Probeer BTW instellingen te laden...')
+        const vatData = await FirebaseService.getVatSettings()
+        console.log('BTW data geladen:', vatData)
+        if (vatData && Array.isArray(vatData)) {
+          const nlVat = vatData.find(v => v.country_code === 'NL')
+          console.log('Nederlandse BTW:', nlVat)
+        }
+      } catch (error) {
+        console.error('BTW test fout:', error)
+      }
+    }
+    testVat()
+  }, [])
+
+  // Test BTW instellingen direct laden zonder useEffect
+  const testVatDirect = async () => {
+    try {
+      console.log('=== DIRECTE BTW TEST ZONDER USEEFFECT ===')
+      const vatData = await FirebaseService.getVatSettings()
+      console.log('BTW data direct geladen:', vatData)
+      if (vatData && Array.isArray(vatData)) {
+        const nlVat = vatData.find(v => v.country_code === 'NL')
+        console.log('Nederlandse BTW direct:', nlVat)
+      }
+    } catch (error) {
+      console.error('BTW direct test fout:', error)
+    }
+  }
+  
+  // Roep de test direct aan
+  testVatDirect()
+  
+  // Debug logging met type check voor producten
   const productList: Product[] = Array.isArray(products) ? (products as unknown as Product[]) : []
   const normalizeCategory = (v: any) => String(v || '').toLowerCase().replace(/\s+/g, '-');
-  console.log('WinkelPage - Products:', productList)
-  console.log('WinkelPage - Loading:', loading)
-  console.log('WinkelPage - Error:', error)
-  console.log('WinkelPage - Products length:', productList.length)
-  console.log('WinkelPage - Products details:', productList.map(p => ({ id: p.id, name: p.name, price: p.price })))
+  
+  // Functie om prijzen inclusief BTW te berekenen op basis van database instellingen
+  const getPriceIncludingVat = (basePrice: number, vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard 21%')
+      const priceIncludingVat = basePrice * 1.21
+      return Math.round(priceIncludingVat * 100) / 100
+    }
+    
+    // Zoek BTW instellingen voor Nederland
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard 21%')
+      const priceIncludingVat = basePrice * 1.21
+      return Math.round(priceIncludingVat * 100) / 100
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    const priceIncludingVat = basePrice * (1 + vatRate / 100)
+    
+    return Math.round(priceIncludingVat * 100) / 100 // Afronden op 2 decimalen
+  }
+  
+  // Functie om BTW rate op te halen op basis van database instellingen
+  const getVatRate = (vatCategory: string = 'standard'): number => {
+    if (!vatSettings || vatSettings.length === 0) {
+      return 21 // Fallback naar standaard 21%
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      return 21 // Fallback naar standaard 21%
+    }
+    
+    // Gebruik de juiste BTW rate op basis van categorie
+    if (vatCategory === 'reduced') {
+      return vatSetting.reduced_rate || 9
+    } else if (vatCategory === 'zero') {
+      return vatSetting.zero_rate || 0
+    } else {
+      return vatSetting.standard_rate || 21
+    }
+  }
+  
+  // Functie om BTW tekst te genereren op basis van database instellingen
+  const getVatText = (vatCategory: string = 'standard'): string => {
+    if (!vatSettings || vatSettings.length === 0) {
+      console.warn('BTW instellingen niet geladen, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    const vatSetting = vatSettings.find(v => v.country_code === 'NL')
+    if (!vatSetting) {
+      console.warn('BTW instellingen voor Nederland niet gevonden, gebruik standaard tekst')
+      return 'incl. BTW'
+    }
+    
+    let vatRate = 0
+    if (vatCategory === 'reduced') {
+      if (!vatSetting.reduced_rate) {
+        console.warn('Verlaagde BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.reduced_rate
+      }
+    } else if (vatCategory === 'zero') {
+      if (!vatSetting.zero_rate) {
+        console.warn('Nul BTW rate niet gevonden in database, gebruik 0%')
+        vatRate = 0
+      } else {
+        vatRate = vatSetting.zero_rate
+      }
+    } else {
+      if (!vatSetting.standard_rate) {
+        console.warn('Standaard BTW rate niet gevonden in database, gebruik standaard 21%')
+        vatRate = 21
+      } else {
+        vatRate = vatSetting.standard_rate
+      }
+    }
+    
+    return `incl. ${vatRate}% BTW`
+  }
+
+  // Functie om de juiste weergave prijs te bepalen op basis van gebruikerstype
+  const getDisplayPrice = (product: Product): { price: number; vatText: string } => {
+    const basePrice = Number(product.price || 0)
+    
+    // Voor dealers: toon prijs exclusief BTW met korting toegepast
+    if (dealer.isDealer) {
+      const discountedPrice = applyDealerDiscount(basePrice, dealer.discountPercent)
+      return {
+        price: discountedPrice,
+        vatText: 'excl. BTW'
+      }
+    }
+    
+    // Voor particuliere klanten en niet-ingelogde gebruikers: toon prijs inclusief BTW
+    const priceIncludingVat = getPriceIncludingVat(basePrice, product.vat_category || 'standard')
+    const vatText = getVatText(product.vat_category || 'standard')
+    
+    return {
+      price: priceIncludingVat,
+      vatText: vatText
+    }
+  }
 
   useEffect(() => {
-    // Load VAT settings and local storage data
-    setVatSettings(staticVatSettings)
+    console.log('WinkelPage useEffect aangeroepen')
+    
+    // Load VAT settings from database
+    const loadVatSettings = async () => {
+      try {
+        console.log('Start BTW instellingen laden...')
+        const vatData = await FirebaseService.getVatSettings()
+        console.log('BTW data ontvangen:', vatData)
+        
+        if (vatData && Array.isArray(vatData)) {
+          console.log('BTW data is array, lengte:', vatData.length)
+          setVatSettings(vatData)
+          
+          // Test of BTW instellingen correct zijn geladen
+          const nlVat = vatData.find(v => v.country_code === 'NL')
+          if (nlVat) {
+            console.log('Nederlandse BTW instellingen gevonden:', {
+              standard: nlVat.standard_rate,
+              reduced: nlVat.reduced_rate,
+              zero: nlVat.zero_rate
+            })
+          } else {
+            console.warn('Geen Nederlandse BTW instellingen gevonden')
+          }
+        } else {
+          console.warn('BTW data is geen array:', typeof vatData, vatData)
+          setVatSettings([])
+        }
+      } catch (error) {
+        console.error('Fout bij laden BTW instellingen:', error)
+        setVatSettings([])
+      }
+    }
+    
+    loadVatSettings()
     
     // Load cart from localStorage
     const savedCart = localStorage.getItem('alloygator-cart')
@@ -106,10 +296,41 @@ export default function WinkelPage() {
     if (savedWishlist) {
       setWishlist(JSON.parse(savedWishlist))
     }
-    // React op dealer quick-login keys
-    const onStorage = () => setCart(prev => [...prev])
+    
+    // Real-time cart sync
+    const syncCart = () => {
+      const savedCart = localStorage.getItem('alloygator-cart')
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart)
+          setCart(parsedCart)
+        } catch (error) {
+          console.error('Error parsing cart:', error)
+        }
+      }
+    }
+    
+    // React op dealer quick-login keys en cart updates
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'alloygator-cart') {
+        syncCart()
+      }
+    }
+    
+    const onCartUpdated = () => {
+      syncCart()
+    }
+    
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener('cart-updated', onCartUpdated)
+    
+    // Initial sync
+    syncCart()
+    
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('cart-updated', onCartUpdated)
+    }
   }, [])
 
   // Filter and sort products (new logic)
@@ -119,8 +340,12 @@ export default function WinkelPage() {
       const descText = String((product as any).short_description || product.description || '').toLowerCase()
       const matchesSearch = nameText.includes(searchTerm.toLowerCase()) || descText.includes(searchTerm.toLowerCase())
       const matchesCategory = selectedCategory === 'all' || normalizeCategory(product.category) === selectedCategory
-      const priceNum = Number((product as any).price || 0)
-      const matchesPrice = priceNum >= priceRange.min && priceNum <= priceRange.max
+      
+      // Gebruik inclusief BTW prijs voor de filter
+      const basePrice = Number((product as any).price || 0)
+      const priceIncludingVat = getPriceIncludingVat(basePrice, product.vat_category || 'standard')
+      const matchesPrice = priceIncludingVat >= priceRange.min && priceIncludingVat <= priceRange.max
+      
       const stockNum = Number((product as any).stock_quantity || 0)
       const matchesAvailability = availabilityFilter === 'all' || 
         (availabilityFilter === 'in-stock' && stockNum > 0) ||
@@ -133,14 +358,24 @@ export default function WinkelPage() {
     })
     .sort((a, b) => {
       switch (sortBy) {
-        case 'price-low': return a.price - b.price
-        case 'price-high': return b.price - a.price
+        case 'price-low': {
+          // Sorteer op basis van gebruikerstype: dealers op ex BTW, anderen op inclusief BTW
+          const priceA = dealer.isDealer ? Number((a as any).price || 0) : getPriceIncludingVat(Number((a as any).price || 0), a.vat_category || 'standard')
+          const priceB = dealer.isDealer ? Number((b as any).price || 0) : getPriceIncludingVat(Number((b as any).price || 0), b.vat_category || 'standard')
+          return priceA - priceB
+        }
+        case 'price-high': {
+          // Sorteer op basis van gebruikerstype: dealers op ex BTW, anderen op inclusief BTW
+          const priceA = dealer.isDealer ? Number((a as any).price || 0) : getPriceIncludingVat(Number((a as any).price || 0), a.vat_category || 'standard')
+          const priceB = dealer.isDealer ? Number((b as any).price || 0) : getPriceIncludingVat(Number((b as any).price || 0), b.vat_category || 'standard')
+          return priceB - priceA
+        }
         case 'name': return String(a.name || '').localeCompare(String(b.name || ''))
         case 'rating': 
           const ratingA = a.reviews && a.reviews.length > 0 ? 
             a.reviews.reduce((sum, review) => sum + review.rating, 0) / a.reviews.length : 0
           const ratingB = b.reviews && b.reviews.length > 0 ? 
-            b.reviews.reduce((sum, review) => sum + review.rating, 0) / b.reviews.length : 0
+            b.reviews.reduce((sum, review) => sum + review.rating, 0) / a.reviews.length : 0
           return ratingB - ratingA
         case 'newest': {
           const ta = new Date(String((a as any).created_at || '1970-01-01')).getTime()
@@ -155,20 +390,26 @@ export default function WinkelPage() {
     const existingItem = cart.find(item => item.id === product.id)
     
     if (existingItem) {
+      // Herbereken de prijs voor bestaande items om rekening te houden met gebruikerstype wijzigingen
       const updatedCart = cart.map(item =>
         item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { 
+              ...item, 
+              quantity: item.quantity + 1,
+              price: dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : getPriceIncludingVat(product.price, product.vat_category || 'standard')
+            }
           : item
       )
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
       // Notify listeners
-      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
+      window.dispatchEvent(new Event('cart-updated'))
     } else {
       const newItem: CartItem = {
         id: product.id,
         name: product.name,
-        price: product.price,
+        // Gebruik de juiste prijs op basis van gebruikerstype
+        price: dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : getPriceIncludingVat(product.price, product.vat_category || 'standard'),
         quantity: 1,
         image: product.image_url,
         vat_category: product.vat_category,
@@ -178,7 +419,7 @@ export default function WinkelPage() {
       setCart(updatedCart)
       localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
       // Notify listeners
-      try { window.dispatchEvent(new StorageEvent('storage', { key: 'alloygator-cart', newValue: JSON.stringify(updatedCart) })) } catch (_) {}
+      window.dispatchEvent(new Event('cart-updated'))
     }
   }
 
@@ -194,17 +435,29 @@ export default function WinkelPage() {
       return
     }
     
-    const updatedCart = cart.map(item =>
-      item.id === productId ? { ...item, quantity } : item
-    )
+    const updatedCart = cart.map(item => {
+      if (item.id === productId) {
+        // Herbereken de prijs als de vat_category is veranderd
+        const product = productList.find(p => p.id === productId)
+        if (product) {
+          // Gebruik de juiste prijs op basis van gebruikerstype
+          const newPrice = dealer.isDealer ? applyDealerDiscount(product.price, dealer.discountPercent) : getPriceIncludingVat(product.price, product.vat_category || 'standard')
+          return { ...item, quantity, price: newPrice }
+        }
+      }
+      return item
+    })
+    
     setCart(updatedCart)
     localStorage.setItem('alloygator-cart', JSON.stringify(updatedCart))
   }
 
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
-      const base = dealer.isDealer ? applyDealerDiscount(item.price, dealer.discountPercent) : item.price
-      return total + (base * item.quantity)
+      // Voor dealers: item.price bevat al de dealer korting (geen opnieuw toepassen)
+      // Voor particuliere klanten: gebruik inclusief BTW prijs (geen korting)
+      const finalPrice = item.price // Geen korting opnieuw toepassen
+      return total + (finalPrice * item.quantity)
     }, 0)
   }
 
@@ -404,7 +657,7 @@ export default function WinkelPage() {
                           onChange={(e) => setPriceRange(prev => ({ ...prev, max: Number(e.target.value) }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                           min={priceRange.min}
-                          max="200"
+                          max="500"
                         />
                       </div>
                     </div>
@@ -523,8 +776,7 @@ export default function WinkelPage() {
             {filteredProducts.map((product, index) => {
             const rawBase = Number((product as any).price || 0)
             const base = dealer.isDealer ? applyDealerDiscount(rawBase, dealer.discountPercent) : rawBase
-            const displayPrice = dealer.isDealer ? base : calculatePriceWithVat(base, 21)
-            const vatText = dealer.isDealer ? 'excl. BTW' : getVatDisplayText(21, 'NL')
+            const { price: displayPrice, vatText } = getDisplayPrice(product)
             
             return (
               <div key={`${(product as any).id || (product as any).sku || 'p'}-${index}`} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
