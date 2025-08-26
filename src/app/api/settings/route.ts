@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
+
 import { FirebaseService } from '@/lib/firebase';
 
 // Helper functie om admin sessie te controleren

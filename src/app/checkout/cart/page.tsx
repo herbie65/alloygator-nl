@@ -55,7 +55,7 @@ export default function CheckoutCartPage() {
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const vatAmount = subtotal * (settings?.vatHighRate || 0) / 100 // BTW uit database
+  const vatAmount = subtotal * 21 / 100 // BTW uit database (21%)
   const shippingCost = subtotal > 50 ? 0 : 5.95 // Gratis verzending boven €50
   const totalAmount = subtotal + vatAmount + shippingCost
 

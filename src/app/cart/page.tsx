@@ -192,10 +192,15 @@ export default function CartPage() {
       console.error('Fout bij laden BTW instellingen:', error)
       // Fallback naar standaard BTW instellingen
       setVatSettings([{
+        id: 'fallback',
         country_code: 'NL',
         standard_rate: 21,
         reduced_rate: 9,
-        zero_rate: 0
+        zero_rate: 0,
+        description: 'Standaard BTW Nederland',
+        is_eu_member: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }])
     }
   }

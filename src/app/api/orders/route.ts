@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
 
 // Functie om een uniek ordernummer te genereren in het formaat AGO-05006

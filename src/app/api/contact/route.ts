@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = "force-static"
 import { EmailService } from '@/lib/email';
 import { FirebaseService } from '@/lib/firebase';
 

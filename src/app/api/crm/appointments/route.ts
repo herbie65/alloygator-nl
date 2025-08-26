@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
 
 export async function GET(request: NextRequest) {

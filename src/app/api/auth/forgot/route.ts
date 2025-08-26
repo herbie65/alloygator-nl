@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = "force-static"
 import { EmailService } from '@/lib/email';
 import { FirebaseClientService } from '@/lib/firebase-client';
 import { collection, query, where, getDocs } from 'firebase/firestore';

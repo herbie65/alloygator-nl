@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+export const dynamic = "force-static"
 import { writeFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 

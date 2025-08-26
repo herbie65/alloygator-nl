@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
 import { generateCreditPdfBuffer, saveCreditPdf } from '@/lib/invoice'
 
@@ -39,16 +40,16 @@ export async function POST(request: NextRequest) {
       credit_number: creditNumber,
       creditNumber: creditNumber, // Voor compatibiliteit
       order_id: orderId,
-      order_number: order.order_number,
-      orderNumber: order.order_number, // Voor compatibiliteit
+      order_number: (order as any).order_number || order.id || orderId,
+      orderNumber: (order as any).order_number || order.id || orderId, // Voor compatibiliteit
       rma_id: rmaId,
       rmaId: rmaId, // Voor compatibiliteit
-      customer: order.customer,
-      customer_name: order.customer.contact_first_name || order.customer.voornaam + ' ' + order.customer.contact_last_name || order.customer.achternaam,
-      customerName: order.customer.contact_first_name || order.customer.voornaam + ' ' + order.customer.contact_last_name || order.customer.achternaam, // Voor compatibiliteit
+      customer: (order as any).customer,
+      customer_name: (order as any).customer?.contact_first_name || (order as any).customer?.voornaam + ' ' + (order as any).customer?.contact_last_name || (order as any).customer?.achternaam,
+      customerName: (order as any).customer?.contact_first_name || (order as any).customer?.voornaam + ' ' + (order as any).customer?.contact_last_name || (order as any).customer?.achternaam, // Voor compatibiliteit
       items: items.map((item: any) => {
         // Zoek het originele order item op om product informatie te krijgen
-        const orderItem = order.items.find((oi: any) => 
+        const orderItem = (order as any).items?.find((oi: any) => 
           String(oi.id || oi.product_id) === String(item.product_id)
         )
         

@@ -20,7 +20,7 @@ export class FirebaseDatabaseService implements DatabaseService {
   }
 
   async updateCustomer(customer: any) {
-    return await FirebaseService.updateCustomer(customer)
+    return await FirebaseService.updateCustomer(customer.id, customer)
   }
 
   async deleteCustomer(id: string) {
@@ -32,7 +32,7 @@ export class FirebaseDatabaseService implements DatabaseService {
   }
 
   async getCmsPages() {
-    return await FirebaseService.getCmsPages()
+    return await FirebaseService.getCMSPages()
   }
 }
 

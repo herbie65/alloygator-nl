@@ -1465,19 +1465,23 @@ export default function SettingsPage() {
                     setSocialTestStatus('testing')
                     setSocialTestMessage('')
                     setSocialPreview([])
-                    const res = await fetch('/api/social/feed', { cache: 'no-store' })
+                    const res = await fetch('/api/social/feed?platform=instagram', { cache: 'no-store' })
                     const data = await res.json()
+                    
+                    if (!data.success) {
+                      setSocialTestStatus('error')
+                      setSocialTestMessage(data.message || 'Fout bij ophalen feed')
+                      return
+                    }
+                    
                     const items = Array.isArray(data?.items) ? data.items : []
-                    const errors: string[] = Array.isArray(data?.errors) ? data.errors : []
                     if (items.length === 0) {
-                      setSocialTestStatus(errors.length ? 'error' : 'error')
-                      setSocialTestMessage(
-                        errors.length ? `Fouten: \n- ${errors.join('\n- ')}` : (data?.note || 'Geen items ontvangen (controleer tokens/permissions)')
-                      )
+                      setSocialTestStatus('error')
+                      setSocialTestMessage('Geen items ontvangen (controleer tokens/permissions)')
                     } else {
                       setSocialTestStatus('success')
                       setSocialPreview(items.slice(0,3))
-                      setSocialTestMessage('Feed werkt. Onderstaand een preview van 3 posts.')
+                      setSocialTestMessage(`Feed werkt. Onderstaand een preview van ${items.length} posts.`)
                     }
                   } catch (e:any) {
                     setSocialTestStatus('error')

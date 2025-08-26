@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // output: 'export', // disabled for development
+  output: 'export', // enabled for Firebase hosting
   images: { unoptimized: true },
   eslint: { ignoreDuringBuilds: true },
   // trailingSlash: true, // Temporarily disabled for API routes

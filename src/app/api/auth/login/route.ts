@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = "force-static"
 import { FirebaseClientService } from '@/lib/firebase-client';
 
 export async function POST(request: NextRequest) {
