@@ -100,12 +100,14 @@ export default function SettingsPage() {
         enabled: false
       }
     ],
-    dhlApiUserId: '',
-    dhlApiKey: '',
-    dhlAccountId: '',
-    dhlTestMode: true,
-    mollieApiKey: '',
-    mollieTestMode: true,
+    dhlApiUserId: process.env.NEXT_PUBLIC_DHL_API_USER_ID || '',
+    dhlApiKey: process.env.NEXT_PUBLIC_DHL_API_KEY || '',
+    dhlAccountId: process.env.NEXT_PUBLIC_DHL_ACCOUNT_ID || '',
+    dhlTestMode: process.env.NEXT_PUBLIC_DHL_TEST_MODE === 'true',
+    mollieApiKey: process.env.NEXT_PUBLIC_MOLLIE_API_KEY || '',
+    mollieTestApiKey: process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY || '',
+    mollieProfileId: process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID || '',
+    mollieTestMode: process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true',
     // E-mail instellingen komen nu uit .env - alleen configuratie in database
     adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
     emailNotifications: process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === 'true',
@@ -182,6 +184,8 @@ export default function SettingsPage() {
           shippingMethods: fixedShippingMethods, // Geen hardcoded fallbacks meer
           enabledCarriers: Array.from(new Set([...(enabledCarriers || []), 'local'])),
           mollieApiKey: savedSettings.mollieApiKey || savedSettings.mollie_api_key || prev.mollieApiKey,
+          mollieTestApiKey: savedSettings.mollieTestApiKey || savedSettings.mollie_test_api_key || prev.mollieTestApiKey,
+          mollieProfileId: savedSettings.mollieProfileId || savedSettings.mollie_profile_id || prev.mollieProfileId,
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
           // E-mail instellingen uit database
           adminEmail: savedSettings.adminEmail || '',
@@ -409,12 +413,12 @@ export default function SettingsPage() {
 
       const result = await response.json()
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         setDhlTestStatus('success')
-        setDhlTestMessage(`✅ ${result.message} - ${result.data.servicesFound} services found`)
+        setDhlTestMessage(result.message)
       } else {
         setDhlTestStatus('error')
-        setDhlTestMessage(`❌ ${result.error}`)
+        setDhlTestMessage(result.message || 'Onbekende fout')
       }
     } catch (error) {
       console.error('Error testing DHL authentication:', error)
@@ -952,7 +956,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          {/* Google Maps API key verplaatst naar Externe Koppelingen */}
+
         </div>
       </div>)}
 
@@ -1080,8 +1084,92 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Mollie Instellingen</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-900">
-            Mollie API keys en testmodus beheer je nu onder <a href="/admin/settings/koppelingen" className="underline">Externe Koppelingen</a>. Betaalmethodes blijven hieronder staan.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Live API Key
+              </label>
+              <input
+                type="password"
+                value={settings.mollieApiKey}
+                onChange={(e) => setSettings({...settings, mollieApiKey: e.target.value})}
+                placeholder="live_..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Live API key voor productie</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Test API Key
+              </label>
+              <input
+                type="password"
+                value={settings.mollieTestApiKey || ''}
+                onChange={(e) => setSettings({...settings, mollieTestApiKey: e.target.value})}
+                placeholder="test_..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Test API key voor ontwikkeling</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Profile ID
+              </label>
+              <input
+                type="text"
+                value={settings.mollieProfileId || ''}
+                onChange={(e) => setSettings({...settings, mollieProfileId: e.target.value})}
+                placeholder="pfl_..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Profile ID voor betalingen</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mollie Test Mode
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={settings.mollieTestMode}
+                  onChange={(e) => setSettings({...settings, mollieTestMode: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-700">Testmodus gebruiken</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Gebruik test API key in plaats van live</p>
+            </div>
+          </div>
+          
+          {/* Test Mollie verbinding knop */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={async () => {
+                try {
+                  // Test Mollie API verbinding
+                  const response = await fetch('/api/test/mollie')
+                  const result = await response.json()
+                  
+                  if (response.ok && result.success) {
+                    alert(`✅ Mollie verbinding succesvol!\n\n${result.message}\n\nDetails:\n- API Key: ${result.details?.hasApiKey ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Test Mode: ${result.details?.testMode ? 'Aan' : 'Uit'}\n- Status: ${result.details?.status || 'Onbekend'}`)
+                  } else {
+                    alert(`❌ Mollie verbinding mislukt:\n\n${result.message || 'Onbekende fout'}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Fout: ${result.details?.error || 'Geen details'}`)
+                  }
+                } catch (error) {
+                  console.error('Test Mollie verbinding fout:', error)
+                  alert(`❌ Test verbinding mislukt:\n\n${error.message || 'Onbekende fout'}`)
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              💳 Test Mollie Verbinding
+            </button>
+            <p className="text-xs text-gray-500 mt-2">
+              Test of de Mollie API correct is geconfigureerd en werkt.
+            </p>
           </div>
         </div>
       </div>)}
@@ -1547,9 +1635,37 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Zoekradius (km)</label>
                   <input type="number" value={settings.searchRadius} onChange={(e)=> setSettings(prev=>({...prev, searchRadius: parseInt(e.target.value||'25',10)}))} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                 </div>
-                {/* Google Maps API key verplaatst naar Externe Koppelingen */}
+
               </div>
               <p className="text-xs text-gray-500 mt-2">Tip: De kaartinstellingen worden gebruikt in de pagina `vind-een-dealer`.</p>
+              
+              {/* Test verbinding knop */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={async () => {
+                    try {
+                      // Test Google Maps API verbinding
+                      const response = await fetch('/api/test/google-maps')
+                      const result = await response.json()
+                      
+                      if (response.ok && result.ok) {
+                        alert(`✅ Google Maps verbinding succesvol!\n\n${result.message}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Test adres: ${result.details?.testAddress || 'Onbekend'}\n- Resultaten: ${result.details?.results || 0}`)
+                      } else {
+                        alert(`❌ Google Maps verbinding mislukt:\n\n${result.message || 'Onbekende fout'}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Fout: ${result.details?.error || 'Geen details'}`)
+                      }
+                    } catch (error) {
+                      console.error('Test verbinding fout:', error)
+                      alert(`❌ Test verbinding mislukt:\n\n${error.message || 'Onbekende fout'}`)
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  🗺️ Test Google Maps Verbinding
+                </button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Test of de Google Maps API correct is geconfigureerd en werkt.
+                </p>
+              </div>
             </div>
           </div>
         </div>

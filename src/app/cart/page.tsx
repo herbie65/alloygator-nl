@@ -190,7 +190,13 @@ export default function CartPage() {
       }
     } catch (error) {
       console.error('Fout bij laden BTW instellingen:', error)
-      setVatSettings([])
+      // Fallback naar standaard BTW instellingen
+      setVatSettings([{
+        country_code: 'NL',
+        standard_rate: 21,
+        reduced_rate: 9,
+        zero_rate: 0
+      }])
     }
   }
 

@@ -308,15 +308,12 @@ export default function CheckoutPage() {
     // Load payment methods
     loadPaymentMethods();
 
-    // Calculate initial totals
-    // Gebruik setTimeout om ervoor te zorgen dat alle state is geladen
+    // Calculate initial totals - direct berekenen zonder afhankelijkheden
     setTimeout(() => {
-      if (vatSettings && vatSettings.length > 0) {
-        try {
-          calculateTotals();
-        } catch (error) {
-          console.error('Fout bij berekenen initiële totalen:', error);
-        }
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij berekenen initiële totalen:', error);
       }
     }, 100);
 
@@ -333,6 +330,16 @@ export default function CheckoutPage() {
     try { window.addEventListener('keydown', handler) } catch {}
     return () => { try { window.removeEventListener('keydown', handler) } catch {} }
   }, []);
+
+  // Recalculate totals when cart changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      console.log('Cart veranderd, totalen herberekenen:', cart);
+      calculateTotals();
+    } else {
+      console.log('Cart is leeg, geen totalen te berekenen');
+    }
+  }, [cart]);
 
   // When we have an email, fetch the latest customer record from DB and merge missing fields
   useEffect(() => {
@@ -425,6 +432,13 @@ export default function CheckoutPage() {
         }
       } catch (error) {
         console.error('Fout bij laden BTW instellingen in checkout:', error)
+        // Fallback naar standaard BTW instellingen
+        setVatSettings([{
+          country_code: 'NL',
+          standard_rate: 21,
+          reduced_rate: 9,
+          zero_rate: 0
+        }])
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -461,93 +475,42 @@ export default function CheckoutPage() {
   }
 
   const calculateTotals = () => {
-    const subtotalPre = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    // GEEN korting opnieuw toepassen - item.price bevat al de dealer korting
-    const discount = 0; // Dealer korting is al toegepast in item.price
-    
-    // Voor dealers: prijzen zijn ex BTW, voor particuliere klanten inclusief BTW
-    let netItems: number;
-    let itemsVat: number;
-    
-    if (dealer.isDealer) {
-      // Voor dealers: item.price bevat al de dealer korting (geen opnieuw toepassen)
-      netItems = subtotalPre; // Geen korting aftrekken - al toegepast
-      
-      // Compute VAT per item voor dealers
-      itemsVat = 0;
-      cart.forEach(item => {
-        // item.price bevat al de dealer korting, geen opnieuw toepassen
-        const rate = getVatRate(item.vat_category || 'standard');
-        itemsVat += item.price * item.quantity * (rate / 100);
-      });
-    } else {
-      // Voor particuliere klanten: prijzen zijn al inclusief BTW
-      netItems = subtotalPre; // Geen korting aftrekken
-      itemsVat = 0; // Geen extra BTW berekening nodig
-    }
-
-    // Shipping cost
-    const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-    let shippingCost = 0;
-    if (selectedMethod) shippingCost = selectedMethod.price; else shippingCost = parseFloat(settings.shippingCost) || 0;
-
-    // Voor dealers: verzendkosten ex BTW, voor particuliere klanten inclusief BTW
-    let finalShippingCost = netItems >= parseFloat(settings.freeShippingThreshold) ? 0 : shippingCost;
-    
-    if (!dealer.isDealer) {
-      // Voor particuliere klanten: converteer verzendkosten naar inclusief BTW
-      finalShippingCost = getPriceIncludingVat(finalShippingCost, 'standard');
-    }
-
-    // Gebruik database-gebaseerde BTW rates
-    const std = getVatRate('standard');
-    const low = getVatRate('reduced');
-    const zero = getVatRate('zero');
-
-    const rateForCategory = (cat?: string) => {
-      if (cat === 'reduced') return low;
-      if (cat === 'zero') return zero;
-      return std;
-    };
-
-    // Reverse charge? then VAT = 0
-    if (customer.vat_reverse_charge) {
-      const paymentFee = (() => {
-        const currentPm = availablePaymentMethods.find(m => m.mollie_id === paymentMethod)
-        const feePercent = currentPm ? Number(currentPm.fee_percent || 0) : 0
-        return paymentMethod === 'invoice' ? 0 : (netItems * feePercent) / 100
-      })();
-      const total = netItems + finalShippingCost + paymentFee;
-      setVatCalculation({ vat_rate: 0, vat_amount: 0, total_amount: total, vat_exempt: true, vat_reason: 'BTW verlegd (EU)' });
+    // Bescherm tegen lege cart
+    if (!cart || cart.length === 0) {
+      console.log('Cart is leeg, geen totalen te berekenen');
       return;
     }
-
-    // VAT on shipping
-    let shippingVat = 0;
-    if (dealer.isDealer) {
-      // Voor dealers: BTW op verzendkosten
-      shippingVat = finalShippingCost * (std / 100);
+    
+    // Simpele berekening: subtotaal + verzendkosten
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Verzendkosten bepalen
+    let shippingCost = 0;
+    
+    // Als subtotaal boven drempel: gratis verzending
+    if (subtotal >= 50) {
+      shippingCost = 0;
     } else {
-      // Voor particuliere klanten: verzendkosten inclusief BTW
-      shippingVat = 0; // Geen extra BTW berekening nodig
+      // Anders: standaard verzendkosten
+      shippingCost = 5.95; // Standaard verzendkosten
     }
-
-    const vatAmount = itemsVat + shippingVat;
-
-    // Payment fee/discount by selected method (% on net items subtotal)
-    const currentPm = availablePaymentMethods.find(m => m.mollie_id === paymentMethod)
-    const feePercent = currentPm ? Number(currentPm.fee_percent || 0) : 0
-    const paymentFee = paymentMethod === 'invoice' ? 0 : (netItems * feePercent) / 100
-
-    const total = netItems + finalShippingCost + vatAmount + paymentFee;
-
+    
+    // Totaal = subtotaal + verzendkosten
+    const total = subtotal + shippingCost;
+    
+    // BTW berekening (voor particuliere klanten is prijs al inclusief BTW)
+    const vatRate = 21; // Nederlandse BTW
+    const vatAmount = (subtotal * vatRate) / (100 + vatRate); // BTW uit prijs halen
+    
     setVatCalculation({
-      vat_rate: std,
+      vat_rate: vatRate,
       vat_amount: vatAmount,
       total_amount: total,
       vat_exempt: false,
       vat_reason: ''
     });
+    
+    console.log('Totals berekend:', { subtotal, shippingCost, total, vatAmount, cartLength: cart.length });
   };
 
   // Recalculate totals when shipping method changes
@@ -573,6 +536,19 @@ export default function CheckoutPage() {
       }
     }
   }, [vatSettings]);
+
+  // Initial calculation when component mounts and cart is available
+  useEffect(() => {
+    if (cart.length > 0 && vatSettings && vatSettings.length > 0) {
+      try {
+        calculateTotals();
+      } catch (error) {
+        console.error('Fout bij initiële berekening totalen:', error);
+      }
+    }
+  }, [cart, vatSettings]);
+
+
 
   // Recalculate totals when cart changes
   useEffect(() => {

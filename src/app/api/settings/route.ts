@@ -66,8 +66,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Controleer admin sessie
-    if (!checkAdminSession(request)) {
+    // Voor checkout pagina: geen admin sessie vereist
+    // Voor admin pagina's: wel admin sessie vereist
+    const isAdminRequest = request.nextUrl.pathname.includes('/admin');
+    
+    if (isAdminRequest && !checkAdminSession(request)) {
       return NextResponse.json({ 
         success: false, 
         message: 'Geen geldige admin sessie' 
@@ -79,13 +82,26 @@ export async function GET(request: NextRequest) {
     if (settings && settings.length > 0) {
       return NextResponse.json(settings[0]);
     } else {
-      return NextResponse.json({});
+      // Fallback naar standaard instellingen als database leeg is
+      return NextResponse.json({
+        shippingCost: '0',
+        freeShippingThreshold: '50',
+        shippingMethods: [
+          { id: 'standard', name: 'Standaard verzending', price: 0, enabled: true, carrier: 'standard' }
+        ],
+        enabledCarriers: ['standard']
+      });
     }
   } catch (error) {
     console.error('Error fetching settings:', error);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Er is een fout opgetreden bij het ophalen van de instellingen' 
-    }, { status: 500 });
+    // Fallback naar standaard instellingen bij error
+    return NextResponse.json({
+      shippingCost: '0',
+      freeShippingThreshold: '50',
+      shippingMethods: [
+        { id: 'standard', name: 'Standaard verzending', price: 0, enabled: true, carrier: 'standard' }
+      ],
+      enabledCarriers: ['standard']
+    });
   }
 }

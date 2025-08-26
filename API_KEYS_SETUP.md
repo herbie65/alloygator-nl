@@ -62,7 +62,7 @@ NEXT_PUBLIC_EBOEK_SECURITY_CODE2=your_security_code2_here
 ## 🧪 **Testen**
 
 1. Start je development server: `npm run dev`
-2. Ga naar `/admin/settings/koppelingen`
+2. Ga naar `/admin/settings` (tab: Payments)
 3. Controleer of alle API keys als "✅ Geconfigureerd" worden getoond
 4. Gebruik de "Toon API Keys" knop om de waarden te verifiëren
 

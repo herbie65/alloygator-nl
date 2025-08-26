@@ -468,7 +468,6 @@ export default function AdminLayout({
         { name: 'BTW/Map', href: '/admin/settings?tab=taxmap', icon: '🧭', color: 'bg-teal-400' },
         { name: 'CRM', href: '/admin/settings?tab=crm', icon: '🤝', color: 'bg-teal-400' },
         { name: 'e-Boekhouden', href: '/admin/settings/eboekhouden', icon: '📊', color: 'bg-teal-400' },
-        { name: 'Koppelingen', href: '/admin/settings/koppelingen', icon: '🔗', color: 'bg-teal-400' },
         { name: 'Gebruikers', href: '/admin/users', icon: '👤', color: 'bg-teal-400' }
       ]
     }] : []),

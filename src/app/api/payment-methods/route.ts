@@ -12,10 +12,30 @@ export async function GET() {
     }
   } catch (error) {
     console.error('Error fetching payment methods:', error);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Er is een fout opgetreden bij het ophalen van de betalingsmethoden' 
-    }, { status: 500 });
+    // Fallback naar standaard betalingsmethoden
+    return NextResponse.json([
+      {
+        id: 'ideal',
+        name: 'iDEAL',
+        mollie_id: 'ideal',
+        is_active: true,
+        fee_percent: 0
+      },
+      {
+        id: 'bancontact',
+        name: 'Bancontact',
+        mollie_id: 'bancontact',
+        is_active: true,
+        fee_percent: 0
+      },
+      {
+        id: 'paypal',
+        name: 'PayPal',
+        mollie_id: 'paypal',
+        is_active: true,
+        fee_percent: 0
+      }
+    ]);
   }
 }
 
