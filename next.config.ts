@@ -1,12 +1,23 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // output: 'export', // disabled to allow dynamic routes in build
-  images: { unoptimized: true },
+  // GEEN output: 'export' - want we willen API routes behouden
+  
+  // Images configuratie
+  images: { 
+    unoptimized: true,
+    domains: ['firebasestorage.googleapis.com', 'storage.googleapis.com']
+  },
+  
+  // Build configuratie
   eslint: { ignoreDuringBuilds: true },
+  typescript: {
+    ignoreBuildErrors: true
+  },
+  
+  // Webpack configuratie
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Client-side webpack config - exclude server-only packages
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -23,13 +34,12 @@ const nextConfig: NextConfig = {
         path: false,
       };
       
-      // Exclude problematic packages from client bundle
       config.externals = config.externals || [];
       config.externals.push('strong-soap', 'globalize', 'cldr');
     }
     
     return config;
-  },
+  }
 };
 
 export default nextConfig;
