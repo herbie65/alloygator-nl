@@ -119,6 +119,11 @@ export default function RootLayout({
         {/* Bebas Neue font */}
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
         
+        {/* Theme Color for Browser Tab */}
+        <meta name="theme-color" content="#a2c614" />
+        <meta name="msapplication-TileColor" content="#a2c614" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        
         {/* Favicon */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
