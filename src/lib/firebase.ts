@@ -23,24 +23,16 @@ let app;
 let db: any = null;
 
 const initializeFirebase = () => {
-  console.log('initializeFirebase called');
   try {
     const apps = getApps();
-    console.log('Existing apps:', apps.length);
     if (apps.length === 0) {
       app = initializeApp(firebaseConfig);
-      console.log('Firebase initialized successfully');
     } else {
       app = apps[0];
-      console.log('Firebase already initialized');
     }
     
     if (!db) {
-      console.log('Creating new Firestore instance...');
       db = getFirestore(app);
-      console.log('Firestore database initialized, db value:', db);
-    } else {
-      console.log('db already exists:', db);
     }
     
     return db;
@@ -50,22 +42,13 @@ const initializeFirebase = () => {
   }
 }
 
-// Ensure Firebase is initialized on module load in the browser so hooks using `db` work immediately
-try {
-  if (typeof window !== 'undefined') {
-    initializeFirebase();
-  }
-} catch (_) {
-  // ignore init errors here; callers using getDb() will retry
-}
+// Firebase wordt alleen geïnitialiseerd wanneer getDb() wordt aangeroepen
+// Geen automatische initialisatie bij module load
 
 const getDb = () => {
-  console.log('getDb called, db value:', db);
   if (!db) {
-    console.log('db is null/undefined, initializing Firebase...');
     return initializeFirebase();
   }
-  console.log('db exists, returning:', db);
   return db;
 }
 

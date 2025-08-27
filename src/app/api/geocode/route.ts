@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const dynamic = "force-static"
 
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const postalCode = searchParams.get('postalCode')
-    const houseNumber = searchParams.get('houseNumber')
+    const postalCode = searchParams.get('postalCode') || searchParams.get('postal_code')
+    const houseNumber = searchParams.get('houseNumber') || searchParams.get('house_number')
     const address = searchParams.get('address')
+    
+
 
     // Als er een address parameter is, gebruik Google Geocoding API
     if (address) {
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // Gebruik de nieuwe postcode API (api.postcodedata.nl)
-      const response = await fetch(`http://api.postcodedata.nl/v1/postcode/?postcode=${postalCode}&streetnumber=${houseNumber}&type=json&ref=alloygator`, {
+      const response = await fetch(`https://api.postcodedata.nl/v1/postcode/?postcode=${postalCode}&streetnumber=${houseNumber}&type=json&ref=alloygator`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -77,7 +78,6 @@ export async function GET(request: NextRequest) {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Postcode API response:', data)
         
         if (data.status === 'ok' && data.details && data.details.length > 0) {
           const addr = data.details[0]
@@ -96,10 +96,28 @@ export async function GET(request: NextRequest) {
             note: 'Adres opgehaald via api.postcodedata.nl'
           })
         }
+        
+        // Probeer PostcodeAPI.nu formaat als fallback
+        if (data._embedded && data._embedded.addresses && data._embedded.addresses.length > 0) {
+          const addr = data._embedded.addresses[0]
+          
+          const address = {
+            street: addr.street || '',
+            house_number: addr.number || houseNumber,
+            city: addr.city?.label || '',
+            postal_code: postalCode,
+            country: 'NL'
+          }
+
+          return NextResponse.json({
+            success: true,
+            address,
+            note: 'Adres opgehaald via PostcodeAPI.nu'
+          })
+        }
       }
       
       // Als de API faalt, gebruik lokale postcode database als fallback
-      console.log(`Postcode API faalt (${response.status}), gebruik lokale database...`)
       
       // Lokale postcode database voor veel voorkomende postcodes
       const localPostcodes: Record<string, { street: string, city: string }> = {
@@ -132,30 +150,6 @@ export async function GET(request: NextRequest) {
           address,
           note: 'Adres opgehaald uit lokale database (fallback)'
         })
-      }
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Postcode API response:', data)
-        
-        // Probeer PostcodeAPI.nu formaat
-        if (data._embedded && data._embedded.addresses && data._embedded.addresses.length > 0) {
-          const addr = data._embedded.addresses[0]
-          
-          const address = {
-            street: addr.street || '',
-            house_number: addr.number || houseNumber,
-            city: addr.city?.label || '',
-            postal_code: postalCode,
-            country: 'NL'
-          }
-
-          return NextResponse.json({
-            success: true,
-            address,
-            note: 'Adres opgehaald via PostcodeAPI.nu'
-          })
-        }
       }
       
       // Als de API geen resultaat geeft, probeer een eenvoudige validatie
