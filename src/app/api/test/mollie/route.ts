@@ -16,11 +16,25 @@ export async function GET() {
     if (!mollieApiKey) {
       return NextResponse.json({
         success: false,
-        message: 'Mollie API key is niet geconfigureerd',
+        message: 'Mollie API key is niet geconfigureerd (configureer in Vercel console)',
         details: {
           hasApiKey: false,
           testMode: mollieTestMode,
           status: 'API key ontbreekt'
+        }
+      }, { status: 400 })
+    }
+
+    // Controleer of Profile ID is geconfigureerd
+    if (!mollieProfileId) {
+      return NextResponse.json({
+        success: false,
+        message: 'Mollie Profile ID is niet geconfigureerd (configureer in Vercel console)',
+        details: {
+          hasApiKey: true,
+          hasProfileId: false,
+          testMode: mollieTestMode,
+          status: 'Profile ID ontbreekt'
         }
       }, { status: 400 })
     }
@@ -47,8 +61,9 @@ export async function GET() {
           status: response.status,
           testMode: mollieTestMode,
           hasApiKey: true,
+          hasProfileId: true,
           methodsCount: data._embedded?.methods?.length || 0,
-          note: 'Betaalmethodes succesvol opgehaald van Mollie API'
+          note: 'Betaalmethodes succesvol opgehaald van Mollie API. Mollie is klaar voor gebruik!'
         }
       })
     } else if (response.status === 401) {

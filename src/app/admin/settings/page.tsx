@@ -108,6 +108,7 @@ export default function SettingsPage() {
     mollieTestApiKey: process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY || '',
     mollieProfileId: process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID || '',
     mollieTestMode: process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true',
+    mollieWebhookUrl: process.env.NEXT_PUBLIC_MOLLIE_WEBHOOK_URL || '',
     // E-mail instellingen komen nu uit .env - alleen configuratie in database
     adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
     emailNotifications: process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === 'true',
@@ -187,6 +188,7 @@ export default function SettingsPage() {
           mollieTestApiKey: savedSettings.mollieTestApiKey || savedSettings.mollie_test_api_key || prev.mollieTestApiKey,
           mollieProfileId: savedSettings.mollieProfileId || savedSettings.mollie_profile_id || prev.mollieProfileId,
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
+          mollieWebhookUrl: savedSettings.mollieWebhookUrl || savedSettings.mollie_webhook_url || prev.mollieWebhookUrl,
           // E-mail instellingen uit database
           adminEmail: savedSettings.adminEmail || '',
           emailNotifications: savedSettings.emailNotifications || false,
@@ -722,13 +724,15 @@ export default function SettingsPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Methode (Mollie ID)</label>
           <select value={mollieId} onChange={(e)=>setMollieId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-            <option value="ideal">iDEAL</option>
-            <option value="creditcard">Creditcard</option>
-            <option value="paypal">PayPal</option>
-            <option value="bancontact">Bancontact</option>
-            <option value="banktransfer">Bankoverschrijving</option>
-            <option value="applepay">Apple Pay</option>
-            <option value="klarna">Klarna</option>
+            <option value="ideal">iDEAL (0%)</option>
+            <option value="creditcard">Creditcard (+5%)</option>
+            <option value="paypal">PayPal (+5%)</option>
+            <option value="applepay">Apple Pay (0%)</option>
+            <option value="bancontact">Bancontact (0%)</option>
+            <option value="banktransfer">Bankoverschrijving (0%)</option>
+            <option value="belfius">Belfius (0%)</option>
+            <option value="kbc">KBC (0%)</option>
+            <option value="klarna">Klarna (0%)</option>
           </select>
         </div>
         <div>
@@ -1081,35 +1085,22 @@ export default function SettingsPage() {
 
       {currentTab==='payments' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Mollie Instellingen</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Mollie Configuratie</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mollie Live API Key
+                Mollie Webhook URL
               </label>
               <input
-                type="password"
-                value={settings.mollieApiKey}
-                onChange={(e) => setSettings({...settings, mollieApiKey: e.target.value})}
-                placeholder="live_..."
+                type="text"
+                value={settings.mollieWebhookUrl || ''}
+                onChange={(e) => setSettings({...settings, mollieWebhookUrl: e.target.value})}
+                placeholder="https://jouw-domein.nl/api/payment/mollie/webhook"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Live API key voor productie</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mollie Test API Key
-              </label>
-              <input
-                type="password"
-                value={settings.mollieTestApiKey || ''}
-                onChange={(e) => setSettings({...settings, mollieTestApiKey: e.target.value})}
-                placeholder="test_..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Test API key voor ontwikkeling</p>
+              <p className="text-xs text-gray-500 mt-1">Webhook URL voor betalingsnotificaties (configureer in Vercel console)</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1122,7 +1113,7 @@ export default function SettingsPage() {
                 placeholder="pfl_..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Profile ID voor betalingen</p>
+              <p className="text-xs text-gray-500 mt-1">Profile ID voor betalingen (configureer in Vercel console)</p>
             </div>
           </div>
           
@@ -1154,7 +1145,7 @@ export default function SettingsPage() {
                   const result = await response.json()
                   
                   if (response.ok && result.success) {
-                    alert(`✅ Mollie verbinding succesvol!\n\n${result.message}\n\nDetails:\n- API Key: ${result.details?.hasApiKey ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Test Mode: ${result.details?.testMode ? 'Aan' : 'Uit'}\n- Status: ${result.details?.status || 'Onbekend'}`)
+                    alert(`✅ Mollie verbinding succesvol!\n\n${result.message}\n\nDetails:\n- API Key: ${result.details?.hasApiKey ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Profile ID: ${result.details?.hasProfileId ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Test Mode: ${result.details?.testMode ? 'Aan' : 'Uit'}\n- Status: ${result.details?.status || 'Onbekend'}\n\nMollie is klaar voor gebruik!`)
                   } else {
                     alert(`❌ Mollie verbinding mislukt:\n\n${result.message || 'Onbekende fout'}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Fout: ${result.details?.error || 'Geen details'}`)
                   }

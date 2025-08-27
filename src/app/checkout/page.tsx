@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
 import { useDealerPricing, applyDealerDiscount, getDealerGroupLabel } from '@/hooks/useDealerPricing'
+import MollieCreditCard from '@/app/components/MollieCreditCard'
+import MollieIDEAL from '@/app/components/MollieIDEAL'
 
 interface CartItem {
   id: string;
@@ -112,6 +114,8 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("ideal");
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<{ id:string; name:string; mollie_id:string; is_active:boolean; fee_percent:number }[]>([])
   const [allowInvoicePayment, setAllowInvoicePayment] = useState(false)
+  const [creditCardToken, setCreditCardToken] = useState<string | null>(null);
+  const [selectedIDEALBank, setSelectedIDEALBank] = useState<string | null>(null);
   const [shippingMethod, setShippingMethod] = useState("");
   const [loading, setLoading] = useState(false);
   const dealer = useDealerPricing()
@@ -906,17 +910,18 @@ export default function CheckoutPage() {
       const returnUrl = `${window.location.origin}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
       const webhookUrl = `${window.location.origin}/api/payment/mollie/webhook`
 
-      const paymentRes = await fetch('/api/payment/mollie', {
+      const paymentRes = await fetch('/api/payment/mollie/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: order.total,
           currency: 'EUR',
           description: `Order ${orderNumber}`,
+          orderId: orderId,
           redirectUrl: returnUrl, // bevat simulate=1 op localhost
-          webhookUrl,
-          metadata: { orderId },
-          methods: availablePaymentMethods.filter(pm => pm.is_active).map(pm => pm.mollie_id)
+          webhookUrl: webhookUrl,
+          cardToken: creditCardToken, // Voeg creditcard token toe als deze beschikbaar is
+          idealIssuer: selectedIDEALBank // Voeg iDEAL issuer toe als deze beschikbaar is
         })
       })
       if (!paymentRes.ok) {
@@ -1508,7 +1513,16 @@ export default function CheckoutPage() {
                                 name="paymentMethod"
                                 value={pm.mollie_id}
                                 checked={paymentMethod === pm.mollie_id}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                onChange={(e) => {
+                                  setPaymentMethod(e.target.value);
+                                  // Reset tokens when changing payment method
+                                  if (e.target.value !== 'creditcard') {
+                                    setCreditCardToken(null);
+                                  }
+                                  if (e.target.value !== 'ideal') {
+                                    setSelectedIDEALBank(null);
+                                  }
+                                }}
                                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                               />
                               <div>
@@ -1522,6 +1536,27 @@ export default function CheckoutPage() {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Toon Mollie Components voor creditcard betalingen */}
+                          {pm.mollie_id === 'creditcard' && paymentMethod === 'creditcard' && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <MollieCreditCard
+                                onTokenCreated={(token) => setCreditCardToken(token)}
+                                onError={(error) => setErrors(prev => ({ ...prev, creditCard: error }))}
+                                loading={loading}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Toon iDEAL bank selectie */}
+                          {pm.mollie_id === 'ideal' && paymentMethod === 'ideal' && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <MollieIDEAL
+                                onBankSelected={(bankId, bankName) => setSelectedIDEALBank(bankId)}
+                                selectedBank={selectedIDEALBank}
+                              />
+                            </div>
+                          )}
                         </div>
                       ))}
                       {!allowInvoicePayment && availablePaymentMethods.some(pm => pm.mollie_id === 'invoice') && (
