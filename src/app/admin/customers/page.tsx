@@ -1057,45 +1057,7 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                 </div>
               </div>
               
-              <div>
-                <button
-                  type="button"
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-                  onClick={async () => {
-                    const address = `${formData.address || ''}, ${formData.postal_code || ''} ${formData.city || ''}, ${formData.country || 'Nederland'}`.trim();
-                    if (address && address !== ', , ') {
-                      try {
-                        const response = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
-                        const data = await response.json();
-                        if (response.ok && data.lat && data.lng) {
-                          // Update formData with coordinates
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            latitude: data.lat, 
-                            longitude: data.lng 
-                          }));
-                          
-                          alert(`Locatie gevonden: ${data.formatted_address}\nCoördinaten: ${data.lat}, ${data.lng}`);
-                        } else {
-                          // Show specific error message from API
-                          const errorMessage = data.message || data.error || 'Locatie niet gevonden. Controleer het adres.';
-                          alert(`Geocoding fout: ${errorMessage}\n\nProbeer het adres handmatig in te voeren of een ander adres te gebruiken.`);
-                        }
-                      } catch (error) {
-                        console.error('Geocoding error:', error);
-                        alert('Netwerkfout bij het zoeken van locatie. Controleer uw internetverbinding.');
-                      }
-                    } else {
-                      alert('Vul eerst een adres in.');
-                    }
-                  }}
-                >
-                  🔍 Zoek locatie
-                </button>
-                <p className="text-xs text-gray-600 mt-1">
-                  Klik om automatisch coördinaten op te halen op basis van het adres
-                </p>
-              </div>
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
