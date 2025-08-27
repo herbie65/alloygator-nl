@@ -29,6 +29,12 @@ export default function AdminLayout({
   const [customerUploadNotifications, setCustomerUploadNotifications] = useState(0)
   const [appointmentsUpcoming, setAppointmentsUpcoming] = useState(0)
   const [appointmentsToday, setAppointmentsToday] = useState(0)
+  const [isClient, setIsClient] = useState(false)
+
+  // Ensure client-side rendering
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const logout = () => {
     localStorage.removeItem('adminSessionV2')
@@ -51,7 +57,6 @@ export default function AdminLayout({
           
           if (hoursSinceLogin >= 4) {
             setIsAuthenticated(false)
-            // Direct logout without calling logout function to avoid recursion
             localStorage.removeItem('adminSessionV2')
             document.cookie = 'adminSessionV2=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
             setRole('guest')
@@ -63,7 +68,6 @@ export default function AdminLayout({
       }
     } catch (error) {
       setIsAuthenticated(false)
-      // Direct logout without calling logout function to avoid recursion
       localStorage.removeItem('adminSessionV2')
       document.cookie = 'adminSessionV2=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
       setRole('guest')
@@ -73,6 +77,8 @@ export default function AdminLayout({
   }
 
   useEffect(() => {
+    if (!isClient) return
+
     // Hide header and footer for admin pages
     const header = document.querySelector('header')
     const footer = document.querySelector('footer')
@@ -83,7 +89,7 @@ export default function AdminLayout({
     // Check session timeout every minute
     const interval = setInterval(checkSessionTimeout, 60000)
     
-    // Check on user activity (mouse move, key press, etc.)
+    // Check on user activity
     const resetTimeout = () => {
       try {
         const raw = localStorage.getItem('adminSessionV2')
@@ -103,7 +109,6 @@ export default function AdminLayout({
       document.addEventListener(event, resetTimeout, true)
     })
 
-    // Cleanup function to restore header and footer
     return () => {
       if (header) header.style.display = ''
       if (footer) footer.style.display = ''
@@ -112,10 +117,12 @@ export default function AdminLayout({
         document.removeEventListener(event, resetTimeout, true)
       })
     }
-  }, [])
+  }, [isClient])
 
-  // Load customer upload notifications
+  // Load notifications
   useEffect(() => {
+    if (!isAuthenticated || !isClient) return
+
     const loadNotifications = async () => {
       try {
         const count = await FirebaseClientService.getCustomerUploadNotificationCount()
@@ -125,11 +132,12 @@ export default function AdminLayout({
       }
     }
     
-    if (isAuthenticated) {
-      loadNotifications()
-    }
-  }, [isAuthenticated])
+    loadNotifications()
+  }, [isAuthenticated, isClient])
+  
   useEffect(() => {
+    if (!isAuthenticated || !isClient) return
+
     const loadUpcomingAppts = async () => {
       try {
         const now = new Date()
@@ -151,35 +159,23 @@ export default function AdminLayout({
         setAppointmentsToday(0)
       }
     }
-    if (isAuthenticated) loadUpcomingAppts()
-  }, [isAuthenticated])
+    loadUpcomingAppts()
+  }, [isAuthenticated, isClient])
 
-  // Separate useEffect for authentication check
+  // Authentication check
   useEffect(() => {
+    if (!isClient) return
+
     let mounted = true
     
-    // Check if we're on the login page first using window.location
-    const currentPath = window.location.pathname
-    const isLoginPage = currentPath === '/admin/login'
-    const isLocalhost = typeof window !== 'undefined' && (
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.includes('localhost') ||
-      window.location.port === '3000' ||
-      window.location.port === '3001' ||
-      window.location.port === '3002' ||
-      window.location.port === '3003' ||
-      window.location.port === '3004' ||
-      window.location.port === '3005'
-    )
-    console.log('🔍 Current pathname from window.location:', currentPath)
-    console.log('🔍 Is login page?', isLoginPage)
-    console.log('🔍 Is localhost?', isLocalhost)
-    console.log('🔍 Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'undefined')
-    console.log('🔍 Port:', typeof window !== 'undefined' ? window.location.port : 'undefined')
+    const isLoginPage = pathname === '/admin/login'
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname.includes('localhost') ||
+                        ['3000', '3001', '3002', '3003', '3004', '3005'].includes(window.location.port)
     
     if (isLoginPage) {
-      console.log('🔍 On login page, setting loading to false')
+      console.log('On login page, setting loading to false')
       setIsAuthenticated(false)
       setIsLoading(false)
       return
@@ -187,19 +183,14 @@ export default function AdminLayout({
     
     const checkAuth = () => {
       try {
-        console.log('🔍 Starting authentication check...')
-        console.log('📍 Current pathname:', currentPath)
-        console.log('🔍 isLocalhost value:', isLocalhost)
-        console.log('🔍 mounted value:', mounted)
+        console.log('Starting authentication check...')
         
         const raw = localStorage.getItem('adminSessionV2')
         if (!raw) {
-          // No session found
-          console.log('🔒 No admin session found')
+          console.log('No admin session found')
           
-          // On localhost, allow access without authentication for development
           if (isLocalhost) {
-            console.log('🔧 Localhost detected - allowing access for development')
+            console.log('Localhost detected - allowing access for development')
             if (mounted) {
               setRole('admin')
               setEmail('admin@localhost')
@@ -209,8 +200,7 @@ export default function AdminLayout({
             return
           }
           
-          // Redirect to login on production
-          console.log('🔒 Redirecting to login')
+          console.log('Redirecting to login')
           if (mounted) {
             setIsAuthenticated(false)
             setIsLoading(false)
@@ -221,26 +211,19 @@ export default function AdminLayout({
         
         const s = JSON.parse(raw)
         if (!s?.email || !s?.role) {
-          // Invalid session data
-          console.log('🔒 Invalid session data')
+          console.log('Invalid session data')
           
-          // On localhost, allow access without authentication for development
           if (isLocalhost) {
-            console.log('🔧 Localhost detected - allowing access for development')
-            console.log('🔧 Setting admin role and email')
+            console.log('Localhost detected - allowing access for development')
             if (mounted) {
               setRole('admin')
               setEmail('admin@localhost')
               setIsAuthenticated(true)
               setIsLoading(false)
-              console.log('🔧 State updated successfully')
-            } else {
-              console.log('🔧 Component not mounted, skipping state update')
             }
             return
           }
           
-          // Redirect to login on production
           localStorage.removeItem('adminSessionV2')
           if (mounted) {
             setIsAuthenticated(false)
@@ -250,33 +233,26 @@ export default function AdminLayout({
           return
         }
         
-        // Check if session is expired
+        // Check session expiry
         if (s?.loginTime) {
           const loginTime = new Date(s.loginTime).getTime()
           const now = new Date().getTime()
           const hoursSinceLogin = (now - loginTime) / (1000 * 60 * 60)
           
           if (hoursSinceLogin >= 4) {
-            // Session expired
-            console.log('🔒 Session expired (4+ hours)')
+            console.log('Session expired (4+ hours)')
             
-            // On localhost, allow access without authentication for development
             if (isLocalhost) {
-              console.log('🔧 Localhost detected - allowing access for development')
-              console.log('🔧 Setting admin role and email')
+              console.log('Localhost detected - allowing access for development')
               if (mounted) {
                 setRole('admin')
                 setEmail('admin@localhost')
                 setIsAuthenticated(true)
                 setIsLoading(false)
-                console.log('🔧 State updated successfully')
-              } else {
-                console.log('🔧 Component not mounted, skipping state update')
               }
               return
             }
             
-            // Redirect to login on production
             localStorage.removeItem('adminSessionV2')
             document.cookie = 'adminSessionV2=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
             if (mounted) {
@@ -288,56 +264,42 @@ export default function AdminLayout({
           }
         }
         
-        // Valid session, set user data
-        console.log('✅ Valid admin session found:', { email: s.email, role: s.role })
+        // Valid session
+        console.log('Valid admin session found:', { email: s.email, role: s.role })
         if (mounted) {
           setRole(s.role)
           setEmail(s.email)
           setIsAuthenticated(true)
           setIsLoading(false)
-          console.log('✅ State updated with valid session')
-        } else {
-          console.log('⚠️ Component not mounted, skipping state update')
         }
       } catch (error) {
-        // Error parsing session
-        console.error('🔒 Error parsing session:', error)
+        console.error('Error parsing session:', error)
         
-        // On localhost, allow access without authentication for development
         if (isLocalhost) {
-          console.log('🔧 Localhost detected - allowing access for development')
-          console.log('🔧 Setting admin role and email')
+          console.log('Localhost detected - allowing access for development')
           if (mounted) {
             setRole('admin')
             setEmail('admin@localhost')
             setIsAuthenticated(true)
             setIsLoading(false)
-            console.log('🔧 State updated successfully')
-          } else {
-            console.log('🔧 Component not mounted, skipping state update')
           }
           return
         }
         
-        // Redirect to login on production
         localStorage.removeItem('adminSessionV2')
         if (mounted) {
           setIsAuthenticated(false)
           setIsLoading(false)
           router.push('/admin/login')
         }
-        return
       }
     }
     
-    // Check authentication immediately
-    console.log('🔍 Calling checkAuth immediately...')
     checkAuth()
     
-    // Also listen for storage changes (when user logs in from another tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'adminSessionV2') {
-        console.log('🔍 Storage changed, rechecking authentication...')
+        console.log('Storage changed, rechecking authentication...')
         checkAuth()
       }
     }
@@ -348,7 +310,7 @@ export default function AdminLayout({
       mounted = false
       window.removeEventListener('storage', handleStorageChange)
     }
-  }, [router]) // Only depend on router, not pathname
+  }, [router, pathname, isClient])
 
   const toggleSection = (sectionName: string) => {
     setExpandedSections(prev => 
@@ -358,16 +320,26 @@ export default function AdminLayout({
     )
   }
 
-  // Check if we're on the login page
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
-  const isLoginPage = currentPath === '/admin/login'
+  // Show loading until client-side ready
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Laden...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const isLoginPage = pathname === '/admin/login'
   
-  // If we're on the login page, render children directly without admin layout
+  // If login page, render children directly
   if (isLoginPage) {
     return <>{children}</>
   }
 
-  // Show loading state while authentication is being checked
+  // Show loading during auth check
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -379,7 +351,7 @@ export default function AdminLayout({
     )
   }
 
-  // Show authentication checking state
+  // Show auth checking
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -448,7 +420,6 @@ export default function AdminLayout({
       children: [
         { name: 'CMS Pagina\'s', href: '/admin/cms', icon: '📄', color: 'bg-green-400' },
         { name: 'Documenten', href: '/admin/documents', icon: '📁', color: 'bg-green-400' },
-        // Dealers verwijderd uit Content
         { name: 'Emails', href: '/admin/emails', icon: '✉️', color: 'bg-green-400' },
         { name: 'Media', href: '/admin/media', icon: '🖼️', color: 'bg-green-400' }
       ]
@@ -489,7 +460,6 @@ export default function AdminLayout({
     if (item.children) {
       return item.children.some(child => {
         if (child.children) {
-          // Check nested children (like Attributen)
           return child.children.some(grandChild => isActive(grandChild.href))
         }
         return isActive(child.href)
@@ -531,7 +501,6 @@ export default function AdminLayout({
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
         <aside className="w-64 bg-white shadow-lg">
           <nav className="mt-8">
             <div className="px-4 space-y-2">
@@ -567,7 +536,6 @@ export default function AdminLayout({
                             {item.children!.map((child) => (
                               <div key={child.name}>
                                 {child.children ? (
-                                  // Nested children (like Attributen)
                                   <div>
                                     <button
                                       onClick={() => toggleSection(child.name.toLowerCase())}
@@ -609,7 +577,6 @@ export default function AdminLayout({
                                     )}
                                   </div>
                                 ) : (
-                                  // Regular child (no nested children)
                                   <Link
                                     href={child.href}
                                     className={`flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
@@ -656,11 +623,10 @@ export default function AdminLayout({
           </nav>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-8">
           {children}
         </main>
       </div>
     </div>
   )
-} 
+}

@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
 
 export default function AdminDashboard() {
+  const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [sessionData, setSessionData] = useState<any>(null)
   const [stats, setStats] = useState({ products: 0, customers: 0, orders: 0 })
   const [apptToday, setApptToday] = useState(0)
   const [apptWeek, setApptWeek] = useState(0)
@@ -12,19 +16,69 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Authentication check - BELANGRIJKSTE TOEVOEGING
   useEffect(() => {
+    const checkAuth = () => {
+      console.log('🔍 Checking admin authentication on dashboard...')
+      
+      const session = localStorage.getItem('adminSessionV2')
+      if (!session) {
+        console.log('❌ No admin session found, redirecting to login')
+        router.push('/admin/login')
+        return
+      }
+
+      try {
+        const sessionObj = JSON.parse(session)
+        if (!sessionObj?.email || !sessionObj?.role) {
+          console.log('❌ Invalid session data, clearing and redirecting')
+          localStorage.removeItem('adminSessionV2')
+          router.push('/admin/login')
+          return
+        }
+
+        console.log('✅ Admin authentication successful:', sessionObj.email)
+        setSessionData(sessionObj)
+        setIsAuthenticated(true)
+      } catch (error) {
+        console.error('❌ Error parsing admin session:', error)
+        localStorage.removeItem('adminSessionV2')
+        router.push('/admin/login')
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  // Data loading - alleen als geauthenticeerd
+  useEffect(() => {
+    if (!isAuthenticated) return
+
     let isMounted = true
     const load = async () => {
       try {
+        console.log('📊 Loading dashboard data...')
         setLoading(true)
         setError(null)
         const [prods, custs, ords] = await Promise.all([
-          FirebaseClientService.getProducts().catch(() => []),
-          FirebaseClientService.getCustomers().catch(() => []),
-          FirebaseClientService.getOrders().catch(() => [])
+          FirebaseClientService.getProducts().catch(e => {
+            console.error('Error loading products:', e)
+            return []
+          }),
+          FirebaseClientService.getCustomers().catch(e => {
+            console.error('Error loading customers:', e)
+            return []
+          }),
+          FirebaseClientService.getOrders().catch(e => {
+            console.error('Error loading orders:', e)
+            return []
+          })
         ])
         if (!isMounted) return
+        
+        console.log('✅ Dashboard data loaded:', { products: prods.length, customers: custs.length, orders: ords.length })
         setStats({ products: prods.length || 0, customers: custs.length || 0, orders: ords.length || 0 })
+        
         // Load appointments for counters/notifications
         try {
           const now = new Date()
@@ -43,8 +97,11 @@ export default function AdminDashboard() {
             return t >= now.getTime() && t <= now.getTime() + 24*60*60*1000
           }).slice(0,5)
           setApptSoon(soon)
-        } catch {}
+        } catch (apptError) {
+          console.error('Error loading appointments:', apptError)
+        }
       } catch (e: any) {
+        console.error('Error loading dashboard:', e)
         if (!isMounted) return
         setError(e?.message || 'Onbekende fout bij laden dashboard cijfers')
       } finally {
@@ -53,7 +110,27 @@ export default function AdminDashboard() {
     }
     load()
     return () => { isMounted = false }
-  }, [])
+  }, [isAuthenticated])
+
+  const handleLogout = () => {
+    console.log('🚪 Logging out admin user')
+    localStorage.removeItem('adminSessionV2')
+    sessionStorage.removeItem('sessionChecked')
+    document.cookie = 'adminSessionV2=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+    router.push('/admin/login')
+  }
+
+  // Show loading while checking authentication
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Authenticatie controleren...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -61,7 +138,16 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">Welkom bij het AlloyGator admin panel - Live database cijfers</p>
+          {sessionData && (
+            <p className="text-sm text-gray-500">Ingelogd als: {sessionData.email}</p>
+          )}
         </div>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm"
+        >
+          Uitloggen
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -126,7 +212,8 @@ export default function AdminDashboard() {
         </Link>
       </div>
 
-      {/* Afspraken notificaties (onder stats, boven snelle acties) */}
+      {/* Rest van je bestaande dashboard code blijft hetzelfde */}
+      {/* Afspraken notificaties */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Afspraken – Binnen 24 uur</h2>
         {apptSoon.length === 0 ? (
@@ -150,45 +237,27 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Snelle Acties</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a 
-            href="/admin/products" 
-            className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left"
-          >
+          <a href="/admin/products" className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left">
             <h3 className="font-semibold text-green-900">Producten Beheren</h3>
             <p className="text-sm text-green-700">Voeg, bewerk of verwijder producten</p>
           </a>
-          <a 
-            href="/admin/customers" 
-            className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left"
-          >
+          <a href="/admin/customers" className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-left">
             <h3 className="font-semibold text-green-900">Klanten Beheren</h3>
             <p className="text-sm text-green-700">Bekijk en beheer klantgegevens</p>
           </a>
-          <a 
-            href="/admin/customer-groups" 
-            className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left"
-          >
+          <a href="/admin/customer-groups" className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors text-left">
             <h3 className="font-semibold text-purple-900">Klantgroepen</h3>
             <p className="text-sm text-purple-700">Beheer klantgroepen en kortingen</p>
           </a>
-          <a 
-            href="/admin/orders" 
-            className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left"
-          >
+          <a href="/admin/orders" className="p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-left">
             <h3 className="font-semibold text-orange-900">Bestellingen</h3>
             <p className="text-sm text-orange-700">Bekijk en verwerk bestellingen</p>
           </a>
-          <a 
-            href="/admin/users" 
-            className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
-          >
+          <a href="/admin/users" className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left">
             <h3 className="font-semibold text-gray-900">Gebruikers</h3>
             <p className="text-sm text-gray-700">Beheer backend gebruikers</p>
           </a>
-          <a 
-            href="/admin/settings" 
-            className="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors text-left"
-          >
+          <a href="/admin/settings" className="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors text-left">
             <h3 className="font-semibold text-yellow-900">Instellingen</h3>
             <p className="text-sm text-yellow-700">Configureer website instellingen</p>
           </a>
@@ -207,7 +276,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
             <div>
               <h3 className="font-semibold text-green-900">Website</h3>
-              <p className="text-sm text-green-700">Lokaal draaiend op localhost:3001</p>
+              <p className="text-sm text-green-700">Live op Firebase Hosting</p>
             </div>
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
           </div>
@@ -228,16 +297,14 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      
-
       {/* Info Box */}
       <div className="bg-green-50 border border-green-200 rounded-md p-4">
         <h3 className="font-semibold text-green-900 mb-2">ℹ️ Informatie</h3>
         <p className="text-sm text-green-700">
-          Deze admin sectie draait lokaal. De data wordt opgehaald van Firebase als database service. 
+          Deze admin sectie draait op Firebase Hosting. De data wordt opgehaald van Firebase als database service. 
           Als er geen data wordt getoond, kan dit betekenen dat de database leeg is of dat er connectiviteitsproblemen zijn.
         </p>
       </div>
     </div>
   )
-} 
+}

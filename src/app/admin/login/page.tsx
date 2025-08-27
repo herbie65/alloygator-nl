@@ -1,53 +1,28 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { signInWithEmailAndPassword, getAuth } from 'firebase/auth'
-import { app } from '@/lib/firebase' // Gebruik jouw bestaande Firebase config!
+import { app } from '@/lib/firebase'
 
-// Gebruik jouw bestaande Firebase app instance
 const auth = getAuth(app)
 
 export default function AdminLoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
+  // Ensure client-side only rendering to prevent hydration errors
   useEffect(() => {
-    setMounted(true)
+    setIsClient(true)
   }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-    
-    // Check if already logged in (v2)
-    const s = localStorage.getItem('adminSessionV2')
-    if (s) {
-      try {
-        const session = JSON.parse(s)
-        if (session?.email && session?.role) {
-          console.log('✅ Admin session found, redirecting to admin panel')
-          router.push('/admin')
-        } else {
-          console.log('🔒 Invalid session data, clearing localStorage')
-          localStorage.removeItem('adminSessionV2')
-        }
-      } catch (error) {
-        console.error('🔒 Error parsing session:', error)
-        localStorage.removeItem('adminSessionV2')
-      }
-    }
-  }, [mounted, router])
 
   // Check if user is admin based on email
   const isAdminEmail = (email: string): boolean => {
     const adminEmails = [
       'info@alloygator.nl',
       'admin@alloygator.nl',
-      // Voeg meer admin emails toe als nodig
     ]
     return adminEmails.includes(email.toLowerCase().trim())
   }
@@ -58,23 +33,22 @@ export default function AdminLoginPage() {
     setError('')
     
     try {
-      console.log('🔐 Attempting Firebase login for:', email)
-      console.log('🔥 Using existing Firebase Auth instance')
+      console.log('Attempting Firebase login for:', email)
       
-      // Firebase Auth login met jouw bestaande configuratie
+      // Firebase Auth login
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
-      console.log('✅ Firebase login successful:', user.email)
+      console.log('Firebase login successful:', user.email)
       
       // Check if user is admin
       if (!isAdminEmail(user.email || '')) {
-        await auth.signOut() // Sign out non-admin user
+        await auth.signOut()
         throw new Error('Geen admin-toegang voor dit account')
       }
       
       // Create admin session
-      const role = 'admin' // Default role for admin emails
+      const role = 'admin'
       const payload = { 
         email: user.email, 
         role, 
@@ -85,16 +59,17 @@ export default function AdminLoginPage() {
       // Save to localStorage
       localStorage.setItem('adminSessionV2', JSON.stringify(payload))
       
-      // Set cookie for middleware (server-side guards)
+      // Set cookie for server-side middleware
       document.cookie = `adminSessionV2=${encodeURIComponent(JSON.stringify(payload))}; path=/; max-age=${60*60*8}`
       
-      console.log('✅ Admin session created, redirecting to admin panel')
-      router.push('/admin')
+      console.log('Admin session created, redirecting to admin panel')
+      
+      // Redirect to admin dashboard
+      window.location.href = '/admin'
       
     } catch (e: any) {
-      console.error('❌ Login error:', e)
+      console.error('Login error:', e)
       
-      // Firebase error handling
       let errorMessage = 'Login mislukt'
       
       if (e.code === 'auth/user-not-found') {
@@ -115,8 +90,8 @@ export default function AdminLoginPage() {
     }
   }
 
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
+  // Show loading state until client-side rendering is ready
+  if (!isClient) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
@@ -150,8 +125,10 @@ export default function AdminLoginPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               placeholder="Voer je e-mailadres in"
               required
+              disabled={isLoading}
             />
           </div>
+          
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Wachtwoord
@@ -164,6 +141,7 @@ export default function AdminLoginPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               placeholder="Voer je wachtwoord in"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -183,7 +161,7 @@ export default function AdminLoginPage() {
         </form>
         
         <div className="mt-4 text-xs text-gray-500 text-center">
-          <p>Firebase Direct Auth - v3.0 (Existing Config)</p>
+          <p>Client-side rendered - v4.0</p>
         </div>
       </div>
     </div>
