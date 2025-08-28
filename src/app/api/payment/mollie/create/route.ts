@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const mollieApiKey = process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true' 
       ? process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY 
       : process.env.NEXT_PUBLIC_MOLLIE_API_KEY
-    const mollieProfileId = process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID
+
 
 
     if (!mollieApiKey) {
@@ -24,12 +24,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    if (!mollieProfileId) {
-      return NextResponse.json({
-        success: false,
-        message: 'Mollie Profile ID niet geconfigureerd'
-      }, { status: 400 })
-    }
+
 
 
 
@@ -48,7 +43,6 @@ export async function POST(request: NextRequest) {
       description: description || `Bestelling ${orderId}`,
       redirectUrl: redirectUrl,
       webhookUrl: webhookUrl,
-      profileId: mollieProfileId,
       metadata: {
         orderId: orderId
       }
