@@ -31,10 +31,39 @@ export default function OrderConfirmationPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        // Probeer order op te halen uit localStorage of session
-        const savedOrder = localStorage.getItem(`order_${orderId}`)
+        // Probeer order op te halen uit localStorage
+        const savedOrder = localStorage.getItem('lastOrder')
         if (savedOrder) {
-          setOrder(JSON.parse(savedOrder))
+          const orderData = JSON.parse(savedOrder)
+          // Controleer of dit de juiste order is
+          if (orderData.id === orderId || orderData.order_number === orderId) {
+            setOrder({
+              id: orderData.id || orderId,
+              status: orderData.status || 'Bevestigd',
+              total: orderData.total || 0,
+              customer: {
+                voornaam: orderData.customer?.contact_first_name || orderData.customer?.voornaam || 'Klant',
+                achternaam: orderData.customer?.contact_last_name || orderData.customer?.achternaam || '',
+                email: orderData.customer?.email || ''
+              },
+              items: orderData.items || [],
+              createdAt: orderData.created_at || new Date().toISOString()
+            })
+          } else {
+            // Fallback: toon basis order informatie
+            setOrder({
+              id: orderId,
+              status: 'Bevestigd',
+              total: 0,
+              customer: {
+                voornaam: 'Klant',
+                achternaam: '',
+                email: ''
+              },
+              items: [],
+              createdAt: new Date().toISOString()
+            })
+          }
         } else {
           // Fallback: toon basis order informatie
           setOrder({

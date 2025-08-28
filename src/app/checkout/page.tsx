@@ -867,9 +867,23 @@ export default function CheckoutPage() {
         user_email: customer.email, // Email voor extra koppeling
         items: itemsForOrder,
         shipping_method: selectedMethod?.name || 'Standaard verzending',
-        shipping_cost: dealer.isDealer ? 
-          (selectedMethod?.price || parseFloat(settings.shippingCost)) : 
-          getPriceIncludingVat(selectedMethod?.price || parseFloat(settings.shippingCost), 'standard'),
+        shipping_cost: (() => {
+          if (!selectedMethod) return 0; // Geen verzendmethode gekozen
+          
+          if (selectedMethod.delivery_type === 'pickup') {
+            return 0; // Afhalen is altijd gratis
+          }
+          
+          // Voor verzending: gratis boven drempel
+          const threshold = parseFloat(settings.freeShippingThreshold) || 300;
+          if (netSubtotal >= threshold) {
+            return 0; // Gratis verzending
+          } else {
+            // Standaard verzendkosten
+            const baseCost = parseFloat(settings.shippingCost) || 8.95;
+            return dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
+          }
+        })(),
         shipping_carrier: selectedMethod?.carrier || 'postnl',
         shipping_delivery_type: selectedMethod?.delivery_type || 'standard',
         pickup_location: selectedPickupLocation,
