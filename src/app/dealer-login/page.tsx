@@ -27,10 +27,17 @@ export default function DealerLogin() {
         return;
       }
       
+      // Verwijder ALLE oude klantgegevens en winkelwagen bij dealer login
+      window.localStorage.removeItem('alloygator-cart')
+      window.localStorage.removeItem('currentUser')
+      window.localStorage.removeItem('isLoggedIn')
+      window.localStorage.removeItem('dealerDiscount')
+      
+      // Sla nieuwe dealer gegevens op
       window.localStorage.setItem("dealerEmail", String(dealer.email || ''));
       window.localStorage.setItem("dealerName", String(dealer.name || ''));
       window.localStorage.setItem("dealerGroup", String(dealer.group || dealer.dealer_group || ''));
-      // Geen dealerDiscount meer opslaan - dit komt uit customer_groups
+      
       router.push("/winkel");
     } catch (error) {
       console.error("Login error:", error);

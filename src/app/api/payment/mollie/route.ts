@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       ? process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY 
       : process.env.NEXT_PUBLIC_MOLLIE_API_KEY;
     
-    const profileId = process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID;
+
 
     if (!apiKey) {
       return NextResponse.json({ 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         webhookUrl: webhookUrl,
         metadata: metadata,
         methods: methods || ['ideal', 'bancontact', 'paypal'],
-        profileId: profileId
+
       })
     });
 
