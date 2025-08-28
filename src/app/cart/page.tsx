@@ -315,7 +315,8 @@ export default function CartPage() {
     }
   }
   
-  const total = subtotal + vatAmount + shippingCostWithVat;
+  // In winkelwagen: geen verzendkosten toevoegen (worden berekend in checkout)
+  const total = subtotal + vatAmount;
   
   // Debug logging voor totalen
   // console.log('Winkelwagen totalen berekend:', {
@@ -580,18 +581,10 @@ export default function CartPage() {
                   </div>
                 )}
                 
-                <div className="flex justify-between text-sm">
-                  <span>Verzendkosten {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}</span>
-                  <span className={shippingCostWithVat === 0 ? 'text-green-600' : ''}>
-                    {shippingCostWithVat === 0 ? 'Gratis' : `€${shippingCostWithVat.toFixed(2)}`}
-                  </span>
+                {/* Verzendkosten worden alleen getoond in checkout, niet in winkelwagen */}
+                <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+                  Verzendkosten worden berekend bij het afrekenen
                 </div>
-                
-                {shippingCostWithVat > 0 && settings && settings.freeShippingThreshold && (
-                  <div className="text-xs text-gray-500 bg-green-50 p-2 rounded">
-                    Voeg nog €{(parseFloat(settings.freeShippingThreshold) - subtotal).toFixed(2)} toe voor gratis verzending
-                  </div>
-                )}
                 
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-semibold">
