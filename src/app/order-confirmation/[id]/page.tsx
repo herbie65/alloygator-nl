@@ -147,7 +147,7 @@ export default function OrderConfirmationPage() {
             </div>
             <div>
               <span className="font-medium text-gray-600">Totaal:</span>
-              <span className="ml-2 text-gray-900">€{order?.total || '0.00'}</span>
+              <span className="ml-2 text-gray-900">€{(order?.total || 0).toFixed(2)}</span>
             </div>
           </div>
         </div>

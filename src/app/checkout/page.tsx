@@ -866,11 +866,15 @@ export default function CheckoutPage() {
         customer_id: customerId, // Belangrijk: koppelt order aan gebruiker
         user_email: customer.email, // Email voor extra koppeling
         items: itemsForOrder,
-        shipping_method: selectedMethod?.name || 'Standaard verzending',
+        shipping_method: (() => {
+          if (shippingMethod === 'pickup') return 'Afhalen bij dealer';
+          return selectedMethod?.name || 'Standaard verzending';
+        })(),
         shipping_cost: (() => {
           if (!selectedMethod) return 0; // Geen verzendmethode gekozen
           
-          if (selectedMethod.delivery_type === 'pickup') {
+          // Check voor hardcoded pickup of database pickup method
+          if (shippingMethod === 'pickup' || selectedMethod?.delivery_type === 'pickup') {
             return 0; // Afhalen is altijd gratis
           }
           
@@ -885,7 +889,10 @@ export default function CheckoutPage() {
           }
         })(),
         shipping_carrier: selectedMethod?.carrier || 'postnl',
-        shipping_delivery_type: selectedMethod?.delivery_type || 'standard',
+        shipping_delivery_type: (() => {
+          if (shippingMethod === 'pickup') return 'pickup';
+          return selectedMethod?.delivery_type || 'standard';
+        })(),
         pickup_location: selectedPickupLocation,
         subtotal: netSubtotal,
         vat_amount: vatCalculation.vat_amount,
