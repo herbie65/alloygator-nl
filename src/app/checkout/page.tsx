@@ -529,6 +529,14 @@ export default function CheckoutPage() {
     const vatRate = 21; // Nederlandse BTW
     const vatAmount = subtotalWithShipping * (vatRate / 100);
     
+    // Controleer of de BTW berekening correct is
+    console.log('BTW berekening:', {
+      subtotalWithShipping,
+      vatRate,
+      vatAmount,
+      expectedVat: subtotalWithShipping * 0.21
+    });
+    
     // 6. Eindbedrag (incl. BTW)
     const total = subtotalWithShipping + vatAmount;
     
