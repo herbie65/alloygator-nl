@@ -1301,84 +1301,15 @@ export default function SettingsPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-medium text-blue-900 mb-2">SMTP Instellingen</h3>
             <p className="text-blue-700 text-sm mb-3">
-              <strong>⚠️ Belangrijk:</strong> SMTP instellingen worden gelezen uit Vercel Environment Variables.
-              Deze kunnen niet hier worden gewijzigd, maar moeten in de Vercel Console worden ingesteld.
+              <strong>ℹ️ Info:</strong> SMTP instellingen worden automatisch geladen uit Vercel Environment Variables.
+              Deze kunnen alleen in de Vercel Console worden gewijzigd.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Host</label>
-                <input
-                  type="text"
-                  value={settings.smtpHost || ''}
-                  readOnly
-                  placeholder="mail.whserver.nl"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Port</label>
-                <input
-                  type="number"
-                  value={settings.smtpPort || ''}
-                  readOnly
-                  placeholder="587"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Gebruiker</label>
-                <input
-                  type="email"
-                  value={settings.smtpUser || ''}
-                  readOnly
-                  placeholder="info@tesland.com"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Wachtwoord</label>
-                <input
-                  type="password"
-                  value={settings.smtpPass || ''}
-                  readOnly
-                  placeholder="Je wachtwoord"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
-                />
-              </div>
-            </div>
             <div className="mt-3 text-xs text-blue-600">
-              <strong>Let op:</strong> Deze velden zijn alleen-lezen. SMTP instellingen worden gelezen uit Vercel Environment Variables.
+              <strong>Tip:</strong> Gebruik de "Test Verbinding" knop hieronder om te controleren of de SMTP instellingen correct zijn ingesteld.
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Admin E-mail
-            </label>
-            <input
-              type="email"
-              value={settings.adminEmail}
-              readOnly
-              placeholder="admin@alloygator.nl"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              E-mail adres voor admin notificaties (uit Vercel Environment Variables)
-            </p>
-          </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="emailNotifications"
-              checked={settings.emailNotifications}
-              disabled
-              className="h-4 w-4 text-gray-400 focus:ring-gray-300 border-gray-300 rounded cursor-not-allowed"
-            />
-            <label htmlFor="emailNotifications" className="text-sm font-medium text-gray-700">
-              E-mail notificaties inschakelen (uit Vercel Environment Variables)
-            </label>
-          </div>
 
           <div className="flex items-center space-x-4">
             <button
