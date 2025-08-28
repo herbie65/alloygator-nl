@@ -233,9 +233,9 @@ export default function CheckoutPage() {
 
   const getDiscountedPrice = (price: number, vatCategory: string = 'standard') => {
     if (dealer.isDealer && dealer.discountPercent > 0) {
-      // Voor dealers: korting toepassen op de bruto prijs (excl. BTW)
-      const discountedPrice = price * (1 - dealer.discountPercent / 100);
-      return Math.round(discountedPrice * 100) / 100; // Afronden op 2 decimalen
+      // Voor dealers: GEEN korting toepassen - item.price bevat al de dealer korting
+      // Dit voorkomt dubbele korting
+      return price;
     } else {
       // Voor particuliere klanten: geen korting
       return price;
