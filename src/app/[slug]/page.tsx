@@ -23,14 +23,20 @@ export default function CmsPage() {
     let mounted = true
     ;(async () => {
       try {
+        console.log('🔍 CMS pagina zoeken voor slug:', slug)
         const all = await FirebaseClientService.getCmsPages()
+        console.log('📄 Alle CMS pagina\'s geladen:', all.length)
+        
         const found = (all as any[]).find(p => (p.slug || '').toLowerCase() === String(slug).toLowerCase())
+        console.log('🎯 Gevonden pagina:', found ? found.title : 'Niet gevonden')
+        
         if (mounted) setPage(found || null)
         // Geen fallback meer - alleen Firestore data gebruiken
         if (mounted && !found) {
           setPage(null)
         }
       } catch (e) {
+        console.error('❌ Fout bij laden CMS pagina:', e)
         if (mounted) setPage(null)
       } finally {
         if (mounted) setLoading(false)
