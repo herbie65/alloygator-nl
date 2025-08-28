@@ -493,7 +493,7 @@ export default function CheckoutPage() {
       return;
     }
     
-    // Simpele berekening: subtotaal + verzendkosten
+    // Subtotaal (prijzen zijn inclusief BTW)
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
     // Verzendkosten bepalen
@@ -507,12 +507,12 @@ export default function CheckoutPage() {
       shippingCost = 5.95; // Standaard verzendkosten
     }
     
-    // Totaal = subtotaal + verzendkosten
-    const total = subtotal + shippingCost;
-    
-    // BTW berekening (voor particuliere klanten is prijs al inclusief BTW)
+    // BTW berekening (prijzen zijn inclusief BTW, dus BTW eruit halen)
     const vatRate = 21; // Nederlandse BTW
     const vatAmount = (subtotal * vatRate) / (100 + vatRate); // BTW uit prijs halen
+    
+    // Totaal = subtotaal + verzendkosten (beide inclusief BTW)
+    const total = subtotal + shippingCost;
     
     setVatCalculation({
       vat_rate: vatRate,
@@ -530,7 +530,15 @@ export default function CheckoutPage() {
       vatAmount
     });
     
-    console.log('Totals berekend:', { subtotal, shippingCost, total, vatAmount, cartLength: cart.length });
+    console.log('Totals berekend:', { 
+      subtotal, 
+      shippingCost, 
+      total, 
+      vatAmount, 
+      cartLength: cart.length,
+      vatRate,
+      calculation: `BTW: €${subtotal} × ${vatRate}% ÷ ${100 + vatRate} = €${vatAmount.toFixed(2)}`
+    });
   };
 
   // Recalculate totals when shipping method changes
