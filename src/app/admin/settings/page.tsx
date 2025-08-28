@@ -189,13 +189,13 @@ export default function SettingsPage() {
           mollieProfileId: savedSettings.mollieProfileId || savedSettings.mollie_profile_id || prev.mollieProfileId,
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
           mollieWebhookUrl: savedSettings.mollieWebhookUrl || savedSettings.mollie_webhook_url || prev.mollieWebhookUrl,
-          // E-mail instellingen uit database
-          adminEmail: savedSettings.adminEmail || '',
-          emailNotifications: savedSettings.emailNotifications || false,
-          smtpHost: savedSettings.smtpHost || '',
-          smtpPort: savedSettings.smtpPort || '',
-          smtpUser: savedSettings.smtpUser || '',
-          smtpPass: savedSettings.smtpPass || ''
+                  // E-mail instellingen komen uit environment variables (niet uit database)
+        adminEmail: savedSettings.adminEmail || '',
+        emailNotifications: savedSettings.emailNotifications || false,
+        smtpHost: savedSettings.smtpHost || '',
+        smtpPort: savedSettings.smtpPort || '',
+        smtpUser: savedSettings.smtpUser || '',
+        smtpPass: savedSettings.smtpPass || ''
         }));
         // Load Google Calendar config if present
         setGcalEmail(savedSettings.gcal_service_account_email || savedSettings.gcalServiceAccountEmail || '')
@@ -357,22 +357,18 @@ export default function SettingsPage() {
       }
       
       // Prepare settings for database (map component field names to database field names)
+      // E-mail instellingen worden NIET opgeslagen - deze komen uit environment variables
       const settingsForDatabase = {
         ...settings,
         google_maps_api_key: settings.googleMapsApiKey,
         gcal_service_account_email: gcalEmail,
         gcal_service_account_key: gcalKey,
         gcal_calendar_id: gcalCalendarId,
-        // Alleen niet-gevoelige e-mail instellingen opslaan
-        // SMTP instellingen komen uit .env
-        adminEmail: settings.adminEmail,
-        emailNotifications: settings.emailNotifications,
-        smtpHost: settings.smtpHost || '',
-        smtpPort: settings.smtpPort || '',
-        smtpUser: settings.smtpUser || '',
-        smtpPass: settings.smtpPass || ''
+        // E-mail instellingen worden NIET opgeslagen in database
+        // Deze komen uit Vercel Environment Variables
       }
       
+      console.log('💾 Instellingen opslaan via API...');
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: {
@@ -381,11 +377,16 @@ export default function SettingsPage() {
         body: JSON.stringify(settingsForDatabase),
       })
 
+      const result = await response.json();
+      console.log('📡 API response:', { status: response.status, ok: response.ok, result });
+
       if (response.ok) {
         setSaveStatus('success')
+        console.log('✅ Instellingen succesvol opgeslagen');
         setTimeout(() => setSaveStatus('idle'), 3000)
       } else {
         setSaveStatus('error')
+        console.error('❌ Fout bij opslaan:', result.message || 'Onbekende fout');
         setTimeout(() => setSaveStatus('idle'), 3000)
       }
     } catch (error) {
@@ -1300,7 +1301,8 @@ export default function SettingsPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-medium text-blue-900 mb-2">SMTP Instellingen</h3>
             <p className="text-blue-700 text-sm mb-3">
-              De SMTP instellingen kunnen hier worden gewijzigd. Wijzigingen worden opgeslagen in de database.
+              <strong>⚠️ Belangrijk:</strong> SMTP instellingen worden gelezen uit Vercel Environment Variables.
+              Deze kunnen niet hier worden gewijzigd, maar moeten in de Vercel Console worden ingesteld.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1308,13 +1310,9 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   value={settings.smtpHost || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpHost: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
+                  readOnly
                   placeholder="mail.whserver.nl"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
                 />
               </div>
               <div>
@@ -1322,13 +1320,9 @@ export default function SettingsPage() {
                 <input
                   type="number"
                   value={settings.smtpPort || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpPort: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
+                  readOnly
                   placeholder="587"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
                 />
               </div>
               <div>
@@ -1336,13 +1330,9 @@ export default function SettingsPage() {
                 <input
                   type="email"
                   value={settings.smtpUser || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpUser: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
+                  readOnly
                   placeholder="info@tesland.com"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
                 />
               </div>
               <div>
@@ -1350,18 +1340,14 @@ export default function SettingsPage() {
                 <input
                   type="password"
                   value={settings.smtpPass || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpPass: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
+                  readOnly
                   placeholder="Je wachtwoord"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-md bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
                 />
               </div>
             </div>
             <div className="mt-3 text-xs text-blue-600">
-              <strong>Let op:</strong> Wachtwoorden worden versleuteld opgeslagen in de database.
+              <strong>Let op:</strong> Deze velden zijn alleen-lezen. SMTP instellingen worden gelezen uit Vercel Environment Variables.
             </div>
           </div>
 
@@ -1372,12 +1358,12 @@ export default function SettingsPage() {
             <input
               type="email"
               value={settings.adminEmail}
-              onChange={(e) => setSettings({...settings, adminEmail: e.target.value})}
+              readOnly
               placeholder="admin@alloygator.nl"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
             />
             <p className="text-sm text-gray-500 mt-1">
-              E-mail adres voor admin notificaties
+              E-mail adres voor admin notificaties (uit Vercel Environment Variables)
             </p>
           </div>
 
@@ -1386,11 +1372,11 @@ export default function SettingsPage() {
               type="checkbox"
               id="emailNotifications"
               checked={settings.emailNotifications}
-              onChange={(e) => setSettings({...settings, emailNotifications: e.target.checked})}
-              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+              disabled
+              className="h-4 w-4 text-gray-400 focus:ring-gray-300 border-gray-300 rounded cursor-not-allowed"
             />
             <label htmlFor="emailNotifications" className="text-sm font-medium text-gray-700">
-              E-mail notificaties inschakelen
+              E-mail notificaties inschakelen (uit Vercel Environment Variables)
             </label>
           </div>
 

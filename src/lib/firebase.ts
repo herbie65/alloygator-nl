@@ -950,7 +950,7 @@ export class FirebaseService {
 
   // Settings
   static async getSettings() {
-    return await this.getDocuments('settings', []);
+    return await this.getDocuments('settings');
   }
 
   static async createSettings(settingsData: any) {

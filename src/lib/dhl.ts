@@ -27,6 +27,9 @@ interface DHLServiceItem {
   enabled: boolean;
 }
 
+// Import FirebaseService for order data access
+import { FirebaseService } from './firebase';
+
 interface DHLTokenResponse {
   accessToken: string;
   accessTokenExpiration: number;
@@ -325,9 +328,9 @@ export class DHLService {
       
       // Return the expected format for the frontend
       return {
-        tracking_number: result.trackingNumber || result.tracking_number || `DHL${Date.now()}`,
-        shipment_id: result.shipmentId || result.shipment_id || result.id || `shipment_${Date.now()}`,
-        label_url: result.labelUrl || result.label_url || result.pdfUrl || result.pdf_url || ''
+        trackingNumber: result.trackingNumber || result.tracking_number || `DHL${Date.now()}`,
+        shipmentId: result.shipmentId || result.shipment_id || result.id || `shipment_${Date.now()}`,
+        labelUrl: result.labelUrl || result.label_url || result.pdfUrl || result.pdf_url || ''
       };
     } catch (error) {
       console.error('Error creating DHL eCommerce shipment:', error);
@@ -368,6 +371,37 @@ export class DHLService {
       return result;
     } catch (error) {
       console.error('Error getting DHL shipment status:', error);
+      throw error;
+    }
+  }
+
+  static async generateLabel(
+    orderId: string,
+    settings: DHLSettings
+  ): Promise<any> {
+    try {
+      if (!settings.apiUserId || !settings.apiKey) {
+        throw new Error('DHL API UserId and API Key are required');
+      }
+
+      // Get access token first
+      const accessToken = await this.getAccessToken(settings);
+
+      // Haal order data op uit Firebase
+      const order = await FirebaseService.getDocument('orders', orderId)
+      if (!order) {
+        throw new Error('Order niet gevonden')
+      }
+
+      // Maak verzending aan en genereer label
+      const shipmentResult = await this.createShipment(order, settings)
+      
+      return {
+        labelUrl: shipmentResult.labelUrl,
+        trackingNumber: shipmentResult.trackingNumber
+      }
+    } catch (error) {
+      console.error('Error generating DHL label:', error);
       throw error;
     }
   }

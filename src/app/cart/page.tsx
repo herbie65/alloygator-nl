@@ -158,6 +158,40 @@ export default function CartPage() {
     loadVatSettings();
     
     setLoading(false);
+
+    // Listen for logout events to clear cart
+    const handleLogout = () => {
+      console.log('🚪 Cart: Logout event ontvangen - cart data wissen...')
+      
+      // Reset cart state
+      setCartItems([])
+      setSavedItems([])
+      
+      // Verwijder ALLE gerelateerde localStorage items
+      const itemsToRemove = [
+        'alloygator-cart',
+        'alloygator-saved-items',
+        'dealerEmail',
+        'dealerName',
+        'dealerGroup',
+        'dealerSession',
+        'dealerDiscount',
+        'customerDetails'
+      ]
+      
+      itemsToRemove.forEach(item => {
+        localStorage.removeItem(item)
+        console.log(`🗑️ Cart logout - verwijderd: ${item}`)
+      })
+      
+      console.log('✅ Cart: Alle cart data gewist')
+    }
+
+    window.addEventListener('user-logout', handleLogout)
+
+    return () => {
+      window.removeEventListener('user-logout', handleLogout)
+    }
   }, []);
 
   // Herbereken totalen wanneer gebruikerstype verandert

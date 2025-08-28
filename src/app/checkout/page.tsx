@@ -330,6 +330,55 @@ export default function CheckoutPage() {
       }
     }, 100);
 
+    // Listen for logout events to clear customer data
+    const handleLogout = () => {
+      console.log('🚪 Checkout: Logout event ontvangen - customer data wissen...')
+      
+      // Reset customer state naar lege waarden
+      setCustomer({
+        contact_first_name: "",
+        contact_last_name: "",
+        email: "",
+        phone: "",
+        address: "",
+        postal_code: "",
+        city: "",
+        country: "NL",
+        vat_number: "",
+        company_name: "",
+        invoice_email: "",
+        vat_verified: false,
+        vat_reverse_charge: false,
+        separate_shipping_address: false,
+        shipping_address: "",
+        shipping_postal_code: "",
+        shipping_city: "",
+        shipping_country: "NL"
+      })
+      
+      // Reset dealer group
+      setDealerGroup(null)
+      
+      // Verwijder ALLE gerelateerde localStorage items
+      const itemsToRemove = [
+        'customerDetails',
+        'dealerEmail',
+        'dealerName',
+        'dealerGroup',
+        'dealerSession',
+        'dealerDiscount'
+      ]
+      
+      itemsToRemove.forEach(item => {
+        localStorage.removeItem(item)
+        console.log(`🗑️ Checkout logout - verwijderd: ${item}`)
+      })
+      
+      console.log('✅ Checkout: Alle customer data gewist')
+    }
+
+    window.addEventListener('user-logout', handleLogout)
+
     // Prevent accidental form submit by Enter on non-review steps
     const handler = (e: KeyboardEvent) => {
       const isEnter = e.key === 'Enter'
@@ -341,7 +390,10 @@ export default function CheckoutPage() {
       }
     }
     try { window.addEventListener('keydown', handler) } catch {}
-    return () => { try { window.removeEventListener('keydown', handler) } catch {} }
+    return () => { 
+      try { window.removeEventListener('keydown', handler) } catch {}
+      try { window.removeEventListener('user-logout', handleLogout) } catch {}
+    }
   }, []);
 
   // Recalculate totals when cart changes

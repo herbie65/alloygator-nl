@@ -1,67 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const dynamic = "force-static"
+
 
 import { FirebaseService } from '@/lib/firebase';
 
 // Helper functie om admin sessie te controleren
 function checkAdminSession(request: NextRequest): boolean {
   const session = request.cookies.get('adminSessionV2')?.value || '';
-  if (!session) return false;
+  if (!session) {
+    console.log('❌ Geen admin sessie cookie gevonden');
+    return false;
+  }
   
   try {
     const s = JSON.parse(decodeURIComponent(session));
-    return s && s.email; // Basis check voor geldige sessie
-  } catch {
+    const isValid = s && s.email;
+    console.log('🔍 Admin sessie check:', { hasSession: !!s, hasEmail: !!s?.email, isValid });
+    return isValid;
+  } catch (error) {
+    console.log('❌ Fout bij parsen admin sessie:', error);
     return false;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 Settings POST request ontvangen');
+    
     // Controleer admin sessie
     if (!checkAdminSession(request)) {
+      console.log('❌ Admin sessie check gefaald');
       return NextResponse.json({ 
         success: false, 
         message: 'Geen geldige admin sessie' 
       }, { status: 401 });
     }
 
+    console.log('✅ Admin sessie geldig, instellingen ophalen...');
     const settingsData = await request.json();
+    console.log('📝 Ontvangen instellingen:', Object.keys(settingsData));
+
+    // Filter e-mail instellingen uit - deze komen uit environment variables
+    const { smtpHost, smtpPort, smtpUser, smtpPass, adminEmail, emailNotifications, ...otherSettings } = settingsData;
+    
+    console.log('📧 E-mail instellingen gefilterd (gebruik environment variables)');
+    console.log('💾 Overige instellingen opslaan in database');
 
     // Get existing settings to find the ID
     const existingSettings = await FirebaseService.getSettings();
+    console.log('🔍 Bestaande instellingen gevonden:', existingSettings ? existingSettings.length : 0);
     
     if (existingSettings && existingSettings.length > 0) {
       // Update existing settings
       const settingsId = existingSettings[0].id;
+      console.log('🔄 Instellingen bijwerken met ID:', settingsId);
+      
       await FirebaseService.updateSettings(settingsId, {
         ...existingSettings[0],
-        ...settingsData,
+        ...otherSettings, // Alleen niet-e-mail instellingen
         updated_at: new Date().toISOString()
       });
       
-      console.log('Settings updated successfully');
+      console.log('✅ Instellingen succesvol bijgewerkt');
     } else {
       // Create new settings
+      console.log('🆕 Nieuwe instellingen aanmaken');
+      
       await FirebaseService.createSettings({
-        ...settingsData,
+        ...otherSettings, // Alleen niet-e-mail instellingen
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
       
-      console.log('Settings created successfully');
+      console.log('✅ Nieuwe instellingen succesvol aangemaakt');
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Instellingen succesvol opgeslagen' 
+      message: 'Instellingen succesvol opgeslagen (e-mail instellingen uit environment variables)' 
     });
 
   } catch (error) {
-    console.error('Error saving settings:', error);
+    console.error('❌ Fout bij opslaan instellingen:', error);
     return NextResponse.json({ 
       success: false, 
-      message: 'Er is een fout opgetreden bij het opslaan van de instellingen' 
+      message: 'Er is een fout opgetreden bij het opslaan van de instellingen',
+      error: error instanceof Error ? error.message : 'Onbekende fout'
     }, { status: 500 });
   }
 }
@@ -82,28 +105,53 @@ export async function GET(request: NextRequest) {
     const settings = await FirebaseService.getSettings();
     
     if (settings && settings.length > 0) {
-      return NextResponse.json(settings[0]);
+      // Voeg e-mail instellingen toe uit environment variables
+      const settingsWithEmail = {
+        ...settings[0],
+        smtpHost: process.env.SMTP_HOST || '',
+        smtpPort: process.env.SMTP_PORT || '587',
+        smtpUser: process.env.SMTP_USER || '',
+        smtpPass: process.env.SMTP_PASSWORD ? '••••••••••••' : '', // Verberg wachtwoord
+        adminEmail: process.env.ADMIN_EMAIL || 'admin@alloygator.nl',
+        emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true'
+      };
+      
+      return NextResponse.json(settingsWithEmail);
     } else {
       // Fallback naar standaard instellingen als database leeg is
       return NextResponse.json({
-        shippingCost: '0',
+        shippingCost: '8.95',
         freeShippingThreshold: '300',
         shippingMethods: [
-          { id: 'standard', name: 'Standaard verzending', price: 0, enabled: true, carrier: 'standard' }
+          { id: 'standard', name: 'Standaard verzending', price: 8.95, enabled: true, carrier: 'standard' }
         ],
-        enabledCarriers: ['standard']
+        enabledCarriers: ['standard'],
+        // E-mail instellingen uit environment variables
+        smtpHost: process.env.SMTP_HOST || '',
+        smtpPort: process.env.SMTP_PORT || '587',
+        smtpUser: process.env.SMTP_USER || '',
+        smtpPass: process.env.SMTP_PASSWORD ? '••••••••••••' : '',
+        adminEmail: process.env.ADMIN_EMAIL || 'admin@alloygator.nl',
+        emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true'
       });
     }
   } catch (error) {
     console.error('Error fetching settings:', error);
     // Fallback naar standaard instellingen bij error
     return NextResponse.json({
-      shippingCost: '0',
-              freeShippingThreshold: '300',
+      shippingCost: '8.95',
+      freeShippingThreshold: '300',
       shippingMethods: [
-        { id: 'standard', name: 'Standaard verzending', price: 0, enabled: true, carrier: 'standard' }
+        { id: 'standard', name: 'Standaard verzending', price: 8.95, enabled: true, carrier: 'standard' }
       ],
-      enabledCarriers: ['standard']
+      enabledCarriers: ['standard'],
+      // E-mail instellingen uit environment variables
+      smtpHost: process.env.SMTP_HOST || '',
+      smtpPort: process.env.SMTP_PORT || '587',
+      smtpUser: process.env.SMTP_USER || '',
+      smtpPass: process.env.SMTP_PASSWORD ? '••••••••••••' : '',
+      adminEmail: process.env.ADMIN_EMAIL || 'admin@alloygator.nl',
+      emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true'
     });
   }
 }

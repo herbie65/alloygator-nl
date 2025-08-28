@@ -14,6 +14,7 @@ interface User {
 export default function Header() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+
   const [cartCount, setCartCount] = useState(0)
   const [wishlistCount, setWishlistCount] = useState(0)
   const [dealerName, setDealerName] = useState<string | null>(null)
@@ -186,13 +187,40 @@ export default function Header() {
   }, [])
 
   const handleLogout = () => {
-    // Trigger custom event to notify other components
-    window.dispatchEvent(new Event('user-logout'))
+    console.log('🚪 Logout gestart - alle gegevens wissen...')
     
-    localStorage.removeItem('currentUser')
-    localStorage.removeItem('isLoggedIn')
+    // Verwijder ALLE gebruikersgegevens en sessies
+    const itemsToRemove = [
+      'alloygator-cart',
+      'dealerDiscount', 
+      'dealerEmail',
+      'dealerName',
+      'dealerGroup',
+      'currentUser',
+      'isLoggedIn',
+      'dealerSession',
+      'customerDetails', // Checkout customer data
+      'wishlist',
+      'orders'
+    ]
+    
+    itemsToRemove.forEach(item => {
+      localStorage.removeItem(item)
+      console.log(`🗑️ Verwijderd: ${item}`)
+    })
+    
+    // Reset alle state
     setUser(null)
-    window.location.reload()
+    setDealerName(null)
+    setDealerGroupLabel(null)
+    
+    // Trigger custom event om andere componenten te informeren
+    window.dispatchEvent(new Event('user-logout'))
+    console.log('📡 Logout event verzonden naar andere componenten')
+    
+    // Redirect naar home
+    console.log('🏠 Redirect naar home...')
+    window.location.href = '/'
   }
 
   if (loading) {
@@ -267,7 +295,47 @@ export default function Header() {
               </button>
               
               {dealerName && (
-                <span className="text-xs text-green-700 bg-green-100 px-2 py-1 rounded">Dealer: {dealerName}{dealerGroupLabel ? ` — ${dealerGroupLabel}` : ''}</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-green-700 bg-green-100 px-2 py-1 rounded">Dealer: {dealerName}{dealerGroupLabel ? ` — ${dealerGroupLabel}` : ''}</span>
+                  <button
+                    onClick={() => {
+                      console.log('🚪 Dealer logout gestart...')
+                      
+                      // Verwijder ALLE dealer gegevens
+                      const itemsToRemove = [
+                        'dealerEmail',
+                        'dealerName', 
+                        'dealerGroup',
+                        'dealerSession',
+                        'alloygator-cart',
+                        'dealerDiscount',
+                        'customerDetails',
+                        'wishlist',
+                        'orders'
+                      ]
+                      
+                      itemsToRemove.forEach(item => {
+                        localStorage.removeItem(item)
+                        console.log(`🗑️ Dealer logout - verwijderd: ${item}`)
+                      })
+                      
+                      // Reset state
+                      setDealerName(null)
+                      setDealerGroupLabel(null)
+                      
+                      // Trigger logout event voor andere componenten
+                      window.dispatchEvent(new Event('user-logout'))
+                      
+                      // Redirect naar home
+                      console.log('🏠 Dealer redirect naar home...')
+                      window.location.href = '/'
+                    }}
+                    className="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:border-red-300 transition-colors"
+                    title="Dealer uitloggen"
+                  >
+                    🚪
+                  </button>
+                </div>
               )}
                           {/* Wishlist */}
               <Link href="/wishlist" className="relative text-gray-700 hover:text-green-600 transition-colors">
