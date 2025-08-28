@@ -1353,11 +1353,9 @@ export default function CheckoutPage() {
                           .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
                           .map((method) => {
                             // Calculate if this method would be free (based on net items subtotal)
-                            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                            // GEEN korting opnieuw toepassen - item.price bevat al de dealer korting
-                            const discountTmp = 0; // Dealer korting is al toegepast in item.price
-                            const netTmp = subtotal; // Geen korting aftrekken - al toegepast
-                            const isFree = netTmp >= parseFloat(settings.freeShippingThreshold);
+                            // item.price bevat al de dealer korting, dus gebruik dit direct
+                            const netSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                            const isFree = netSubtotal >= parseFloat(settings.freeShippingThreshold);
                             
                             return (
                               <div key={method.id} className="border border-gray-200 rounded-lg p-4">
