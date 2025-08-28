@@ -184,6 +184,14 @@ export default function CheckoutPage() {
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null)
   const [showPickupLocations, setShowPickupLocations] = useState(false)
   const [isResolvingPostcode, setIsResolvingPostcode] = useState(false)
+  
+  // State voor order totalen
+  const [orderTotals, setOrderTotals] = useState({
+    subtotal: 0,
+    shippingCost: 0,
+    total: 0,
+    vatAmount: 0
+  })
 
   // Country list (Dutch names), NL & BE will be shown on top
   const OTHER_COUNTRIES: { code: string; name: string }[] = [
@@ -512,6 +520,14 @@ export default function CheckoutPage() {
       total_amount: total,
       vat_exempt: false,
       vat_reason: ''
+    });
+    
+    // Sla de totalen op in state voor gebruik bij betaling
+    setOrderTotals({
+      subtotal,
+      shippingCost,
+      total,
+      vatAmount
     });
     
     console.log('Totals berekend:', { subtotal, shippingCost, total, vatAmount, cartLength: cart.length });
@@ -907,8 +923,13 @@ export default function CheckoutPage() {
 
       // 2) Create Mollie payment for the order
       const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      const returnUrl = `${window.location.origin}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
-      const webhookUrl = `${window.location.origin}/api/payment/mollie/webhook`
+      
+      // Gebruik altijd het Vercel domein voor Mollie (webhooks moeten publiek toegankelijk zijn)
+      const baseUrl = 'https://alloygator-nl.vercel.app'
+      const returnUrl = `${baseUrl}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
+      const webhookUrl = `${baseUrl}/api/payment/mollie/webhook`
+      
+      console.log('Mollie URLs:', { baseUrl, returnUrl, webhookUrl })
 
       const paymentRes = await fetch('/api/payment/mollie/create', {
         method: 'POST',

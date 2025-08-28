@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createMollieClient } from '@mollie/api-client'
 
-export const dynamic = "force-static"
+
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { amount, currency, description, orderId, redirectUrl, webhookUrl, cardToken, idealIssuer } = body
+    
+    console.log('Mollie payment request:', { amount, currency, description, orderId, amountType: typeof amount })
 
     // Haal Mollie instellingen op uit environment variabelen
     const mollieApiKey = process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true' 
@@ -31,11 +33,14 @@ export async function POST(request: NextRequest) {
     // Maak Mollie client aan met de officiële library
     const mollieClient = createMollieClient({ apiKey: mollieApiKey });
 
-    // Maak betalingsdata object
+    // Converteer bedrag naar Mollie formaat (XX.XX als string)
+    const amountFormatted = parseFloat(amount).toFixed(2);
+    
+    // Maak betalingsdata object volgens Mollie API specificatie
     const paymentData: any = {
       amount: {
         currency: currency || 'EUR',
-        value: amount.toString()
+        value: amountFormatted
       },
       description: description || `Bestelling ${orderId}`,
       redirectUrl: redirectUrl,
@@ -45,6 +50,32 @@ export async function POST(request: NextRequest) {
         orderId: orderId
       }
     };
+    
+    // Valideer dat het bedrag een geldig nummer is
+    if (!paymentData.amount.value || isNaN(paymentData.amount.value)) {
+      return NextResponse.json({
+        success: false,
+        message: 'Ongeldig bedrag formaat',
+        error: `Bedrag moet een geldig nummer zijn, ontvangen: ${amount}`
+      }, { status: 400 })
+    }
+    
+    // Valideer webhook URL (moet Vercel domein zijn)
+    if (webhookUrl && !webhookUrl.includes('alloygator-nl.vercel.app')) {
+      return NextResponse.json({
+        success: false,
+        message: 'Ongeldige webhook URL',
+        error: 'Webhook URL moet het Vercel domein gebruiken'
+      }, { status: 400 })
+    }
+    
+    console.log('Payment data being sent to Mollie:', paymentData);
+    console.log('Amount details:', { 
+      original: amount, 
+      parsed: parseFloat(amount), 
+      formatted: amountFormatted,
+      final: paymentData.amount.value 
+    });
 
     // Voeg card token toe als deze beschikbaar is (voor creditcard betalingen)
     if (cardToken) {
