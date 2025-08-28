@@ -494,9 +494,9 @@ export default function CheckoutPage() {
       return;
     }
     
-    // 1. Bruto prijs van het product (excl. BTW)
+    // 1. Bruto prijs van het product (incl. BTW)
     // 2. Netto prijs berekenen (dealer korting eraf)
-    const subtotalExclVat = cart.reduce((sum, item) => {
+    const subtotalInclVat = cart.reduce((sum, item) => {
       const discountedPrice = getDiscountedPrice(item.price, item.vat_category);
       return sum + (discountedPrice * item.quantity);
     }, 0);
@@ -515,46 +515,47 @@ export default function CheckoutPage() {
       } else {
         // Voor verzending: gratis boven drempel uit instellingen
         const threshold = parseFloat(settings.freeShippingThreshold) || 300;
-        if (subtotalExclVat >= threshold) {
+        if (subtotalInclVat >= threshold) {
           shippingCost = 0;
         } else {
-          // Anders: standaard verzendkosten
-          shippingCost = parseFloat(settings.shippingCost) || 8.95;
+          // Anders: standaard verzendkosten (inclusief BTW)
+          const baseCost = parseFloat(settings.shippingCost) || 8.95;
+          shippingCost = dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
         }
       }
     }
     
-    // 4. Subtotaal incl. verzendkosten (excl. BTW)
-    const subtotalWithShipping = subtotalExclVat + shippingCost;
+    // 4. Subtotaal incl. verzendkosten (incl. BTW)
+    const subtotalWithShipping = subtotalInclVat + shippingCost;
     
-    // 5. BTW berekenen over het totaal (excl. BTW) - alleen als verzendmethode is gekozen
+    // 5. BTW is al inbegrepen in de prijzen - geen extra BTW berekening nodig
     let vatAmount = 0;
-    let total = subtotalExclVat;
+    let total = subtotalInclVat;
     
     if (shippingMethod) {
-      const vatRate = 21; // Nederlandse BTW
-      vatAmount = subtotalWithShipping * (vatRate / 100);
-      total = subtotalWithShipping + vatAmount;
+      // BTW is al inbegrepen in de productprijzen
+      // Verzendkosten zijn ook inclusief BTW
+      total = subtotalWithShipping;
       
       setVatCalculation({
-        vat_rate: vatRate,
-        vat_amount: vatAmount,
+        vat_rate: 21, // BTW percentage voor referentie
+        vat_amount: 0, // Geen extra BTW
         total_amount: total,
         vat_exempt: false,
-        vat_reason: ''
+        vat_reason: 'BTW al inbegrepen in prijzen'
       });
     }
     
     // Sla de totalen op in state voor gebruik bij betaling
     setOrderTotals({
-      subtotal: subtotalExclVat,
+      subtotal: subtotalInclVat,
       shippingCost,
       total,
       vatAmount
     });
     
     console.log('Totals berekend:', { 
-      subtotalExclVat, 
+      subtotalInclVat, 
       shippingCost, 
       subtotalWithShipping,
       vatAmount, 
@@ -883,7 +884,7 @@ export default function CheckoutPage() {
           if (netSubtotal >= threshold) {
             return 0; // Gratis verzending
           } else {
-            // Standaard verzendkosten
+            // Standaard verzendkosten (inclusief BTW)
             const baseCost = parseFloat(settings.shippingCost) || 8.95;
             return dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
           }
@@ -1823,13 +1824,13 @@ export default function CheckoutPage() {
                <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotaal:</span>
-                  <span>€{orderTotals.subtotal.toFixed(2)} (excl. BTW)</span>
+                  <span>€{orderTotals.subtotal.toFixed(2)} (incl. BTW)</span>
                 </div>
                 
                 {/* Verzendkosten - alleen tonen als verzendmethode is gekozen */}
                 {shippingMethod && (
                   <div className="flex justify-between text-sm">
-                    <span>Verzendkosten (excl. BTW):</span>
+                    <span>Verzendkosten (incl. BTW):</span>
                     <span>{(orderTotals.shippingCost === 0 ? 'Gratis' : `€${orderTotals.shippingCost.toFixed(2)}`)}</span>
                   </div>
                 )}
@@ -1844,7 +1845,7 @@ export default function CheckoutPage() {
                 
                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
                   <span>{shippingMethod ? 'Totaal:' : 'Subtotaal:'}</span>
-                   <span>€{orderTotals.total.toFixed(2)} {shippingMethod ? '(incl. BTW)' : '(excl. BTW)'}</span>
+                   <span>€{orderTotals.total.toFixed(2)} (incl. BTW)</span>
                 </div>
               </div>
 
