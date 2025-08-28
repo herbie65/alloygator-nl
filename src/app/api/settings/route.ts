@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       // Fallback naar standaard instellingen als database leeg is
       return NextResponse.json({
         shippingCost: '0',
-        freeShippingThreshold: '50',
+        freeShippingThreshold: '300',
         shippingMethods: [
           { id: 'standard', name: 'Standaard verzending', price: 0, enabled: true, carrier: 'standard' }
         ],
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     // Fallback naar standaard instellingen bij error
     return NextResponse.json({
       shippingCost: '0',
-      freeShippingThreshold: '50',
+              freeShippingThreshold: '300',
       shippingMethods: [
         { id: 'standard', name: 'Standaard verzending', price: 0, enabled: true, carrier: 'standard' }
       ],

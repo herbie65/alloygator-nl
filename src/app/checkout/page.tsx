@@ -124,7 +124,7 @@ export default function CheckoutPage() {
   const [settings, setSettings] = useState<Settings>({
     shippingMethods: [],
     shippingCost: '8.95',
-    freeShippingThreshold: '50.00',
+    freeShippingThreshold: '300.00',
     enabledCarriers: ['dhl']
   });
 
@@ -232,12 +232,13 @@ export default function CheckoutPage() {
   ].sort((a, b) => a.name.localeCompare(b.name, 'nl'))
 
   const getDiscountedPrice = (price: number, vatCategory: string = 'standard') => {
-    if (dealer.isDealer) {
-      // Voor dealers: item.price bevat al de dealer korting (geen opnieuw toepassen)
-      return price // Geen korting opnieuw toepassen
+    if (dealer.isDealer && dealer.discountPercent > 0) {
+      // Voor dealers: korting toepassen op de bruto prijs (excl. BTW)
+      const discountedPrice = price * (1 - dealer.discountPercent / 100);
+      return Math.round(discountedPrice * 100) / 100; // Afronden op 2 decimalen
     } else {
-      // Voor particuliere klanten: prijs is al inclusief BTW, geen wijziging nodig
-      return price
+      // Voor particuliere klanten: geen korting
+      return price;
     }
   }
 
@@ -493,26 +494,43 @@ export default function CheckoutPage() {
       return;
     }
     
-    // Subtotaal (prijzen zijn inclusief BTW)
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // 1. Bruto prijs van het product (excl. BTW)
+    // 2. Netto prijs berekenen (dealer korting eraf)
+    const subtotalExclVat = cart.reduce((sum, item) => {
+      const discountedPrice = getDiscountedPrice(item.price, item.vat_category);
+      return sum + (discountedPrice * item.quantity);
+    }, 0);
     
-    // Verzendkosten bepalen
+    // 3. Verzendkosten bepalen
     let shippingCost = 0;
     
-    // Als subtotaal boven drempel: gratis verzending
-    if (subtotal >= 50) {
+    // Controleer of afhalen is geselecteerd
+    const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+    const isPickup = selectedMethod?.delivery_type === 'pickup' || shippingMethod === 'pickup';
+    
+    if (isPickup) {
+      // Afhalen is altijd gratis
       shippingCost = 0;
     } else {
-      // Anders: standaard verzendkosten
-      shippingCost = 5.95; // Standaard verzendkosten
+      // Voor verzending: gratis boven drempel uit instellingen
+      const threshold = parseFloat(settings.freeShippingThreshold) || 300;
+      if (subtotalExclVat >= threshold) {
+        shippingCost = 0;
+      } else {
+        // Anders: standaard verzendkosten
+        shippingCost = parseFloat(settings.shippingCost) || 8.95;
+      }
     }
     
-    // BTW berekening (prijzen zijn inclusief BTW, dus BTW eruit halen)
-    const vatRate = 21; // Nederlandse BTW
-    const vatAmount = (subtotal * vatRate) / (100 + vatRate); // BTW uit prijs halen
+    // 4. Subtotaal incl. verzendkosten (excl. BTW)
+    const subtotalWithShipping = subtotalExclVat + shippingCost;
     
-    // Totaal = subtotaal + verzendkosten (beide inclusief BTW)
-    const total = subtotal + shippingCost;
+    // 5. BTW berekenen over het totaal (excl. BTW)
+    const vatRate = 21; // Nederlandse BTW
+    const vatAmount = subtotalWithShipping * (vatRate / 100);
+    
+    // 6. Eindbedrag (incl. BTW)
+    const total = subtotalWithShipping + vatAmount;
     
     setVatCalculation({
       vat_rate: vatRate,
@@ -524,20 +542,21 @@ export default function CheckoutPage() {
     
     // Sla de totalen op in state voor gebruik bij betaling
     setOrderTotals({
-      subtotal,
+      subtotal: subtotalExclVat,
       shippingCost,
       total,
       vatAmount
     });
     
     console.log('Totals berekend:', { 
-      subtotal, 
+      subtotalExclVat, 
       shippingCost, 
-      total, 
+      subtotalWithShipping,
       vatAmount, 
+      total,
       cartLength: cart.length,
       vatRate,
-      calculation: `BTW: €${subtotal} × ${vatRate}% ÷ ${100 + vatRate} = €${vatAmount.toFixed(2)}`
+      calculation: `BTW: €${subtotalWithShipping} × ${vatRate}% = €${vatAmount.toFixed(2)}`
     });
   };
 
@@ -1780,26 +1799,24 @@ export default function CheckoutPage() {
                <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotaal:</span>
-                   <span>€{(dealer.isDealer ? netItems : subtotalPre).toFixed(2)} {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}</span>
+                  <span>€{orderTotals.subtotal.toFixed(2)} (excl. BTW)</span>
                 </div>
                 
-                {/* Verzendkosten tonen op basis van gebruikerstype */}
+                {/* Verzendkosten */}
                 <div className="flex justify-between text-sm">
-                  <span>Verzendkosten {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}:</span>
-                  <span>{(finalShippingCost === 0 ? 'Gratis' : `€${finalShippingCost.toFixed(2)}`)}</span>
+                  <span>Verzendkosten (excl. BTW):</span>
+                  <span>{(orderTotals.shippingCost === 0 ? 'Gratis' : `€${orderTotals.shippingCost.toFixed(2)}`)}</span>
                 </div>
 
-                {/* BTW alleen tonen wanneer er daadwerkelijk BTW is */}
-                {vatCalculation.vat_amount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>BTW:</span>
-                    <span>€{vatCalculation.vat_amount.toFixed(2)}</span>
-                  </div>
-                )}
+                {/* BTW */}
+                <div className="flex justify-between text-sm">
+                  <span>BTW (21%):</span>
+                  <span>€{orderTotals.vatAmount.toFixed(2)}</span>
+                </div>
                 
                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
                   <span>Totaal:</span>
-                   <span>€{vatCalculation.total_amount.toFixed(2)}</span>
+                   <span>€{orderTotals.total.toFixed(2)} (incl. BTW)</span>
                 </div>
               </div>
 
