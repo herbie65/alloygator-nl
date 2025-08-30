@@ -375,6 +375,7 @@ export default function AdminLayout({
       href: '#', 
       icon: '👥',
       color: 'bg-green-500',
+      badge: !expandedSections.includes('klanten') && appointmentsToday > 0 ? String(appointmentsToday) : undefined,
       children: [
         { name: 'Klanten Overzicht', href: '/admin/customers', icon: '👤', color: 'bg-green-400' },
         { name: 'Klantgroepen', href: '/admin/customer-groups', icon: '🏷️', color: 'bg-green-400' },
@@ -382,8 +383,7 @@ export default function AdminLayout({
           name: 'CRM', 
           href: '/admin/crm', 
           icon: '🤝', 
-          color: 'bg-green-400',
-          badge: appointmentsToday > 0 ? String(appointmentsToday) : (customerUploadNotifications > 0 ? String(customerUploadNotifications) : undefined)
+          color: 'bg-green-400'
         },
         { name: 'Afspraken', href: '/admin/crm/appointments', icon: '📅', color: 'bg-green-400', badge: appointmentsToday > 0 ? String(appointmentsToday) : undefined },
       ]
@@ -476,10 +476,6 @@ export default function AdminLayout({
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-white">AlloyGator Admin</h1>
-              <span className="ml-4 text-sm text-yellow-100">Afspraken vandaag:</span>
-              <a href="/admin/crm/appointments" className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-300 text-yellow-900 text-xs font-semibold hover:bg-yellow-200" title="Afspraken vandaag">
-                📅 {appointmentsToday}
-              </a>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-green-100">Welkom, {email || 'Admin'}</span>
@@ -613,7 +609,12 @@ export default function AdminLayout({
                         <div className={`w-6 h-6 rounded-md mr-3 flex items-center justify-center text-white text-xs font-bold ${item.color}`}>
                           {item.name.charAt(0)}
                         </div>
-                        {item.name}
+                        <span className="flex-1">{item.name}</span>
+                        {item.badge && (
+                          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     )}
                   </div>
