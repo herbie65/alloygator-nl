@@ -1,5 +1,5 @@
 import { getEBoekhoudenClient } from '@/lib/eboekhouden';
-import { FirebaseService } from '@/lib/firebase';
+import { getOrderById, getCustomerById, updateOrder } from '@/lib/database';
 
 export interface OrderToEboekhoudenData {
   orderId: string;
@@ -28,13 +28,13 @@ export class OrderToEboekhoudenService {
   static async exportOrder(orderId: string): Promise<{ success: boolean; message: string; invoiceNumber?: string }> {
     try {
       // Haal order op uit Firebase
-      const order = await FirebaseService.getOrder(orderId);
+      const order = await getOrderById(orderId);
       if (!order) {
         throw new Error(`Order ${orderId} niet gevonden`);
       }
 
       // Haal klant op
-      const customer = await FirebaseService.getCustomer(order.customer_id);
+      const customer = await getCustomerById(order.customer_id);
       if (!customer) {
         throw new Error(`Klant ${order.customer_id} niet gevonden`);
       }
@@ -113,7 +113,7 @@ export class OrderToEboekhoudenService {
         const eboekhoudenInvoiceNumber = await this.client.addInvoice(sessionId, invoiceData);
 
         // Update order in Firebase met E-boekhouden referentie
-        await FirebaseService.updateOrder(orderId, {
+        await updateOrder(orderId, {
           eboekhouden_invoice_number: eboekhoudenInvoiceNumber,
           eboekhouden_exported_at: new Date().toISOString(),
           eboekhouden_customer_code: customerCode
