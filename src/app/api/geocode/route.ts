@@ -5,6 +5,56 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const postalCode = searchParams.get('postalCode') || searchParams.get('postal_code')
     const houseNumber = searchParams.get('houseNumber') || searchParams.get('house_number')
+    const address = searchParams.get('address')
+
+    // Adres lookup voor lat/long (nieuwe functionaliteit)
+    if (address) {
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        
+        if (!apiKey) {
+          return NextResponse.json({
+            error: 'Google Maps API key niet geconfigureerd'
+          }, { status: 500 })
+        }
+
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json'
+            }
+          }
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          
+          if (data.status === 'OK' && data.results && data.results.length > 0) {
+            const location = data.results[0].geometry.location
+            
+            return NextResponse.json({
+              success: true,
+              latitude: location.lat,
+              longitude: location.lng,
+              formatted_address: data.results[0].formatted_address
+            })
+          }
+        }
+        
+        return NextResponse.json({ 
+          error: 'Geen locatie gevonden voor dit adres' 
+        }, { status: 404 })
+
+      } catch (apiError) {
+        console.error('Error calling Google Geocoding API:', apiError)
+        
+        return NextResponse.json({ 
+          error: 'Kon geen verbinding maken met geocoding service' 
+        }, { status: 503 })
+      }
+    }
 
     // Postcode lookup (hoofdfunctionaliteit)
     if (!postalCode) {

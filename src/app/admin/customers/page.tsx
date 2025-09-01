@@ -1060,6 +1060,42 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                 </div>
               </div>
               
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!formData.address || !formData.postal_code || !formData.city) {
+                      alert('Voer eerst een volledig adres in (adres, postcode en plaats)');
+                      return;
+                    }
+                    
+                    try {
+                      const fullAddress = `${formData.address}, ${formData.postal_code} ${formData.city}, ${formData.country}`;
+                      const response = await fetch(`/api/geocode?address=${encodeURIComponent(fullAddress)}`);
+                      const data = await response.json();
+                      
+                      if (response.ok && data.latitude && data.longitude) {
+                        setFormData(prev => ({
+                          ...prev,
+                          latitude: data.latitude,
+                          longitude: data.longitude
+                        }));
+                        alert(`✅ Locatie opgehaald!\nLatitude: ${data.latitude}\nLongitude: ${data.longitude}`);
+                      } else {
+                        alert('Locatie niet gevonden voor dit adres');
+                      }
+                    } catch (error) {
+                      console.error('Error looking up location:', error);
+                      alert('Fout bij het opzoeken van de locatie');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                  disabled={!editingCustomer && !!customer}
+                >
+                  🔍 Haal locatie op uit adres
+                </button>
+              </div>
+              
 
             </div>
 
