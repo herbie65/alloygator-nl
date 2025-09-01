@@ -51,6 +51,7 @@ interface Customer {
   show_on_map?: boolean
   allow_invoice_payment?: boolean
   invoice_payment_terms_days?: number
+  customer_since?: string
   // CRM velden
   last_contact?: string
   last_visit?: string
@@ -981,7 +982,8 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
     payment_terms: '',
     credit_limit: 0,
     tax_exempt: false,
-    tax_exemption_reason: ''
+    tax_exemption_reason: '',
+    customer_since: ''
   })
 
 
@@ -1296,6 +1298,19 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                 </select>
               </div>
             )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Klant Sinds
+              </label>
+              <input
+                type="date"
+                value={formData.customer_since || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, customer_since: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                disabled={isViewing}
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

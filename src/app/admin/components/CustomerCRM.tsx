@@ -34,6 +34,7 @@ interface Customer {
   notes?: string
   birthday?: string
   contract_end_date?: string
+  customer_since?: string
 }
 
 interface VisitHistory {

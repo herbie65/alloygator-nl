@@ -55,6 +55,7 @@ interface Customer {
   separate_invoice_email?: boolean
   show_on_map?: boolean
   allow_invoice_payment?: boolean
+  customer_since?: string
 }
 
 interface CustomerGroup {
@@ -689,7 +690,8 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
         tax_exempt: false,
         tax_exemption_reason: '',
         show_on_map: false,
-        notes: ''
+        notes: '',
+        customer_since: ''
       })
     }
   }, [customer, editingCustomer])
@@ -737,6 +739,7 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
       notes: formData.notes || '',
       allow_invoice_payment: formData.allow_invoice_payment || false,
       invoice_payment_terms_days: formData.invoice_payment_terms_days || 14,
+      customer_since: formData.customer_since || '',
       created_at: editingCustomer?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -1249,6 +1252,20 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Klant Sinds */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Klant Sinds
+              </label>
+              <input
+                type="date"
+                value={formData.customer_since || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, customer_since: e.target.value }))}
+                disabled={!editingCustomer && !!customer}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+              />
             </div>
 
             {/* Status */}

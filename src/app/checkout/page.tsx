@@ -37,6 +37,7 @@ interface CustomerDetails {
   shipping_postal_code?: string;
   shipping_city?: string;
   shipping_country?: string;
+  customer_since?: string;
 }
 
 interface ShippingMethod {
