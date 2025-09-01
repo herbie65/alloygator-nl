@@ -8,15 +8,15 @@ export interface OrderToEboekhoudenData {
   invoiceDate: string;
   dueDate: string;
   items: Array<{
-    quantity: number;
-    unit: string;
-    description: string;
-    unitPriceExclVat: number;
-    vatCode: string;
-    ledgerCode: string;
+    Aantal: number;
+    Eenheid: string;
+    Omschrijving: string;
+    StukprijsExclBTW: number;
+    BTWCode: string;
+    TegenrekeningCode: string;
   }>;
-  vatCode?: string;
-  ledgerCode?: string;
+  BTWCode?: string;
+  TegenrekeningCode?: string;
 }
 
 export class OrderToEboekhoudenService {
@@ -39,32 +39,34 @@ export class OrderToEboekhoudenService {
         throw new Error(`Klant ${order.customer_id} niet gevonden`);
       }
 
-      // Genereer factuurnummer
-      const invoiceNumber = `F${new Date().getFullYear()}${String(orderId).padStart(6, '0')}`;
+      // Genereer factuurnummer (E-boekhouden eist alfanumeriek, max 20 karakters)
+      const year = new Date().getFullYear();
+      const orderNum = orderId.replace(/[^0-9]/g, '').slice(-6); // Alleen cijfers, laatste 6
+      const invoiceNumber = `F${year}${orderNum}`;
       
-      // Bereken vervaldatum (30 dagen na factuurdatum)
+      // Bereken vervaldatum (30 dagen na factuurdatum) - E-boekhouden eist YYYY-MM-DD format
       const invoiceDate = new Date().toISOString().split('T')[0];
       const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       // Converteer order items naar E-boekhouden formaat
       const invoiceItems = order.items.map(item => ({
-        quantity: item.quantity,
-        unit: 'stuk',
-        description: item.name,
-        unitPriceExclVat: parseFloat(item.price) / 1.21, // Excl. BTW (21%)
-        vatCode: 'HOOG', // 21% BTW
-        ledgerCode: '8000' // Omzet hoog
+        Aantal: item.quantity,
+        Eenheid: 'stuk',
+        Omschrijving: item.name,
+        StukprijsExclBTW: parseFloat(item.price) / 1.21, // Excl. BTW (21%)
+        BTWCode: 'HOOG', // 21% BTW
+        TegenrekeningCode: '8000' // Omzet hoog
       }));
 
       // Voeg verzendkosten toe als aparte regel
       if (order.shipping_cost && order.shipping_cost > 0) {
         invoiceItems.push({
-          quantity: 1,
-          unit: 'stuk',
-          description: 'Verzendkosten',
-          unitPriceExclVat: parseFloat(order.shipping_cost) / 1.21,
-          vatCode: 'HOOG',
-          ledgerCode: '8000'
+          Aantal: 1,
+          Eenheid: 'stuk',
+          Omschrijving: 'Verzendkosten',
+          StukprijsExclBTW: parseFloat(order.shipping_cost) / 1.21,
+          BTWCode: 'HOOG',
+          TegenrekeningCode: '8000'
         });
       }
 
@@ -81,8 +83,9 @@ export class OrderToEboekhoudenService {
           customerCode = existingRelation.Code;
         } else {
           // Voeg nieuwe klant toe aan E-boekhouden
+          const timestamp = Date.now().toString().slice(-8); // Laatste 8 cijfers
           const relationData = {
-            Code: `K${Date.now()}`, // Unieke code
+            Code: `K${timestamp}`, // Unieke code (max 20 karakters)
             Bedrijf: customer.company_name || undefined,
             Contactpersoon: customer.name,
             Email: customer.email,
