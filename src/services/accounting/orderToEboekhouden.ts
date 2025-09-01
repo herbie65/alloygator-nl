@@ -189,7 +189,7 @@ export class OrderToEboekhoudenService {
    */
   static async isOrderExported(orderId: string): Promise<boolean> {
     try {
-      const order = await FirebaseService.getOrder(orderId);
+      const order = await getOrderById(orderId);
       return !!(order?.eboekhouden_invoice_number);
     } catch (error) {
       return false;

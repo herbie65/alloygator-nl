@@ -3,7 +3,17 @@ import { OrderToEboekhoudenService } from '@/services/accounting/orderToEboekhou
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.error('JSON parsing error:', jsonError);
+      return NextResponse.json({
+        success: false,
+        message: 'Ongeldige JSON in request body'
+      }, { status: 400 });
+    }
+
     const { orderId } = body;
 
     if (!orderId) {
@@ -12,6 +22,8 @@ export async function POST(request: NextRequest) {
         message: 'Order ID is verplicht'
       }, { status: 400 });
     }
+
+    console.log('🔍 E-boekhouden export request for order:', orderId);
 
     // Controleer of order al geëxporteerd is
     const isExported = await OrderToEboekhoudenService.isOrderExported(orderId);
@@ -25,10 +37,11 @@ export async function POST(request: NextRequest) {
     // Export order naar E-boekhouden
     const result = await OrderToEboekhoudenService.exportOrder(orderId);
 
+    console.log('✅ E-boekhouden export result:', result);
     return NextResponse.json(result);
 
   } catch (error) {
-    console.error('E-boekhouden export order error:', error);
+    console.error('❌ E-boekhouden export order error:', error);
     return NextResponse.json({
       success: false,
       message: error instanceof Error ? error.message : 'Onbekende fout bij exporteren order'
