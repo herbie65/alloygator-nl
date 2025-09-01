@@ -8,9 +8,9 @@ export class EBoekhoudenClient {
   private readonly baseUrl = 'https://soap.e-boekhouden.nl/soap.asmx';
 
   constructor() {
-    this.username = process.env.EBOEK_USERNAME || '';
-    this.securityCode1 = process.env.EBOEK_SECURITY_CODE_1 || '';
-    this.securityCode2 = process.env.EBOEK_SECURITY_CODE_2 || '';
+    this.username = process.env.EBOEKHOUDEN_USERNAME || '';
+    this.securityCode1 = process.env.EBOEKHOUDEN_SECURITY_CODE_1 || '';
+    this.securityCode2 = process.env.EBOEKHOUDEN_SECURITY_CODE_2 || '';
   }
 
   private validateCredentials(): void {
