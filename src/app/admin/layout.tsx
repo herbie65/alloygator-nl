@@ -422,6 +422,7 @@ export default function AdminLayout({
       badge: !expandedSections.includes('klanten') && appointmentsToday > 0 ? String(appointmentsToday) : undefined,
       children: [
         { name: 'Klanten Overzicht', href: '/admin/customers', icon: '👤', color: 'bg-green-400' },
+        { name: 'Klanten Importeren', href: '/admin/customers/import', icon: '📥', color: 'bg-green-400' },
         { name: 'Klantgroepen', href: '/admin/customer-groups', icon: '🏷️', color: 'bg-green-400' },
         { 
           name: 'CRM', 
