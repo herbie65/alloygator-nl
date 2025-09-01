@@ -23,7 +23,7 @@ export class OrderToEboekhoudenService {
   private static client = getEBoekhoudenClient();
 
   /**
-   * Export een order naar E-boekhouden
+   * Export een factuur naar E-boekhouden
    */
   static async exportOrder(orderId: string): Promise<{ success: boolean; message: string; invoiceNumber?: string }> {
     try {
@@ -33,23 +33,32 @@ export class OrderToEboekhoudenService {
         throw new Error(`Order ${orderId} niet gevonden`);
       }
 
+      // Zoek bijbehorende factuur
+      const invoices = await FirebaseService.getDocuments('invoices', [
+        { field: 'order_id', operator: '==', value: orderId }
+      ]);
+      
+      if (!invoices || invoices.length === 0) {
+        throw new Error(`Geen factuur gevonden voor order ${orderId}. Genereer eerst een factuur.`);
+      }
+      
+      const invoice = invoices[0]; // Neem de eerste factuur
+
       // Haal klant op
       const customer = await getCustomerById(order.customer_id);
       if (!customer) {
         throw new Error(`Klant ${order.customer_id} niet gevonden`);
       }
 
-      // Genereer factuurnummer (E-boekhouden eist alfanumeriek, max 20 karakters)
-      const year = new Date().getFullYear();
-      const orderNum = orderId.replace(/[^0-9]/g, '').slice(-6); // Alleen cijfers, laatste 6
-      const invoiceNumber = `F${year}${orderNum}`;
+      // Gebruik bestaand factuurnummer of genereer nieuw
+      const invoiceNumber = invoice.invoice_number || `F${new Date().getFullYear()}${orderId.replace(/[^0-9]/g, '').slice(-6)}`;
       
-      // Bereken vervaldatum (30 dagen na factuurdatum) - E-boekhouden eist YYYY-MM-DD format
-      const invoiceDate = new Date().toISOString().split('T')[0];
-      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      // Gebruik factuurdatum en vervaldatum uit factuur
+      const invoiceDate = invoice.created_at ? new Date(invoice.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const dueDate = invoice.due_at ? new Date(invoice.due_at).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      // Converteer order items naar E-boekhouden formaat
-      const invoiceItems = order.items.map(item => ({
+      // Converteer factuur items naar E-boekhouden formaat
+      const invoiceItems = invoice.items.map(item => ({
         Aantal: item.quantity,
         Eenheid: 'stuk',
         Omschrijving: item.name,
@@ -59,12 +68,12 @@ export class OrderToEboekhoudenService {
       }));
 
       // Voeg verzendkosten toe als aparte regel
-      if (order.shipping_cost && order.shipping_cost > 0) {
+      if (invoice.shipping_cost && invoice.shipping_cost > 0) {
         invoiceItems.push({
           Aantal: 1,
           Eenheid: 'stuk',
           Omschrijving: 'Verzendkosten',
-          StukprijsExclBTW: parseFloat(order.shipping_cost) / 1.21,
+          StukprijsExclBTW: parseFloat(invoice.shipping_cost) / 1.21,
           BTWCode: 'HOOG',
           TegenrekeningCode: '8000'
         });
@@ -117,6 +126,13 @@ export class OrderToEboekhoudenService {
 
         // Update order in Firebase met E-boekhouden referentie
         await updateOrder(orderId, {
+          eboekhouden_invoice_number: eboekhoudenInvoiceNumber,
+          eboekhouden_exported_at: new Date().toISOString(),
+          eboekhouden_customer_code: customerCode
+        });
+
+        // Update ook de factuur met E-boekhouden referentie
+        await FirebaseService.updateDocument('invoices', invoice.id, {
           eboekhouden_invoice_number: eboekhoudenInvoiceNumber,
           eboekhouden_exported_at: new Date().toISOString(),
           eboekhouden_customer_code: customerCode
