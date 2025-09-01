@@ -1201,11 +1201,12 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                   Website
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.website || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
                   disabled={!editingCustomer && !!customer}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                  placeholder="https://www.example.com"
                 />
               </div>
             </div>

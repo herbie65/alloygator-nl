@@ -1154,11 +1154,12 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                 Website
               </label>
               <input
-                type="url"
+                type="text"
                 value={formData.website || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                 disabled={isViewing}
+                placeholder="https://www.example.com"
               />
             </div>
 
