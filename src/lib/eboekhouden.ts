@@ -11,7 +11,9 @@ export class EBoekhoudenClient {
     this.username = process.env.EBOEK_USERNAME || '';
     this.securityCode1 = process.env.EBOEK_SECURITY_CODE_1 || '';
     this.securityCode2 = process.env.EBOEK_SECURITY_CODE_2 || '';
+  }
 
+  private validateCredentials(): void {
     if (!this.username || !this.securityCode1 || !this.securityCode2) {
       throw new Error('E-boekhouden credentials not configured in environment variables');
     }
@@ -68,6 +70,7 @@ export class EBoekhoudenClient {
   // Test connection
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
+      this.validateCredentials();
       const sessionId = await this.openSession();
       await this.closeSession(sessionId);
       return { success: true, message: 'Verbinding succesvol getest' };
@@ -81,6 +84,7 @@ export class EBoekhoudenClient {
 
   // Open session
   async openSession(): Promise<string> {
+    this.validateCredentials();
     const body = `
       <OpenSession xmlns="http://www.e-boekhouden.nl/soap">
         <Username>${this.username}</Username>
