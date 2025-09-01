@@ -111,6 +111,7 @@ export default function CustomersPage() {
     return matchesSearch && matchesStatus && matchesGroup
   }).sort((a, b) => {
     switch (sortBy) {
+      case 'id': return a.id.localeCompare(b.id)
       case 'name': return a.name.localeCompare(b.name)
       case 'email': return a.email.localeCompare(b.email)
       case 'postal_code': return (a.postal_code || '').localeCompare(b.postal_code || '')
@@ -461,6 +462,7 @@ export default function CustomersPage() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               >
+                <option value="id">Sorteer op Klant ID</option>
                 <option value="name">Sorteer op Naam</option>
                 <option value="email">Sorteer op Email</option>
                 <option value="postal_code">Sorteer op Postcode</option>
