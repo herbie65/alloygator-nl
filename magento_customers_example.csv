@@ -1,6 +1,6 @@
-entity_id,email,firstname,lastname,company,telephone,street,city,postcode,country_id,vat_id,group_id,is_active,created_at
-1,john.doe@example.com,John,Doe,Test Company BV,0612345678,Hoofdstraat 123,Amsterdam,1234 AB,NL,NL123456789B01,1,1,2023-01-15 10:30:00
-2,jane.smith@example.com,Jane,Smith,Smith Automotive,0623456789,Industrieweg 45,Rotterdam,3000 AA,NL,NL987654321B02,2,1,2023-01-16 14:20:00
-3,bob.wilson@example.com,Bob,Wilson,Wilson Motors,0634567890,Autobaan 67,Utrecht,3500 BB,NL,NL456789123B03,3,1,2023-01-17 09:15:00
-4,alice.brown@example.com,Alice,Brown,,0645678901,Prinsengracht 89,Den Haag,2500 CC,NL,,1,1,2023-01-18 16:45:00
-5,charlie.davis@example.com,Charlie,Davis,Davis Car Care,0656789012,Mechanicstraat 12,Eindhoven,5600 DD,NL,NL789123456B04,2,1,2023-01-19 11:30:00
+entity_id,email,firstname,lastname,company,telephone,street,city,postcode,country_id,vat_id,group_id,is_active,created_at,customer_since
+1,john.doe@example.com,John,Doe,"Test Company BV",0612345678,Hoofdstraat 123,Amsterdam,1234 AB,NL,NL123456789B01,1,1,2023-01-15 10:30:00,"Jul 8, 2021 03:00:00 AM"
+2,jane.smith@example.com,Jane,Smith,"Smith Automotive",0623456789,Industrieweg 45,Rotterdam,3000 AA,NL,NL987654321B02,2,1,2023-01-16 14:20:00,"Mar 15, 2022 09:30:00 AM"
+3,bob.wilson@example.com,Bob,Wilson,"Wilson Motors",0634567890,Autobaan 67,Utrecht,3500 BB,NL,NL456789123B03,3,1,2023-01-17 09:15:00,"Nov 22, 2020 14:45:00 PM"
+4,alice.brown@example.com,Alice,Brown,,0645678901,Prinsengracht 89,Den Haag,2500 CC,NL,,1,1,2023-01-18 16:45:00,"Jan 5, 2023 11:20:00 AM"
+5,charlie.davis@example.com,Charlie,Davis,"Davis Car Care",0656789012,Mechanicstraat 12,Eindhoven,5600 DD,NL,NL789123456B04,2,1,2023-01-19 11:30:00,"Sep 12, 2021 16:15:00 PM"

@@ -102,7 +102,8 @@ export default function CustomerImportPage() {
     { key: 'payment_terms', label: 'Betaalvoorwaarden', required: false, description: 'Betaalvoorwaarden' },
     { key: 'credit_limit', label: 'Kredietlimiet', required: false, description: 'Kredietlimiet' },
     { key: 'tax_exempt', label: 'BTW Vrijgesteld', required: false, description: 'BTW vrijgesteld' },
-    { key: 'tax_exemption_reason', label: 'BTW Vrijstelling Reden', required: false, description: 'Reden voor BTW vrijstelling' }
+    { key: 'tax_exemption_reason', label: 'BTW Vrijstelling Reden', required: false, description: 'Reden voor BTW vrijstelling' },
+    { key: 'customer_since', label: 'Klant Sinds', required: false, description: 'Datum sinds wanneer klant bekend is' }
   ]
 
   // Magento-specifieke veld suggesties
@@ -122,7 +123,8 @@ export default function CustomerImportPage() {
     'is_active': 'status',
     'website_id': 'website',
     'created_at': 'created_at',
-    'updated_at': 'updated_at'
+    'updated_at': 'updated_at',
+    'customer_since': 'customer_since'
   }
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,10 +140,55 @@ export default function CustomerImportPage() {
     }
   }
 
+  // Functie om Magento datum te parsen (format: "Jul 8, 2021 03:00:00 AM")
+  const parseMagentoDate = (dateString: string): string => {
+    if (!dateString || dateString.trim() === '') return ''
+    
+    try {
+      // Parse de Magento datum string
+      const date = new Date(dateString)
+      
+      // Controleer of de datum geldig is
+      if (isNaN(date.getTime())) {
+        console.warn(`Ongeldige datum: ${dateString}`)
+        return ''
+      }
+      
+      // Retourneer alleen de datum in YYYY-MM-DD formaat
+      return date.toISOString().split('T')[0]
+    } catch (error) {
+      console.warn(`Fout bij parsen datum ${dateString}:`, error)
+      return ''
+    }
+  }
+
+  // Betere CSV parser die omgaat met komma's in velden
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    
+    result.push(current.trim())
+    return result.map(value => value.replace(/^"|"$/g, '')) // Verwijder quotes aan begin/eind
+  }
+
   const parseCSV = (csvText: string) => {
     const lines = csvText.split('\n').filter(line => line.trim())
     if (lines.length > 0) {
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+      const headers = parseCSVLine(lines[0])
       setHeaders(headers)
       
       // Auto-map Magento velden
@@ -156,11 +203,24 @@ export default function CustomerImportPage() {
       
       // Generate preview (eerste 5 rijen)
       const preview = lines.slice(1, 6).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+        const values = parseCSVLine(line)
         const row: any = {}
         headers.forEach((header, index) => {
           row[header] = values[index] || ''
         })
+        
+        // Toon ook de samengestelde naam in preview
+        if (row.firstname || row.lastname) {
+          const firstName = row.firstname || ''
+          const lastName = row.lastname || ''
+          row.preview_name = `${firstName} ${lastName}`.trim()
+        }
+        
+        // Toon ook de geparseerde datum in preview
+        if (row.customer_since) {
+          row.preview_customer_since = parseMagentoDate(row.customer_since)
+        }
+        
         return row
       })
       setPreviewData(preview)
@@ -215,12 +275,13 @@ export default function CustomerImportPage() {
 
     for (let i = 0; i < dataLines.length; i++) {
       const line = dataLines[i]
-      const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+      const values = parseCSVLine(line)
       
       try {
         // Map CSV data naar customer object
         const customerData: Partial<Customer> = {}
         
+        // Eerst alle velden mappen
         headers.forEach((header, index) => {
           const targetField = mapping[header]
           if (targetField && values[index]) {
@@ -235,11 +296,20 @@ export default function CustomerImportPage() {
               value = value.toLowerCase() === 'true' || value.toLowerCase() === '1' || value.toLowerCase() === 'yes'
             } else if (targetField === 'status') {
               value = value.toLowerCase() === 'active' ? 'active' : value.toLowerCase() === 'inactive' ? 'inactive' : 'pending'
+            } else if (targetField === 'customer_since') {
+              value = parseMagentoDate(value)
             }
             
             customerData[targetField] = value
           }
         })
+
+        // Naam samenstellen uit firstname en lastname
+        if (customerData.contact_first_name || customerData.contact_last_name) {
+          const firstName = customerData.contact_first_name || ''
+          const lastName = customerData.contact_last_name || ''
+          customerData.name = `${firstName} ${lastName}`.trim()
+        }
 
         // Verplichte velden controleren
         if (!customerData.name || !customerData.email) {
@@ -343,6 +413,25 @@ export default function CustomerImportPage() {
       {previewData.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">3. Voorvertoning</h2>
+          
+          {/* Samengestelde naam en datum preview */}
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">Preview Data:</h3>
+            <div className="text-sm text-blue-700 space-y-1">
+              {previewData.map((row, index) => (
+                <div key={index}>
+                  <strong>Rij {index + 1}:</strong> 
+                  <div className="ml-4">
+                    <div>Naam: {row.preview_name || 'Geen naam'}</div>
+                    {row.preview_customer_since && (
+                      <div>Klant sinds: {row.preview_customer_since}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -431,17 +520,20 @@ export default function CustomerImportPage() {
         </div>
       )}
 
-      {/* Help Section */}
-      <div className="bg-blue-50 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-blue-900 mb-4">💡 Tips voor Magento Export</h2>
-        <div className="text-sm text-blue-800 space-y-2">
-          <p>• Exporteer klanten vanuit Magento Admin → Customers → All Customers</p>
-          <p>• Zorg dat de CSV de volgende kolommen bevat: entity_id, email, firstname, lastname, company, telephone, street, city, postcode, country_id</p>
-          <p>• Voor dealers: voeg een kolom toe met 'is_dealer' (true/false) of gebruik 'group_id'</p>
-          <p>• BTW nummers kunnen in de 'vat_id' kolom staan</p>
-          <p>• Zorg dat email adressen uniek zijn</p>
-        </div>
-      </div>
+             {/* Help Section */}
+       <div className="bg-blue-50 rounded-lg p-6">
+         <h2 className="text-lg font-semibold text-blue-900 mb-4">💡 Tips voor Magento Export</h2>
+         <div className="text-sm text-blue-800 space-y-2">
+                       <p>• Exporteer klanten vanuit Magento Admin → Customers → All Customers</p>
+            <p>• Zorg dat de CSV de volgende kolommen bevat: entity_id, email, firstname, lastname, company, telephone, street, city, postcode, country_id, customer_since</p>
+            <p>• <strong>Naam mapping:</strong> firstname + lastname worden automatisch gecombineerd tot het 'name' veld</p>
+            <p>• <strong>Datum mapping:</strong> customer_since wordt automatisch geparsed van "Jul 8, 2021 03:00:00 AM" naar "2021-07-08"</p>
+            <p>• Voor dealers: voeg een kolom toe met 'is_dealer' (true/false) of gebruik 'group_id'</p>
+            <p>• BTW nummers kunnen in de 'vat_id' kolom staan</p>
+            <p>• Zorg dat email adressen uniek zijn</p>
+            <p>• <strong>CSV formaat:</strong> Gebruik quotes rond velden met komma's: "Company, Inc."</p>
+         </div>
+       </div>
     </div>
   )
 }
