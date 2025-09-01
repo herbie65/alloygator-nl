@@ -62,8 +62,12 @@ export class EBoekhoudenClient {
     const errorCode = xml.match(/<LastErrorCode>(.*?)<\/LastErrorCode>/)?.[1];
     const errorDesc = xml.match(/<LastErrorDescription>(.*?)<\/LastErrorDescription>/)?.[1];
     
+    console.log('🔍 E-boekhouden error check:', { errorCode, errorDesc });
+    
     if (errorCode && errorCode !== '0') {
-      throw new Error(`E-boekhouden error ${errorCode}: ${errorDesc || 'Unknown error'}`);
+      const errorMessage = `E-boekhouden error ${errorCode}: ${errorDesc || 'Unknown error'}`;
+      console.error('❌ E-boekhouden error:', errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
@@ -268,6 +272,14 @@ export class EBoekhoudenClient {
     BTWCode?: string;
     TegenrekeningCode?: string;
   }): Promise<string> {
+    console.log('🔍 E-boekhouden addInvoice called with:', {
+      RelatieCode: invoice.RelatieCode,
+      Factuurnummer: invoice.Factuurnummer,
+      Factuurdatum: invoice.Factuurdatum,
+      Vervaldatum: invoice.Vervaldatum,
+      regelsCount: invoice.Factuurregels.length
+    });
+
     const regels = invoice.Factuurregels.map(regel => `
       <cFactuurRegel>
         <Aantal>${regel.Aantal}</Aantal>
@@ -296,8 +308,15 @@ export class EBoekhoudenClient {
         </oFact>
       </AddFactuur>`;
 
+    console.log('📤 E-boekhouden SOAP request body:', body);
+
     const xml = await this.soapCall('AddFactuur', body);
+    
+    console.log('📥 E-boekhouden SOAP response:', xml);
+    
     const result = this.parseXmlResponse(xml, ['Factuurnummer', 'LastErrorCode', 'LastErrorDescription']);
+    
+    console.log('🔍 E-boekhouden parsed result:', result);
     
     this.checkForErrors(xml);
     
