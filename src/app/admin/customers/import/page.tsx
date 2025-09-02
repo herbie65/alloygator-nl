@@ -39,6 +39,7 @@ interface Customer {
   separate_shipping_address?: boolean
   shipping_address?: string
   shipping_city?: string
+  sets_purchased_last_year?: number
   shipping_postal_code?: string
   shipping_country?: string
   kvk_number?: string
@@ -314,6 +315,7 @@ export default function CustomerImportPage() {
         customerData.country = customerData.country || 'Nederland'
         customerData.status = customerData.status || 'active'
         customerData.is_dealer = customerData.is_dealer || false
+        customerData.sets_purchased_last_year = customerData.sets_purchased_last_year || 0
         customerData.total_orders = customerData.total_orders || 0
         customerData.total_spent = customerData.total_spent || 0
         customerData.created_at = new Date().toISOString()

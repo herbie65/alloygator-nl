@@ -48,6 +48,7 @@ interface Customer {
   separate_shipping_address?: boolean
   shipping_address?: string
   shipping_city?: string
+  sets_purchased_last_year?: number
   shipping_postal_code?: string
   shipping_country?: string
   kvk_number?: string
@@ -119,7 +120,7 @@ export default function CustomersPage() {
       case 'total_orders': return b.total_orders - a.total_orders
       case 'total_spent': return b.total_spent - a.total_spent
       case 'created_at': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      default: return a.name.localeCompare(b.name)
+      default: return (a.company_name || a.email).localeCompare(b.company_name || b.email)
     }
   })
 
@@ -177,7 +178,7 @@ export default function CustomersPage() {
           await FirebaseService.addCustomer(customer)
           successCount++
         } catch (error) {
-          console.error(`Error importing customer ${customer.name}:`, error)
+          console.error(`Error importing customer ${customer.company_name || customer.email}:`, error)
           errorCount++
         }
       }
@@ -677,6 +678,7 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
         separate_shipping_address: false,
         shipping_address: '',
         shipping_city: '',
+        sets_purchased_last_year: 0,
         shipping_postal_code: '',
         shipping_country: 'Nederland',
         kvk_number: '',
@@ -714,6 +716,7 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
       country: formData.country || 'Nederland',
       is_dealer: formData.is_dealer || false,
       dealer_group: formData.dealer_group || '',
+      sets_purchased_last_year: formData.sets_purchased_last_year || 0,
       total_orders: formData.total_orders || 0,
       total_spent: formData.total_spent || 0,
       status: formData.status || 'active',
@@ -1247,6 +1250,23 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                         <option key={group.id} value={group.name}>{group.name}</option>
                       ))}
                     </select>
+                  </div>
+                )}
+                {formData.is_dealer && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Sets gekocht afgelopen jaar
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.sets_purchased_last_year || 0}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sets_purchased_last_year: parseInt(e.target.value) || 0 }))}
+                      disabled={!editingCustomer && !!customer}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Aantal sets dat de dealer heeft gekocht voordat de site live ging</p>
                   </div>
                 )}
                 {formData.is_dealer && (

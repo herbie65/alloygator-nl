@@ -41,6 +41,7 @@ interface User {
   dealer_group?: string
   company_name?: string
   created_at: string
+  sets_purchased_last_year?: number
 }
 
 interface Order {
@@ -106,7 +107,8 @@ export default function AccountPage() {
               is_dealer: !!record.is_dealer,
               dealer_group: record.dealer_group || '',
               company_name: record.company_name || record.bedrijfsnaam || '',
-              created_at: record.created_at || new Date().toISOString()
+              created_at: record.created_at || new Date().toISOString(),
+              sets_purchased_last_year: record.sets_purchased_last_year || 0
             })
             setLoading(false)
             return
@@ -225,7 +227,9 @@ export default function AccountPage() {
             .filter((it: any) => { const c=(it.category||'').toLowerCase(); if(c==='alloygator-set') return true; const n=(it.name||'').toLowerCase(); return !c && n.includes('alloygator') && n.includes('set') })
 
           const qty = itemsInYear.reduce((s:number, it:any) => s + Number(it.quantity || 0), 0)
-          setSetsSold(qty)
+          // Tel pre-live sets op bij de huidige sets
+          const totalSets = qty + (user.sets_purchased_last_year || 0)
+          setSetsSold(totalSets)
         }
 
         // Open invoice stats and payment speed (for all customers)
