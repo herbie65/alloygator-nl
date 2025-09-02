@@ -5,7 +5,7 @@ import { FirebaseService } from '@/lib/firebase'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { amount, currency, description, redirectUrl, webhookUrl, metadata, methods } = body;
+    const { amount, currency, description, redirectUrl, webhookUrl, metadata, methods, orderId, cardToken, idealIssuer } = body;
 
     // Valideer verplichte velden
     if (!amount || !currency || !description || !redirectUrl) {
@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
       },
       description: description,
       redirectUrl: redirectUrl,
-      metadata: metadata || {}
+      metadata: {
+        orderId: orderId,
+        ...metadata
+      }
     };
 
     // Voeg optionele velden toe

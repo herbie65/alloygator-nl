@@ -1038,11 +1038,11 @@ export default function CheckoutPage() {
       
       console.log('Mollie URLs:', { baseUrl, returnUrl, webhookUrl })
 
-      const paymentRes = await fetch('/api/payment/mollie/create', {
+      const paymentRes = await fetch('/api/payment/mollie', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: order.total,
+          amount: Math.round(order.total * 100) / 100,
           currency: 'EUR',
           description: `Order ${orderNumber}`,
           orderId: orderId,
