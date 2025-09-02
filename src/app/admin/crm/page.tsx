@@ -9,7 +9,6 @@ import Link from 'next/link'
 
 interface Customer {
   id: string
-  name: string
   email: string
   phone: string
   company_name?: string
@@ -962,7 +961,6 @@ interface CustomerDetailModalProps {
 function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave, onClose, saving }: CustomerDetailModalProps) {
   const [formData, setFormData] = useState<Customer>({
     id: '',
-    name: '',
     email: '',
     phone: '',
     company_name: '',
@@ -1035,12 +1033,12 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Naam *
+                Voornaam *
               </label>
               <input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                value={formData.contact_first_name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_first_name: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                 required
                 disabled={isViewing}
@@ -1049,13 +1047,14 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Persoon
+                Achternaam *
               </label>
               <input
                 type="text"
-                value={formData.contact_person || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, contact_person: e.target.value }))}
+                value={formData.contact_last_name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_last_name: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                required
                 disabled={isViewing}
               />
             </div>
@@ -1308,23 +1307,21 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
               </div>
             )}
 
-            {formData.is_dealer && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sets gekocht afgelopen jaar
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.sets_purchased_last_year || 0}
-                  onChange={(e) => setFormData(prev => ({ ...prev, sets_purchased_last_year: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  disabled={isViewing}
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">Aantal sets dat de dealer heeft gekocht voordat de site live ging</p>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sets gekocht afgelopen jaar
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.sets_purchased_last_year || 0}
+                onChange={(e) => setFormData(prev => ({ ...prev, sets_purchased_last_year: parseInt(e.target.value) || 0 }))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                disabled={isViewing}
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-500 mt-1">Aantal sets dat de dealer heeft gekocht voordat de site live ging</p>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
