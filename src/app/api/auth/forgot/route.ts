@@ -70,13 +70,31 @@ export async function POST(request: NextRequest) {
     const resetUrl = `${baseUrl}/auth/reset?token=${resetToken}&email=${encodeURIComponent(email)}`;
     console.log('🔍 Reset URL created:', resetUrl);
     
-    // Email instellingen worden direct uit environment variables gehaald
+    // Haal email instellingen op uit database
+    console.log('🔍 Fetching email settings from database...');
+    let emailSettings = null;
+    try {
+      // Probeer email instellingen op te halen uit de settings collectie
+      const settingsQuery = query(collection(db, 'settings'), where('smtpHost', '!=', ''));
+      const settingsSnapshot = await getDocs(settingsQuery);
+      if (!settingsSnapshot.empty) {
+        emailSettings = settingsSnapshot.docs[0].data();
+        console.log('✅ Email settings found in database:', {
+          host: emailSettings.smtpHost,
+          port: emailSettings.smtpPort,
+          user: emailSettings.smtpUser,
+          hasPass: !!emailSettings.smtpPass
+        });
+      }
+    } catch (dbError) {
+      console.error('❌ Error fetching email settings:', dbError);
+    }
     
-    // Gebruik environment variables direct
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASSWORD;
+    // Gebruik database instellingen of backup naar environment variables
+    const smtpHost = emailSettings?.smtpHost || process.env.SMTP_HOST;
+    const smtpPort = emailSettings?.smtpPort || process.env.SMTP_PORT;
+    const smtpUser = emailSettings?.smtpUser || process.env.SMTP_USER;
+    const smtpPass = emailSettings?.smtpPass || process.env.SMTP_PASSWORD;
     
     // Controleer of alle benodigde instellingen aanwezig zijn
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
@@ -87,7 +105,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
-    console.log('🔍 Creating EmailService with environment variables:', {
+    console.log('🔍 Creating EmailService with settings:', {
       host: smtpHost,
       port: smtpPort,
       user: smtpUser,
@@ -99,12 +117,12 @@ export async function POST(request: NextRequest) {
       smtpPort: smtpPort,
       smtpUser: smtpUser,
       smtpPass: smtpPass,
-      adminEmail: process.env.ADMIN_EMAIL || smtpUser,
+      adminEmail: emailSettings?.adminEmail || process.env.ADMIN_EMAIL || smtpUser,
       emailNotifications: true
     });
     
     // Send password reset email
-    console.log('🔍 Attempting to send email with environment variables:', {
+    console.log('🔍 Attempting to send email with settings:', {
       host: smtpHost,
       port: smtpPort,
       user: smtpUser,
