@@ -41,6 +41,7 @@ interface User {
   dealer_group?: string
   company_name?: string
   created_at: string
+  sets_purchased_last_year?: number
 }
 
 interface Order {
@@ -106,7 +107,8 @@ export default function AccountPage() {
               is_dealer: !!record.is_dealer,
               dealer_group: record.dealer_group || '',
               company_name: record.company_name || record.bedrijfsnaam || '',
-              created_at: record.created_at || new Date().toISOString()
+              created_at: record.created_at || new Date().toISOString(),
+              sets_purchased_last_year: record.sets_purchased_last_year || 0
             })
             setLoading(false)
             return
@@ -225,7 +227,9 @@ export default function AccountPage() {
             .filter((it: any) => { const c=(it.category||'').toLowerCase(); if(c==='alloygator-set') return true; const n=(it.name||'').toLowerCase(); return !c && n.includes('alloygator') && n.includes('set') })
 
           const qty = itemsInYear.reduce((s:number, it:any) => s + Number(it.quantity || 0), 0)
-          setSetsSold(qty)
+          // Tel pre-live sets op bij de huidige sets
+          const totalSets = qty + (user.sets_purchased_last_year || 0)
+          setSetsSold(totalSets)
         }
 
         // Open invoice stats and payment speed (for all customers)
@@ -486,7 +490,7 @@ export default function AccountPage() {
                         <div className="flex items-center justify-between gap-3">
                           <div className="text-xl font-semibold flex items-center gap-3">
                             <span>{groupVisual.label}</span>
-                            <span className="text-xs opacity-90">• Dealer sinds {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL') : '-'}</span>
+                            <span className="text-xs opacity-90">• Dealer sinds {user.created_at ? new Date(user.created_at).toLocaleDateString('nl-NL') : '-'}</span>
                           </div>
                           {groupDiscount > 0 && (
                             <div className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight pr-2">
@@ -535,9 +539,9 @@ export default function AccountPage() {
 
                         // Bereken jaarprogressie sinds dealer startdatum
                         const calculateYearProgress = () => {
-                          if (!firstOrderDate) return 0
+                          if (!user.created_at) return 0
                           
-                          const startDate = firstOrderDate
+                          const startDate = new Date(user.created_at)
                           const now = new Date()
                           
                           // Bereken progressie binnen het "dealer jaar" (van startdatum tot startdatum + 1 jaar)
@@ -586,7 +590,7 @@ export default function AccountPage() {
                                   <div className={`${(target-setsSold) <= 0 ? 'text-green-600' : 'text-red-600'}`}>{(target-setsSold) <= 0 ? 'Target gehaald' : `Nog nodig: ${target - setsSold} sets`}</div>
                                   <div className="text-gray-600">Gem. betaaltermijn: {avgPaymentDays === null ? '–' : `${avgPaymentDays} dagen`}</div>
                                   <div className="text-blue-600">Target voortgang: {targetProgressPct}%</div>
-                                  <div className="text-xs text-gray-500">Reset elk jaar op {firstOrderDate ? firstOrderDate.toLocaleDateString('nl-NL', { month: 'long', day: 'numeric' }) : '-'}</div>
+                                  <div className="text-xs text-gray-500">Reset elk jaar op {user.created_at ? new Date(user.created_at).toLocaleDateString('nl-NL', { month: 'long', day: 'numeric' }) : '-'}</div>
                                 </div>
                               </div>
                             </div>
