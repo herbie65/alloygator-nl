@@ -4,10 +4,16 @@ import { EmailService } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
-    const { adminEmail, emailNotifications, smtpHost, smtpPort, smtpUser, smtpPass } = await request.json();
+    // Gebruik environment variables direct
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASSWORD;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const emailNotifications = process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true';
 
-    // Debug: Log alle ontvangen instellingen
-    console.log('🔍 Debug ontvangen instellingen:');
+    // Debug: Log alle environment variables
+    console.log('🔍 Debug environment variables:');
     console.log('smtpHost:', smtpHost);
     console.log('smtpPort:', smtpPort);
     console.log('smtpUser:', smtpUser);
@@ -17,23 +23,23 @@ export async function POST(request: NextRequest) {
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
       return NextResponse.json({ 
         success: false, 
-        message: `SMTP instellingen ontbreken: ${[
-          !smtpHost && 'SMTP Host',
-          !smtpPort && 'SMTP Port', 
-          !smtpUser && 'SMTP Gebruiker',
-          !smtpPass && 'SMTP Wachtwoord'
-        ].filter(Boolean).join(', ')}. Vul alle velden in en sla de instellingen op.` 
+        message: `SMTP instellingen ontbreken in environment variables: ${[
+          !smtpHost && 'SMTP_HOST',
+          !smtpPort && 'SMTP_PORT', 
+          !smtpUser && 'SMTP_USER',
+          !smtpPass && 'SMTP_PASSWORD'
+        ].filter(Boolean).join(', ')}.` 
       }, { status: 400 });
     }
 
-    // Maak EmailService aan met database instellingen
+    // Maak EmailService aan met environment variables
     const emailService = new EmailService({
       smtpHost,
       smtpPort,
       smtpUser,
       smtpPass,
       adminEmail: adminEmail || smtpUser,
-      emailNotifications: emailNotifications || false
+      emailNotifications
     });
 
     // Test the connection

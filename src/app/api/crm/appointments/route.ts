@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
 
 export async function GET(request: NextRequest) {
@@ -25,17 +24,35 @@ export async function GET(request: NextRequest) {
     
     if (from) {
       const fromDate = new Date(from)
+      console.log('Filtering from date:', fromDate.toISOString())
       filteredAppointments = filteredAppointments.filter(apt => {
-        const aptDate = new Date(apt.date || apt.created_at)
-        return aptDate >= fromDate
+        // Probeer verschillende datum velden
+        const aptDate = new Date(apt.start_at || apt.date || apt.created_at)
+        const isValidDate = !isNaN(aptDate.getTime())
+        if (!isValidDate) {
+          console.log('Invalid date for appointment:', apt.id, apt.start_at, apt.date, apt.created_at)
+          return false
+        }
+        const result = aptDate >= fromDate
+        console.log(`Appointment ${apt.id}: ${aptDate.toISOString()} >= ${fromDate.toISOString()} = ${result}`)
+        return result
       })
     }
     
     if (to) {
       const toDate = new Date(to)
+      console.log('Filtering to date:', toDate.toISOString())
       filteredAppointments = filteredAppointments.filter(apt => {
-        const aptDate = new Date(apt.date || apt.created_at)
-        return aptDate <= toDate
+        // Probeer verschillende datum velden
+        const aptDate = new Date(apt.start_at || apt.date || apt.created_at)
+        const isValidDate = !isNaN(aptDate.getTime())
+        if (!isValidDate) {
+          console.log('Invalid date for appointment:', apt.id, apt.start_at, apt.date, apt.created_at)
+          return false
+        }
+        const result = aptDate <= toDate
+        console.log(`Appointment ${apt.id}: ${aptDate.toISOString()} <= ${toDate.toISOString()} = ${result}`)
+        return result
       })
     }
     

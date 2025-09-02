@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       ? process.env.MOLLIE_TEST_API_KEY  // Geen NEXT_PUBLIC_ voor server-side!
       : process.env.MOLLIE_API_KEY;
     
-    const profileId = process.env.MOLLIE_PROFILE_ID; // Geen NEXT_PUBLIC_ voor server-side!
+    const profileId = process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID;
 
     if (!apiKey) {
       console.error('Mollie API key missing. Test mode:', isTestMode);
@@ -56,8 +56,9 @@ export async function POST(request: NextRequest) {
         description: description,
         redirectUrl: redirectUrl,
         webhookUrl: webhookUrl,
-        metadata: metadata || {},
-        methods: methods && methods.length > 0 ? methods : ['ideal', 'bancontact', 'paypal', 'creditcard']
+        metadata: metadata,
+        methods: methods || ['ideal', 'bancontact', 'paypal'],
+        profileId: profileId
       })
     });
 

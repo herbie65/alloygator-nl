@@ -108,13 +108,14 @@ export default function SettingsPage() {
     mollieTestApiKey: process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY || '',
     mollieProfileId: process.env.NEXT_PUBLIC_MOLLIE_PROFILE_ID || '',
     mollieTestMode: process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true',
+    mollieWebhookUrl: process.env.NEXT_PUBLIC_MOLLIE_WEBHOOK_URL || '',
     // E-mail instellingen komen nu uit .env - alleen configuratie in database
-    adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
-    emailNotifications: process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === 'true',
-    smtpHost: process.env.NEXT_PUBLIC_SMTP_HOST || '',
-    smtpPort: process.env.NEXT_PUBLIC_SMTP_PORT || '',
-    smtpUser: process.env.NEXT_PUBLIC_SMTP_USER || '',
-    smtpPass: process.env.NEXT_PUBLIC_SMTP_PASS || ''
+    adminEmail: process.env.ADMIN_EMAIL || '',
+    emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
+    smtpHost: process.env.SMTP_HOST || '',
+    smtpPort: process.env.SMTP_PORT || '',
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPass: process.env.SMTP_PASSWORD || ''
   })
   // Google Calendar settings (persisted in Firestore settings doc)
   const [gcalEmail, setGcalEmail] = useState('')
@@ -187,13 +188,14 @@ export default function SettingsPage() {
           mollieTestApiKey: savedSettings.mollieTestApiKey || savedSettings.mollie_test_api_key || prev.mollieTestApiKey,
           mollieProfileId: savedSettings.mollieProfileId || savedSettings.mollie_profile_id || prev.mollieProfileId,
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
-          // E-mail instellingen uit database
-          adminEmail: savedSettings.adminEmail || '',
-          emailNotifications: savedSettings.emailNotifications || false,
-          smtpHost: savedSettings.smtpHost || '',
-          smtpPort: savedSettings.smtpPort || '',
-          smtpUser: savedSettings.smtpUser || '',
-          smtpPass: savedSettings.smtpPass || ''
+          mollieWebhookUrl: savedSettings.mollieWebhookUrl || savedSettings.mollie_webhook_url || prev.mollieWebhookUrl,
+                  // E-mail instellingen komen uit environment variables (niet uit database)
+        adminEmail: process.env.ADMIN_EMAIL || '',
+        emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
+        smtpHost: process.env.SMTP_HOST || '',
+        smtpPort: process.env.SMTP_PORT || '',
+        smtpUser: process.env.SMTP_USER || '',
+        smtpPass: process.env.SMTP_PASSWORD || ''
         }));
         // Load Google Calendar config if present
         setGcalEmail(savedSettings.gcal_service_account_email || savedSettings.gcalServiceAccountEmail || '')
@@ -355,22 +357,18 @@ export default function SettingsPage() {
       }
       
       // Prepare settings for database (map component field names to database field names)
+      // E-mail instellingen worden NIET opgeslagen - deze komen uit environment variables
       const settingsForDatabase = {
         ...settings,
         google_maps_api_key: settings.googleMapsApiKey,
         gcal_service_account_email: gcalEmail,
         gcal_service_account_key: gcalKey,
         gcal_calendar_id: gcalCalendarId,
-        // Alleen niet-gevoelige e-mail instellingen opslaan
-        // SMTP instellingen komen uit .env
-        adminEmail: settings.adminEmail,
-        emailNotifications: settings.emailNotifications,
-        smtpHost: settings.smtpHost || '',
-        smtpPort: settings.smtpPort || '',
-        smtpUser: settings.smtpUser || '',
-        smtpPass: settings.smtpPass || ''
+        // E-mail instellingen worden NIET opgeslagen in database
+        // Deze komen uit Vercel Environment Variables
       }
       
+      console.log('💾 Instellingen opslaan via API...');
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: {
@@ -379,11 +377,16 @@ export default function SettingsPage() {
         body: JSON.stringify(settingsForDatabase),
       })
 
+      const result = await response.json();
+      console.log('📡 API response:', { status: response.status, ok: response.ok, result });
+
       if (response.ok) {
         setSaveStatus('success')
+        console.log('✅ Instellingen succesvol opgeslagen');
         setTimeout(() => setSaveStatus('idle'), 3000)
       } else {
         setSaveStatus('error')
+        console.error('❌ Fout bij opslaan:', result.message || 'Onbekende fout');
         setTimeout(() => setSaveStatus('idle'), 3000)
       }
     } catch (error) {
@@ -438,14 +441,7 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          // Alle SMTP instellingen uit de database
-          smtpHost: settings.smtpHost,
-          smtpPort: settings.smtpPort,
-          smtpUser: settings.smtpUser,
-          smtpPass: settings.smtpPass,
-          // Admin instellingen
-          adminEmail: settings.adminEmail,
-          emailNotifications: settings.emailNotifications
+          // E-mail instellingen komen uit environment variables, niet uit database
         }),
       })
 
@@ -722,13 +718,15 @@ export default function SettingsPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Methode (Mollie ID)</label>
           <select value={mollieId} onChange={(e)=>setMollieId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md">
-            <option value="ideal">iDEAL</option>
-            <option value="creditcard">Creditcard</option>
-            <option value="paypal">PayPal</option>
-            <option value="bancontact">Bancontact</option>
-            <option value="banktransfer">Bankoverschrijving</option>
-            <option value="applepay">Apple Pay</option>
-            <option value="klarna">Klarna</option>
+            <option value="ideal">iDEAL (0%)</option>
+            <option value="creditcard">Creditcard (+5%)</option>
+            <option value="paypal">PayPal (+5%)</option>
+            <option value="applepay">Apple Pay (0%)</option>
+            <option value="bancontact">Bancontact (0%)</option>
+            <option value="banktransfer">Bankoverschrijving (0%)</option>
+            <option value="belfius">Belfius (0%)</option>
+            <option value="kbc">KBC (0%)</option>
+            <option value="klarna">Klarna (0%)</option>
           </select>
         </div>
         <div>
@@ -1081,35 +1079,22 @@ export default function SettingsPage() {
 
       {currentTab==='payments' && (<div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Mollie Instellingen</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Mollie Configuratie</h2>
         </div>
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mollie Live API Key
+                Mollie Webhook URL
               </label>
               <input
-                type="password"
-                value={settings.mollieApiKey}
-                onChange={(e) => setSettings({...settings, mollieApiKey: e.target.value})}
-                placeholder="live_..."
+                type="text"
+                value={settings.mollieWebhookUrl || ''}
+                onChange={(e) => setSettings({...settings, mollieWebhookUrl: e.target.value})}
+                placeholder="https://jouw-domein.nl/api/payment/mollie/webhook"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Live API key voor productie</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mollie Test API Key
-              </label>
-              <input
-                type="password"
-                value={settings.mollieTestApiKey || ''}
-                onChange={(e) => setSettings({...settings, mollieTestApiKey: e.target.value})}
-                placeholder="test_..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Test API key voor ontwikkeling</p>
+              <p className="text-xs text-gray-500 mt-1">Webhook URL voor betalingsnotificaties (configureer in Vercel console)</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1122,7 +1107,7 @@ export default function SettingsPage() {
                 placeholder="pfl_..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Profile ID voor betalingen</p>
+              <p className="text-xs text-gray-500 mt-1">Profile ID voor betalingen (configureer in Vercel console)</p>
             </div>
           </div>
           
@@ -1154,7 +1139,7 @@ export default function SettingsPage() {
                   const result = await response.json()
                   
                   if (response.ok && result.success) {
-                    alert(`✅ Mollie verbinding succesvol!\n\n${result.message}\n\nDetails:\n- API Key: ${result.details?.hasApiKey ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Test Mode: ${result.details?.testMode ? 'Aan' : 'Uit'}\n- Status: ${result.details?.status || 'Onbekend'}`)
+                    alert(`✅ Mollie verbinding succesvol!\n\n${result.message}\n\nDetails:\n- API Key: ${result.details?.hasApiKey ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Profile ID: ${result.details?.hasProfileId ? '✅ Geconfigureerd' : '❌ Niet geconfigureerd'}\n- Test Mode: ${result.details?.testMode ? 'Aan' : 'Uit'}\n- Status: ${result.details?.status || 'Onbekend'}\n\nMollie is klaar voor gebruik!`)
                   } else {
                     alert(`❌ Mollie verbinding mislukt:\n\n${result.message || 'Onbekende fout'}\n\nDetails:\n- Status: ${result.details?.status || 'Onbekend'}\n- Fout: ${result.details?.error || 'Geen details'}`)
                   }
@@ -1309,104 +1294,20 @@ export default function SettingsPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-medium text-blue-900 mb-2">SMTP Instellingen</h3>
             <p className="text-blue-700 text-sm mb-3">
-              De SMTP instellingen kunnen hier worden gewijzigd. Wijzigingen worden opgeslagen in de database.
+              <strong>ℹ️ Info:</strong> SMTP instellingen worden automatisch geladen uit Vercel Environment Variables.
+              Deze kunnen alleen in de Vercel Console worden gewijzigd.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Host</label>
-                <input
-                  type="text"
-                  value={settings.smtpHost || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpHost: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
-                  placeholder="mail.whserver.nl"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Port</label>
-                <input
-                  type="number"
-                  value={settings.smtpPort || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpPort: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
-                  placeholder="587"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Gebruiker</label>
-                <input
-                  type="email"
-                  value={settings.smtpUser || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpUser: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
-                  placeholder="info@tesland.com"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">SMTP Wachtwoord</label>
-                <input
-                  type="password"
-                  value={settings.smtpPass || ''}
-                  onChange={(e) => {
-                    setSettings({...settings, smtpPass: e.target.value})
-                    setEmailTestStatus('idle')
-                    setEmailTestMessage('')
-                  }}
-                  placeholder="Je wachtwoord"
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-            </div>
             <div className="mt-3 text-xs text-blue-600">
-              <strong>Let op:</strong> Wachtwoorden worden versleuteld opgeslagen in de database.
+              <strong>Tip:</strong> Gebruik de "Test Verbinding" knop hieronder om te controleren of de SMTP instellingen correct zijn ingesteld.
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Admin E-mail
-            </label>
-            <input
-              type="email"
-              value={settings.adminEmail}
-              onChange={(e) => setSettings({...settings, adminEmail: e.target.value})}
-              placeholder="admin@alloygator.nl"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              E-mail adres voor admin notificaties
-            </p>
-          </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="emailNotifications"
-              checked={settings.emailNotifications}
-              onChange={(e) => setSettings({...settings, emailNotifications: e.target.checked})}
-              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-            />
-            <label htmlFor="emailNotifications" className="text-sm font-medium text-gray-700">
-              E-mail notificaties inschakelen
-            </label>
-          </div>
 
           <div className="flex items-center space-x-4">
             <button
               onClick={testEmailConfiguration}
-              disabled={!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPass || emailTestStatus === 'testing'}
+              disabled={emailTestStatus === 'testing'}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {emailTestStatus === 'testing' ? 'Testen...' : 'Test E-mail Configuratie'}

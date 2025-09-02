@@ -22,6 +22,13 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Inloggen mislukt')
+      // Verwijder ALLE oude klantgegevens en winkelwagen bij nieuwe login
+      localStorage.removeItem('alloygator-cart')
+      localStorage.removeItem('dealerDiscount')
+      localStorage.removeItem('dealerEmail')
+      localStorage.removeItem('dealerName')
+      localStorage.removeItem('dealerGroup')
+      
       // Save lightweight session for UI
       localStorage.setItem('isLoggedIn', '1')
       localStorage.setItem('currentUser', JSON.stringify({
@@ -45,11 +52,6 @@ export default function LoginPage() {
         is_dealer: !!data.user.is_dealer,
         dealer_group: data.user.dealer_group || ''
       }))
-      
-      // Verwijder oude dealerDiscount uit localStorage als die er nog staat
-      try {
-        localStorage.removeItem('dealerDiscount')
-      } catch {}
       
       // Trigger custom event to notify Header component
       window.dispatchEvent(new Event('user-login'))

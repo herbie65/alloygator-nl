@@ -23,12 +23,13 @@ export default function AdminLayout({
   const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<string[]>(['klanten', 'instellingen'])
+  const [expandedSections, setExpandedSections] = useState<string[]>(['klanten', 'instellingen', 'verkopen'])
   const [role, setRole] = useState<'admin'|'staff'|'guest'>('guest')
   const [email, setEmail] = useState('')
   const [customerUploadNotifications, setCustomerUploadNotifications] = useState(0)
   const [appointmentsUpcoming, setAppointmentsUpcoming] = useState(0)
   const [appointmentsToday, setAppointmentsToday] = useState(0)
+  const [newOrdersCount, setNewOrdersCount] = useState(0)
   const [isClient, setIsClient] = useState(false)
 
   // Ensure client-side rendering
@@ -152,14 +153,57 @@ export default function AdminLayout({
         ])
         const listWeek = resWeek.ok ? await resWeek.json() : []
         const listToday = resToday.ok ? await resToday.json() : []
+        
+        console.log('📊 Appointments loaded:', {
+          week: listWeek.length,
+          today: listToday.length,
+          weekData: listWeek.slice(0, 3), // Eerste 3 voor debugging
+          todayData: listToday.slice(0, 3) // Eerste 3 voor debugging
+        })
+        
         setAppointmentsUpcoming(Array.isArray(listWeek) ? listWeek.length : 0)
         setAppointmentsToday(Array.isArray(listToday) ? listToday.length : 0)
-      } catch {
+      } catch (error) {
+        console.error('❌ Error loading appointments:', error)
         setAppointmentsUpcoming(0)
         setAppointmentsToday(0)
       }
     }
     loadUpcomingAppts()
+  }, [isAuthenticated, isClient])
+
+  // Load new orders count
+  useEffect(() => {
+    if (!isAuthenticated || !isClient) return
+
+    const loadNewOrders = async () => {
+      try {
+        console.log('🛒 Loading new orders count...')
+        const response = await fetch('/api/orders?status=new&limit=100')
+        const orders = response.ok ? await response.json() : []
+        
+        // Tel bestellingen met status 'nieuw', 'pending', 'verwerken' of 'processing'
+        const newOrders = orders.filter((order: any) => 
+          order.status === 'nieuw' || 
+          order.status === 'pending' || 
+          order.status === 'new' ||
+          order.status === 'verwerken' ||
+          order.status === 'processing'
+        )
+        
+        console.log('🛒 New orders loaded:', {
+          total: orders.length,
+          new: newOrders.length,
+          statuses: orders.map((o: any) => o.status).slice(0, 5)
+        })
+        
+        setNewOrdersCount(newOrders.length)
+      } catch (error) {
+        console.error('❌ Error loading new orders:', error)
+        setNewOrdersCount(0)
+      }
+    }
+    loadNewOrders()
   }, [isAuthenticated, isClient])
 
   // Authentication check
@@ -375,15 +419,16 @@ export default function AdminLayout({
       href: '#', 
       icon: '👥',
       color: 'bg-green-500',
+      badge: !expandedSections.includes('klanten') && appointmentsToday > 0 ? String(appointmentsToday) : undefined,
       children: [
         { name: 'Klanten Overzicht', href: '/admin/customers', icon: '👤', color: 'bg-green-400' },
+        { name: 'Klanten Importeren', href: '/admin/customers/import', icon: '📥', color: 'bg-green-400' },
         { name: 'Klantgroepen', href: '/admin/customer-groups', icon: '🏷️', color: 'bg-green-400' },
         { 
           name: 'CRM', 
           href: '/admin/crm', 
           icon: '🤝', 
-          color: 'bg-green-400',
-          badge: appointmentsToday > 0 ? String(appointmentsToday) : (customerUploadNotifications > 0 ? String(customerUploadNotifications) : undefined)
+          color: 'bg-green-400'
         },
         { name: 'Afspraken', href: '/admin/crm/appointments', icon: '📅', color: 'bg-green-400', badge: appointmentsToday > 0 ? String(appointmentsToday) : undefined },
       ]
@@ -404,8 +449,9 @@ export default function AdminLayout({
       href: '#', 
       icon: '💰',
       color: 'bg-orange-500',
+      badge: !expandedSections.includes('verkopen') && newOrdersCount > 0 ? String(newOrdersCount) : undefined,
       children: [
-        { name: 'Bestellingen', href: '/admin/orders', icon: '🛒', color: 'bg-orange-400' },
+        { name: 'Bestellingen', href: '/admin/orders', icon: '🛒', color: 'bg-orange-400', badge: newOrdersCount > 0 ? String(newOrdersCount) : undefined },
         { name: 'Facturen', href: '/admin/invoices', icon: '🧾', color: 'bg-orange-400' },
         { name: 'Creditfacturen', href: '/admin/credit-invoices', icon: '🧾', color: 'bg-orange-400' },
         { name: 'Retouren (RMA)', href: '/admin/returns', icon: '↩️', color: 'bg-orange-400' },
@@ -470,15 +516,12 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-gradient-to-r from-green-600 to-green-700 shadow-lg">
+      {/* Header */}
+      <header className="bg-[#a2c614] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-white">AlloyGator Admin</h1>
-              <span className="ml-4 text-sm text-yellow-100">Afspraken vandaag:</span>
-              <a href="/admin/crm/appointments" className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-300 text-yellow-900 text-xs font-semibold hover:bg-yellow-200" title="Afspraken vandaag">
-                📅 {appointmentsToday}
-              </a>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-green-100">Welkom, {email || 'Admin'}</span>
@@ -612,7 +655,12 @@ export default function AdminLayout({
                         <div className={`w-6 h-6 rounded-md mr-3 flex items-center justify-center text-white text-xs font-bold ${item.color}`}>
                           {item.name.charAt(0)}
                         </div>
-                        {item.name}
+                        <span className="flex-1">{item.name}</span>
+                        {item.badge && (
+                          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     )}
                   </div>

@@ -55,6 +55,9 @@ interface Order {
     error_message?: string
     sync_timestamp?: string
   }
+  eboekhouden_invoice_number?: string
+  eboekhouden_exported_at?: string
+  eboekhouden_customer_code?: string
 }
 
 export default function OrdersPage() {
@@ -228,6 +231,32 @@ export default function OrdersPage() {
       try { window.open('/admin/returns', '_blank') } catch {}
     } catch (e:any) {
       alert(e.message || 'RMA aanmaken mislukt')
+    }
+  }
+
+  const handleExportInvoiceToEboekhouden = async (order: any) => {
+    try {
+      setError('')
+      const response = await fetch('/api/eboekhouden/export-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId: order.id })
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        alert(`✅ ${result.message}`)
+        // Refresh orders to show updated export status
+        await fetchOrders()
+      } else {
+        alert(`❌ ${result.message}`)
+      }
+    } catch (error) {
+      console.error('E-boekhouden factuur export error:', error)
+      alert(`❌ Fout bij exporteren factuur naar E-boekhouden: ${error instanceof Error ? error.message : 'Onbekende fout'}`)
     }
   }
 
@@ -793,6 +822,7 @@ export default function OrdersPage() {
                   { key: 'status', label: 'Status' },
                   { key: 'payment_status', label: 'Betaling' },
                   { key: 'due_at', label: 'Vervaldatum' },
+                  { key: 'eboekhouden', label: 'E-boekhouden' },
                 ].map(col => (
                   <th key={col.key} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     <button
@@ -910,6 +940,19 @@ export default function OrdersPage() {
                       <span className="text-xs text-gray-400">-</span>
                     )}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {order.eboekhouden_invoice_number ? (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        ✅ {order.eboekhouden_invoice_number}
+                      </span>
+                    ) : order.status === 'verwerken' && order.payment_status === 'paid' ? (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        ⏳ Klaar voor export
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <select
                       defaultValue=""
@@ -921,6 +964,7 @@ export default function OrdersPage() {
                         if (v === 'cancel') { handleUpdateStatus(order.id, 'annuleren'); return }
                         if (v === 'mark-paid') { handleMarkAsPaid(order.id); return }
                         if (v === 'rma') { handleCreateRma(order); return }
+                        if (v === 'export-eboekhouden') { handleExportInvoiceToEboekhouden(order); return }
                       }}
                     >
                       <option value="">Actie kiezen…</option>
@@ -932,6 +976,9 @@ export default function OrdersPage() {
                         <option value="mark-paid">Markeer als betaald (afhalen)</option>
                       )}
                       <option value="rma">RMA starten</option>
+                      {order.status === 'verwerken' && order.payment_status === 'paid' && (
+                        <option value="export-eboekhouden">Export naar E-boekhouden</option>
+                      )}
                     </select>
                   </td>
                 </tr>

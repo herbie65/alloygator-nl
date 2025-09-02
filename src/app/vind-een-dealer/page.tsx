@@ -33,8 +33,7 @@ interface Dealer {
   latitude: number
   longitude: number
   is_active: boolean
-  rating?: number
-  reviews?: number
+
   services: string[]
   created_at: string
   show_on_map?: boolean // Added for filtering
@@ -85,8 +84,7 @@ export default function VindEenDealerPage() {
             longitude: customer.longitude,
             is_active: customer.status === 'active',
             show_on_map: customer.show_on_map !== false, // Default to true if not set
-            rating: 4.5, // Default rating
-            reviews: 25, // Default reviews
+
             services: ['AlloyGator montage', 'Velg service'],
             created_at: customer.created_at || new Date().toISOString()
           }))
@@ -217,10 +215,8 @@ export default function VindEenDealerPage() {
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name)
-        case 'rating':
-          return (b.rating || 0) - (a.rating || 0)
-        case 'reviews':
-          return (b.reviews || 0) - (a.reviews || 0)
+
+
         case 'distance':
           if (userLocation) {
             const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude)
@@ -297,26 +293,7 @@ export default function VindEenDealerPage() {
           </p>
         </div>
 
-        {/* Data Source Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-blue-600">
-                {dealers.length > 0 && dealers !== staticDealers 
-                  ? `Toont ${dealers.length} echte dealers uit uw klantendatabase` 
-                  : dealers.length > 0 
-                    ? `Toont ${dealers.length} voorbeelddealer(s) - geen echte dealers gevonden in klantendatabase`
-                    : 'Dealers laden...'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
+
 
         {/* Location Search */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -425,12 +402,11 @@ export default function VindEenDealerPage() {
                   className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
                 >
                   <option value="name">Naam A-Z</option>
-                  <option value="rating">Hoogste rating</option>
                   <option value="distance">Dichtstbij</option>
                 </select>
               </div>
             </div>
-            <div className="h-[550px] overflow-y-auto p-4 space-y-4">
+            <div className="h-[550px] overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto">
               {filteredDealers.map((dealer) => {
                 const distance = searchCenter ? 
                   calculateDistance(searchCenter.lat, searchCenter.lng, dealer.latitude, dealer.longitude) : 
@@ -446,12 +422,6 @@ export default function VindEenDealerPage() {
                       <div>
                         <h3 className="font-semibold text-gray-900">{dealer.company_name}</h3>
                       </div>
-                      {dealer.rating && (
-                        <div className="flex items-center text-sm">
-                          <span className="text-yellow-400">★</span>
-                          <span className="ml-1">{dealer.rating}</span>
-                        </div>
-                      )}
                     </div>
                     
                     <div className="text-sm text-gray-600 mb-2">

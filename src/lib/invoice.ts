@@ -84,8 +84,8 @@ export async function generateInvoicePdfBuffer(order: OrderRecord): Promise<Buff
   // Billing block left
   const linesLeft: string[] = []
   const billName = `${(c.voornaam || '')} ${(c.achternaam || '')}`.trim()
-  if (billName) linesLeft.push(billName)
   if (c.bedrijfsnaam) linesLeft.push(String(c.bedrijfsnaam))
+  if (billName) linesLeft.push(billName)
   if (c.adres) linesLeft.push(String(c.adres))
   linesLeft.push(`${c.postcode || ''} ${c.plaats || ''}`.trim())
   if (c.land) linesLeft.push(String(c.land))
@@ -98,16 +98,36 @@ export async function generateInvoicePdfBuffer(order: OrderRecord): Promise<Buff
   let shipY = ph - 220
   drawText('Verzenden naar:', pw/2 + 20, shipY, 10); shipY -= 14
   const shipLines: string[] = []
-  const shipFirst = c.shippingVoornaam || c.shipping_first_name || ''
-  const shipLast = c.shippingAchternaam || c.shipping_last_name || ''
-  const shipCompany = c.shippingBedrijfsnaam || c.shipping_company || ''
-  const shipName = `${shipFirst} ${shipLast}`.trim() || billName || ''
-  if (shipName) shipLines.push(shipName)
-  if (shipCompany) shipLines.push(shipCompany)
-  if (shipStreet) shipLines.push(shipStreet)
-  const shipCityLine = `${shipPC} ${shipCity}`.trim()
-  if (shipCityLine) shipLines.push(shipCityLine)
-  if (shipCountry) shipLines.push(shipCountry)
+  
+  // Check if there's a separate shipping address
+  const hasSeparateShipping = c.separate_shipping_address && (
+    c.shipping_address || c.shipping_city || c.shipping_postal_code || 
+    c.shipping_first_name || c.shipping_last_name || c.shipping_company_name
+  )
+  
+  if (hasSeparateShipping) {
+    // Use separate shipping address
+    const shipFirst = c.shipping_first_name || ''
+    const shipLast = c.shipping_last_name || ''
+    const shipCompany = c.shipping_company_name || ''
+    const shipName = `${shipFirst} ${shipLast}`.trim()
+    
+    if (shipCompany) shipLines.push(shipCompany)
+    if (shipName) shipLines.push(shipName)
+    if (c.shipping_address) shipLines.push(c.shipping_address)
+    const shipCityLine = `${c.shipping_postal_code || ''} ${c.shipping_city || ''}`.trim()
+    if (shipCityLine) shipLines.push(shipCityLine)
+    if (c.shipping_country) shipLines.push(c.shipping_country)
+  } else {
+    // Use billing address for shipping
+    if (c.bedrijfsnaam) shipLines.push(String(c.bedrijfsnaam))
+    if (billName) shipLines.push(billName)
+    if (c.adres) shipLines.push(String(c.adres))
+    const billCityLine = `${c.postcode || ''} ${c.plaats || ''}`.trim()
+    if (billCityLine) shipLines.push(billCityLine)
+    if (c.land) shipLines.push(String(c.land))
+  }
+  
   shipLines.forEach(l => { if (l) { drawText(l, pw/2 + 20, shipY); shipY -= 12 } })
 
   // Payment & Shipping method (klein)

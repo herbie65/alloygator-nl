@@ -28,23 +28,19 @@ export default function HomePage() {
         setLoading(true)
         setError(null)
         
-        console.log('🔍 Starten met laden van home pagina...')
+
         
         // Probeer CMS content te laden uit Firebase
         try {
           const { FirebaseClientService } = await import('@/lib/firebase-client')
-          console.log('📡 Firebase service geladen, ophalen van CMS pagina\'s...')
           
           const pages = await FirebaseClientService.getCmsPages() as CMSPage[]
-          console.log('📄 Alle CMS pagina\'s opgehaald:', pages.length)
           
           // Zoek naar home pagina's - geef voorkeur aan de meest recente
           const homePages = pages.filter((p: CMSPage) => 
             String(p.slug || '').toLowerCase() === 'home' && 
             p.is_published !== false
           )
-          
-          console.log(`🎯 Gevonden ${homePages.length} home pagina's:`, homePages.map(p => ({ id: p.id, title: p.title, updated: p.updated_at })))
           
           if (homePages.length > 0) {
             // Kies de meest recente home pagina
@@ -54,20 +50,18 @@ export default function HomePage() {
               return dateB.getTime() - dateA.getTime()
             })[0]
             
-            console.log('✅ Gekozen home pagina:', homePage.title, '(ID:', homePage.id, ')')
-            console.log('📝 Content lengte:', homePage.content?.length)
-            
             if (mounted && homePage.content) {
               setCmsHtml(homePage.content)
             } else {
-              console.log('⚠️ Home pagina heeft geen content')
+              console.warn('Home pagina heeft geen content')
+              setError('Home pagina content is leeg')
             }
           } else {
-            console.log('⚠️ Geen gepubliceerde home pagina gevonden in CMS')
-            console.log('🔍 Zoekcriteria: slug === "home" en is_published !== false')
+            console.warn('Geen gepubliceerde home pagina gevonden in CMS')
+            setError('Geen home pagina gevonden in CMS')
           }
         } catch (firebaseError) {
-          console.warn('⚠️ Firebase error bij laden CMS:', firebaseError)
+          console.error('Firebase error bij laden CMS:', firebaseError)
           setError('CMS verbinding mislukt')
         }
       } catch (e) {
@@ -164,7 +158,6 @@ export default function HomePage() {
 
   // Toon CMS content als beschikbaar
   if (cmsHtml) {
-    console.log('🎨 Rendering CMS content met lengte:', cmsHtml.length)
     return (
       <>
         <SEO 
@@ -180,7 +173,6 @@ export default function HomePage() {
   }
 
   // Geen content beschikbaar - toon foutmelding
-  console.log('❌ Geen CMS content gevonden, toon foutmelding')
   return (
     <>
       <SEO 

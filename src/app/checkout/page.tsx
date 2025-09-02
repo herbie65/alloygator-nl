@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FirebaseClientService } from '@/lib/firebase-client'
 import { useDealerPricing, applyDealerDiscount, getDealerGroupLabel } from '@/hooks/useDealerPricing'
+import MollieCreditCard from '@/app/components/MollieCreditCard'
+import MollieIDEAL from '@/app/components/MollieIDEAL'
 
 interface CartItem {
   id: string;
@@ -35,6 +37,7 @@ interface CustomerDetails {
   shipping_postal_code?: string;
   shipping_city?: string;
   shipping_country?: string;
+  customer_since?: string;
 }
 
 interface ShippingMethod {
@@ -112,6 +115,8 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("ideal");
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<{ id:string; name:string; mollie_id:string; is_active:boolean; fee_percent:number }[]>([])
   const [allowInvoicePayment, setAllowInvoicePayment] = useState(false)
+  const [creditCardToken, setCreditCardToken] = useState<string | null>(null);
+  const [selectedIDEALBank, setSelectedIDEALBank] = useState<string | null>(null);
   const [shippingMethod, setShippingMethod] = useState("");
   const [loading, setLoading] = useState(false);
   const dealer = useDealerPricing()
@@ -120,7 +125,7 @@ export default function CheckoutPage() {
   const [settings, setSettings] = useState<Settings>({
     shippingMethods: [],
     shippingCost: '8.95',
-    freeShippingThreshold: '50.00',
+    freeShippingThreshold: '300.00',
     enabledCarriers: ['dhl']
   });
 
@@ -180,6 +185,14 @@ export default function CheckoutPage() {
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null)
   const [showPickupLocations, setShowPickupLocations] = useState(false)
   const [isResolvingPostcode, setIsResolvingPostcode] = useState(false)
+  
+  // State voor order totalen
+  const [orderTotals, setOrderTotals] = useState({
+    subtotal: 0,
+    shippingCost: 0,
+    total: 0,
+    vatAmount: 0
+  })
 
   // Country list (Dutch names), NL & BE will be shown on top
   const OTHER_COUNTRIES: { code: string; name: string }[] = [
@@ -220,12 +233,13 @@ export default function CheckoutPage() {
   ].sort((a, b) => a.name.localeCompare(b.name, 'nl'))
 
   const getDiscountedPrice = (price: number, vatCategory: string = 'standard') => {
-    if (dealer.isDealer) {
-      // Voor dealers: item.price bevat al de dealer korting (geen opnieuw toepassen)
-      return price // Geen korting opnieuw toepassen
+    if (dealer.isDealer && dealer.discountPercent > 0) {
+      // Voor dealers: GEEN korting toepassen - item.price bevat al de dealer korting
+      // Dit voorkomt dubbele korting
+      return price;
     } else {
-      // Voor particuliere klanten: prijs is al inclusief BTW, geen wijziging nodig
-      return price
+      // Voor particuliere klanten: geen korting
+      return price;
     }
   }
 
@@ -317,6 +331,55 @@ export default function CheckoutPage() {
       }
     }, 100);
 
+    // Listen for logout events to clear customer data
+    const handleLogout = () => {
+      console.log('🚪 Checkout: Logout event ontvangen - customer data wissen...')
+      
+      // Reset customer state naar lege waarden
+      setCustomer({
+        contact_first_name: "",
+        contact_last_name: "",
+        email: "",
+        phone: "",
+        address: "",
+        postal_code: "",
+        city: "",
+        country: "NL",
+        vat_number: "",
+        company_name: "",
+        invoice_email: "",
+        vat_verified: false,
+        vat_reverse_charge: false,
+        separate_shipping_address: false,
+        shipping_address: "",
+        shipping_postal_code: "",
+        shipping_city: "",
+        shipping_country: "NL"
+      })
+      
+      // Reset dealer group
+      setDealerGroup(null)
+      
+      // Verwijder ALLE gerelateerde localStorage items
+      const itemsToRemove = [
+        'customerDetails',
+        'dealerEmail',
+        'dealerName',
+        'dealerGroup',
+        'dealerSession',
+        'dealerDiscount'
+      ]
+      
+      itemsToRemove.forEach(item => {
+        localStorage.removeItem(item)
+        console.log(`🗑️ Checkout logout - verwijderd: ${item}`)
+      })
+      
+      console.log('✅ Checkout: Alle customer data gewist')
+    }
+
+    window.addEventListener('user-logout', handleLogout)
+
     // Prevent accidental form submit by Enter on non-review steps
     const handler = (e: KeyboardEvent) => {
       const isEnter = e.key === 'Enter'
@@ -328,7 +391,10 @@ export default function CheckoutPage() {
       }
     }
     try { window.addEventListener('keydown', handler) } catch {}
-    return () => { try { window.removeEventListener('keydown', handler) } catch {} }
+    return () => { 
+      try { window.removeEventListener('keydown', handler) } catch {}
+      try { window.removeEventListener('user-logout', handleLogout) } catch {}
+    }
   }, []);
 
   // Recalculate totals when cart changes
@@ -481,36 +547,76 @@ export default function CheckoutPage() {
       return;
     }
     
-    // Simpele berekening: subtotaal + verzendkosten
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // 1. Bruto prijs van het product (incl. BTW)
+    // 2. Netto prijs berekenen (dealer korting eraf)
+    const subtotalInclVat = cart.reduce((sum, item) => {
+      const discountedPrice = getDiscountedPrice(item.price, item.vat_category);
+      return sum + (discountedPrice * item.quantity);
+    }, 0);
     
-    // Verzendkosten bepalen
+    // 3. Verzendkosten bepalen - alleen als verzendmethode is gekozen
     let shippingCost = 0;
     
-    // Als subtotaal boven drempel: gratis verzending
-    if (subtotal >= 50) {
-      shippingCost = 0;
-    } else {
-      // Anders: standaard verzendkosten
-      shippingCost = 5.95; // Standaard verzendkosten
+    if (shippingMethod) {
+      // Controleer of afhalen is geselecteerd
+      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+      const isPickup = selectedMethod?.delivery_type === 'pickup' || shippingMethod === 'pickup';
+      
+      if (isPickup) {
+        // Afhalen is altijd gratis
+        shippingCost = 0;
+      } else {
+        // Voor verzending: gratis boven drempel uit instellingen
+        const threshold = parseFloat(settings.freeShippingThreshold) || 300;
+        if (subtotalInclVat >= threshold) {
+          shippingCost = 0;
+        } else {
+          // Anders: standaard verzendkosten (inclusief BTW)
+          const baseCost = parseFloat(settings.shippingCost) || 8.95;
+          shippingCost = dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
+        }
+      }
     }
     
-    // Totaal = subtotaal + verzendkosten
-    const total = subtotal + shippingCost;
+    // 4. Subtotaal incl. verzendkosten (incl. BTW)
+    const subtotalWithShipping = subtotalInclVat + shippingCost;
     
-    // BTW berekening (voor particuliere klanten is prijs al inclusief BTW)
-    const vatRate = 21; // Nederlandse BTW
-    const vatAmount = (subtotal * vatRate) / (100 + vatRate); // BTW uit prijs halen
+    // 5. BTW is al inbegrepen in de prijzen - geen extra BTW berekening nodig
+    let vatAmount = 0;
+    let total = subtotalInclVat;
     
-    setVatCalculation({
-      vat_rate: vatRate,
-      vat_amount: vatAmount,
-      total_amount: total,
-      vat_exempt: false,
-      vat_reason: ''
+    if (shippingMethod) {
+      // BTW is al inbegrepen in de productprijzen
+      // Verzendkosten zijn ook inclusief BTW
+      total = subtotalWithShipping;
+      
+      setVatCalculation({
+        vat_rate: 21, // BTW percentage voor referentie
+        vat_amount: 0, // Geen extra BTW
+        total_amount: total,
+        vat_exempt: false,
+        vat_reason: 'BTW al inbegrepen in prijzen'
+      });
+    }
+    
+    // Sla de totalen op in state voor gebruik bij betaling
+    setOrderTotals({
+      subtotal: subtotalInclVat,
+      shippingCost,
+      total,
+      vatAmount
     });
     
-    console.log('Totals berekend:', { subtotal, shippingCost, total, vatAmount, cartLength: cart.length });
+    console.log('Totals berekend:', { 
+      subtotalInclVat, 
+      shippingCost, 
+      subtotalWithShipping,
+      vatAmount, 
+      total,
+      cartLength: cart.length,
+      shippingMethod: shippingMethod || 'Geen gekozen',
+      calculation: shippingMethod ? `BTW: €${subtotalWithShipping} × 21% = €${vatAmount.toFixed(2)}` : 'Geen verzendmethode gekozen'
+    });
   };
 
   // Recalculate totals when shipping method changes
@@ -814,12 +920,33 @@ export default function CheckoutPage() {
         customer_id: customerId, // Belangrijk: koppelt order aan gebruiker
         user_email: customer.email, // Email voor extra koppeling
         items: itemsForOrder,
-        shipping_method: selectedMethod?.name || 'Standaard verzending',
-        shipping_cost: dealer.isDealer ? 
-          (selectedMethod?.price || parseFloat(settings.shippingCost)) : 
-          getPriceIncludingVat(selectedMethod?.price || parseFloat(settings.shippingCost), 'standard'),
+        shipping_method: (() => {
+          if (shippingMethod === 'pickup') return 'Afhalen bij dealer';
+          return selectedMethod?.name || 'Standaard verzending';
+        })(),
+        shipping_cost: (() => {
+          if (!selectedMethod) return 0; // Geen verzendmethode gekozen
+          
+          // Check voor hardcoded pickup of database pickup method
+          if (shippingMethod === 'pickup' || selectedMethod?.delivery_type === 'pickup') {
+            return 0; // Afhalen is altijd gratis
+          }
+          
+          // Voor verzending: gratis boven drempel
+          const threshold = parseFloat(settings.freeShippingThreshold) || 300;
+          if (netSubtotal >= threshold) {
+            return 0; // Gratis verzending
+          } else {
+            // Standaard verzendkosten (inclusief BTW)
+            const baseCost = parseFloat(settings.shippingCost) || 8.95;
+            return dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
+          }
+        })(),
         shipping_carrier: selectedMethod?.carrier || 'postnl',
-        shipping_delivery_type: selectedMethod?.delivery_type || 'standard',
+        shipping_delivery_type: (() => {
+          if (shippingMethod === 'pickup') return 'pickup';
+          return selectedMethod?.delivery_type || 'standard';
+        })(),
         pickup_location: selectedPickupLocation,
         subtotal: netSubtotal,
         vat_amount: vatCalculation.vat_amount,
@@ -903,20 +1030,26 @@ export default function CheckoutPage() {
 
       // 2) Create Mollie payment for the order
       const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      const returnUrl = `${window.location.origin}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
-      const webhookUrl = `${window.location.origin}/api/payment/mollie/webhook`
+      
+      // Gebruik altijd het Vercel domein voor Mollie (webhooks moeten publiek toegankelijk zijn)
+      const baseUrl = 'https://alloygator-nl.vercel.app'
+      const returnUrl = `${baseUrl}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
+      const webhookUrl = `${baseUrl}/api/payment/mollie/webhook`
+      
+      console.log('Mollie URLs:', { baseUrl, returnUrl, webhookUrl })
 
-      const paymentRes = await fetch('/api/payment/mollie', {
+      const paymentRes = await fetch('/api/payment/mollie/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: order.total,
           currency: 'EUR',
           description: `Order ${orderNumber}`,
+          orderId: orderId,
           redirectUrl: returnUrl, // bevat simulate=1 op localhost
-          webhookUrl,
-          metadata: { orderId },
-          methods: availablePaymentMethods.filter(pm => pm.is_active).map(pm => pm.mollie_id)
+          webhookUrl: webhookUrl,
+          cardToken: creditCardToken, // Voeg creditcard token toe als deze beschikbaar is
+          idealIssuer: selectedIDEALBank // Voeg iDEAL issuer toe als deze beschikbaar is
         })
       })
       if (!paymentRes.ok) {
@@ -1292,11 +1425,9 @@ export default function CheckoutPage() {
                           .filter(method => method.enabled && settings.enabledCarriers.includes(method.carrier))
                           .map((method) => {
                             // Calculate if this method would be free (based on net items subtotal)
-                            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                            // GEEN korting opnieuw toepassen - item.price bevat al de dealer korting
-                            const discountTmp = 0; // Dealer korting is al toegepast in item.price
-                            const netTmp = subtotal; // Geen korting aftrekken - al toegepast
-                            const isFree = netTmp >= parseFloat(settings.freeShippingThreshold);
+                            // item.price bevat al de dealer korting, dus gebruik dit direct
+                            const netSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                            const isFree = netSubtotal >= parseFloat(settings.freeShippingThreshold);
                             
                             return (
                               <div key={method.id} className="border border-gray-200 rounded-lg p-4">
@@ -1508,7 +1639,16 @@ export default function CheckoutPage() {
                                 name="paymentMethod"
                                 value={pm.mollie_id}
                                 checked={paymentMethod === pm.mollie_id}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                onChange={(e) => {
+                                  setPaymentMethod(e.target.value);
+                                  // Reset tokens when changing payment method
+                                  if (e.target.value !== 'creditcard') {
+                                    setCreditCardToken(null);
+                                  }
+                                  if (e.target.value !== 'ideal') {
+                                    setSelectedIDEALBank(null);
+                                  }
+                                }}
                                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                               />
                               <div>
@@ -1522,6 +1662,27 @@ export default function CheckoutPage() {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Toon Mollie Components voor creditcard betalingen */}
+                          {pm.mollie_id === 'creditcard' && paymentMethod === 'creditcard' && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <MollieCreditCard
+                                onTokenCreated={(token) => setCreditCardToken(token)}
+                                onError={(error) => setErrors(prev => ({ ...prev, creditCard: error }))}
+                                loading={loading}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Toon iDEAL bank selectie */}
+                          {pm.mollie_id === 'ideal' && paymentMethod === 'ideal' && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <MollieIDEAL
+                                onBankSelected={(bankId, bankName) => setSelectedIDEALBank(bankId)}
+                                selectedBank={selectedIDEALBank}
+                              />
+                            </div>
+                          )}
                         </div>
                       ))}
                       {!allowInvoicePayment && availablePaymentMethods.some(pm => pm.mollie_id === 'invoice') && (
@@ -1716,26 +1877,28 @@ export default function CheckoutPage() {
                <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotaal:</span>
-                   <span>€{(dealer.isDealer ? netItems : subtotalPre).toFixed(2)} {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}</span>
+                  <span>€{orderTotals.subtotal.toFixed(2)} (incl. BTW)</span>
                 </div>
                 
-                {/* Verzendkosten tonen op basis van gebruikerstype */}
-                <div className="flex justify-between text-sm">
-                  <span>Verzendkosten {dealer.isDealer ? '(excl. BTW)' : '(incl. BTW)'}:</span>
-                  <span>{(finalShippingCost === 0 ? 'Gratis' : `€${finalShippingCost.toFixed(2)}`)}</span>
-                </div>
-
-                {/* BTW alleen tonen wanneer er daadwerkelijk BTW is */}
-                {vatCalculation.vat_amount > 0 && (
+                {/* Verzendkosten - alleen tonen als verzendmethode is gekozen */}
+                {shippingMethod && (
                   <div className="flex justify-between text-sm">
-                    <span>BTW:</span>
-                    <span>€{vatCalculation.vat_amount.toFixed(2)}</span>
+                    <span>Verzendkosten (incl. BTW):</span>
+                    <span>{(orderTotals.shippingCost === 0 ? 'Gratis' : `€${orderTotals.shippingCost.toFixed(2)}`)}</span>
+                  </div>
+                )}
+
+                {/* BTW - alleen tonen als verzendmethode is gekozen */}
+                {shippingMethod && (
+                  <div className="flex justify-between text-sm">
+                    <span>BTW (21%):</span>
+                    <span>€{orderTotals.vatAmount.toFixed(2)}</span>
                   </div>
                 )}
                 
                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                  <span>Totaal:</span>
-                   <span>€{vatCalculation.total_amount.toFixed(2)}</span>
+                  <span>{shippingMethod ? 'Totaal:' : 'Subtotaal:'}</span>
+                   <span>€{orderTotals.total.toFixed(2)} (incl. BTW)</span>
                 </div>
               </div>
 

@@ -13,7 +13,6 @@ declare global {
 
 interface Customer {
   id: string
-  name: string
   email: string
   phone: string
   company_name?: string
@@ -55,6 +54,7 @@ interface Customer {
   separate_invoice_email?: boolean
   show_on_map?: boolean
   allow_invoice_payment?: boolean
+  customer_since?: string
 }
 
 interface CustomerGroup {
@@ -76,7 +76,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterGroup, setFilterGroup] = useState('all')
-  const [sortBy, setSortBy] = useState('name')
+  const [sortBy, setSortBy] = useState('email')
   const [saving, setSaving] = useState(false)
   const [showCSVImport, setShowCSVImport] = useState(false)
 
@@ -100,9 +100,10 @@ export default function CustomersPage() {
   }, [])
 
   const filteredCustomers = (customers || []).filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (customer.company_name && customer.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+    const matchesSearch = customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (customer.company_name && customer.company_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (customer.contact_first_name && customer.contact_first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (customer.contact_last_name && customer.contact_last_name.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesStatus = filterStatus === 'all' || customer.status === filterStatus
     const matchesGroup = filterGroup === 'all' || customer.dealer_group === filterGroup
@@ -110,7 +111,7 @@ export default function CustomersPage() {
     return matchesSearch && matchesStatus && matchesGroup
   }).sort((a, b) => {
     switch (sortBy) {
-      case 'name': return a.name.localeCompare(b.name)
+      case 'id': return a.id.localeCompare(b.id)
       case 'email': return a.email.localeCompare(b.email)
       case 'postal_code': return (a.postal_code || '').localeCompare(b.postal_code || '')
       case 'city': return (a.city || '').localeCompare(b.city || '')
@@ -460,7 +461,7 @@ export default function CustomersPage() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                <option value="name">Sorteer op Naam</option>
+                <option value="id">Sorteer op Klant ID</option>
                 <option value="email">Sorteer op Email</option>
                 <option value="postal_code">Sorteer op Postcode</option>
                 <option value="city">Sorteer op Woonplaats</option>
@@ -534,13 +535,18 @@ export default function CustomersPage() {
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                             <span className="text-sm font-medium text-gray-700">
-                              {customer.name.charAt(0).toUpperCase()}
+                              {(customer.company_name || customer.contact_first_name || customer.contact_last_name || 'K').charAt(0).toUpperCase()}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                          <div className="text-sm text-gray-500">{customer.company_name || 'Particulier'}</div>
+                          <div className="text-sm font-medium text-gray-900">{customer.company_name || 'Particulier'}</div>
+                          <div className="text-sm text-gray-500">
+                            {customer.contact_first_name && customer.contact_last_name 
+                              ? `${customer.contact_first_name} ${customer.contact_last_name}`
+                              : customer.contact_first_name || customer.contact_last_name || 'Geen contactpersoon'
+                            }
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -654,7 +660,6 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
       setFormData(customer)
     } else {
       setFormData({
-        name: '',
         email: '',
         phone: '',
         company_name: '',
@@ -689,7 +694,8 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
         tax_exempt: false,
         tax_exemption_reason: '',
         show_on_map: false,
-        notes: ''
+        notes: '',
+        customer_since: ''
       })
     }
   }, [customer, editingCustomer])
@@ -699,7 +705,6 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
     
     const customerData: Customer = {
       id: editingCustomer?.id || '',
-      name: formData.name || '',
       email: formData.email || '',
       phone: formData.phone || '',
       company_name: formData.company_name || '',
@@ -737,6 +742,7 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
       notes: formData.notes || '',
       allow_invoice_payment: formData.allow_invoice_payment || false,
       invoice_payment_terms_days: formData.invoice_payment_terms_days || 14,
+      customer_since: formData.customer_since || '',
       created_at: editingCustomer?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -1057,45 +1063,43 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                 </div>
               </div>
               
-              <div>
+              <div className="mb-4">
                 <button
                   type="button"
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
                   onClick={async () => {
-                    const address = `${formData.address || ''}, ${formData.postal_code || ''} ${formData.city || ''}, ${formData.country || 'Nederland'}`.trim();
-                    if (address && address !== ', , ') {
-                      try {
-                        const response = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
-                        const data = await response.json();
-                        if (response.ok && data.lat && data.lng) {
-                          // Update formData with coordinates
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            latitude: data.lat, 
-                            longitude: data.lng 
-                          }));
-                          
-                          alert(`Locatie gevonden: ${data.formatted_address}\nCoördinaten: ${data.lat}, ${data.lng}`);
-                        } else {
-                          // Show specific error message from API
-                          const errorMessage = data.message || data.error || 'Locatie niet gevonden. Controleer het adres.';
-                          alert(`Geocoding fout: ${errorMessage}\n\nProbeer het adres handmatig in te voeren of een ander adres te gebruiken.`);
-                        }
-                      } catch (error) {
-                        console.error('Geocoding error:', error);
-                        alert('Netwerkfout bij het zoeken van locatie. Controleer uw internetverbinding.');
+                    if (!formData.address || !formData.postal_code || !formData.city) {
+                      alert('Voer eerst een volledig adres in (adres, postcode en plaats)');
+                      return;
+                    }
+                    
+                    try {
+                      const fullAddress = `${formData.address}, ${formData.postal_code} ${formData.city}, ${formData.country}`;
+                      const response = await fetch(`/api/geocode?address=${encodeURIComponent(fullAddress)}`);
+                      const data = await response.json();
+                      
+                      if (response.ok && data.latitude && data.longitude) {
+                        setFormData(prev => ({
+                          ...prev,
+                          latitude: data.latitude,
+                          longitude: data.longitude
+                        }));
+                        alert(`✅ Locatie opgehaald!\nLatitude: ${data.latitude}\nLongitude: ${data.longitude}`);
+                      } else {
+                        alert('Locatie niet gevonden voor dit adres');
                       }
-                    } else {
-                      alert('Vul eerst een adres in.');
+                    } catch (error) {
+                      console.error('Error looking up location:', error);
+                      alert('Fout bij het opzoeken van de locatie');
                     }
                   }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                  disabled={!editingCustomer && !!customer}
                 >
-                  🔍 Zoek locatie
+                  🔍 Haal locatie op uit adres
                 </button>
-                <p className="text-xs text-gray-600 mt-1">
-                  Klik om automatisch coördinaten op te halen op basis van het adres
-                </p>
               </div>
+              
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1200,11 +1204,12 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                   Website
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.website || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
                   disabled={!editingCustomer && !!customer}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                  placeholder="https://www.example.com"
                 />
               </div>
             </div>
@@ -1287,6 +1292,20 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Klant Sinds */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Klant Sinds
+              </label>
+              <input
+                type="date"
+                value={formData.customer_since || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, customer_since: e.target.value }))}
+                disabled={!editingCustomer && !!customer}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+              />
             </div>
 
             {/* Status */}
@@ -1452,7 +1471,6 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
       
       const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
       const customerData: any = {
-        name: '',
         email: '',
         phone: '',
         company_name: '',

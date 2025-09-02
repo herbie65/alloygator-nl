@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const dynamic = "force-static"
 import { FirebaseService } from '@/lib/firebase'
 
 // Functie om een uniek ordernummer te genereren in het formaat AGO-05006
@@ -36,6 +35,50 @@ async function generateOrderNumber(): Promise<string> {
     const timestamp = Date.now()
     const randomPart = Math.random().toString(36).substr(2, 4)
     return `AGO-${timestamp.toString().slice(-5)}-${randomPart}`
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+    const limit = searchParams.get('limit') || '100'
+    
+    console.log('Orders API called with params:', { status, limit })
+    
+    // Haal alle bestellingen op uit de database
+    const orders = await FirebaseService.getDocuments('orders')
+    
+    if (!orders || orders.length === 0) {
+      console.log('No orders found in database')
+      return NextResponse.json([])
+    }
+    
+    console.log(`Found ${orders.length} orders`)
+    
+    // Filter op status als status parameter is opgegeven
+    let filteredOrders = orders
+    
+    if (status) {
+      filteredOrders = orders.filter(order => {
+        const orderStatus = order.status?.toLowerCase()
+        const requestedStatus = status.toLowerCase()
+        return orderStatus === requestedStatus
+      })
+    }
+    
+    // Pas limit toe
+    if (limit && !isNaN(parseInt(limit))) {
+      filteredOrders = filteredOrders.slice(0, parseInt(limit))
+    }
+    
+    console.log(`Returning ${filteredOrders.length} filtered orders`)
+    
+    return NextResponse.json(filteredOrders)
+    
+  } catch (error) {
+    console.error('Error fetching orders:', error)
+    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
   }
 }
 
