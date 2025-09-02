@@ -61,7 +61,7 @@ export class OrderToEboekhoudenService {
       const invoiceItems = invoice.items.map(item => ({
         Aantal: item.quantity,
         Eenheid: 'stuk',
-        Omschrijving: item.name,
+        Omschrijving: `Invoice ${invoiceNumber} for Order ${order.order_number || orderId}`,
         StukprijsExclBTW: parseFloat(item.price) / 1.21, // Excl. BTW (21%)
         BTWCode: 'HOOG', // 21% BTW
         TegenrekeningCode: '8000' // Omzet hoog
@@ -72,7 +72,7 @@ export class OrderToEboekhoudenService {
         invoiceItems.push({
           Aantal: 1,
           Eenheid: 'stuk',
-          Omschrijving: 'Verzendkosten',
+          Omschrijving: `Invoice ${invoiceNumber} for Order ${order.order_number || orderId} - Verzendkosten`,
           StukprijsExclBTW: parseFloat(invoice.shipping_cost) / 1.21,
           BTWCode: 'HOOG',
           TegenrekeningCode: '8000'
