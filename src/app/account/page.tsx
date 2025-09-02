@@ -107,7 +107,7 @@ export default function AccountPage() {
               is_dealer: !!record.is_dealer,
               dealer_group: record.dealer_group || '',
               company_name: record.company_name || record.bedrijfsnaam || '',
-              created_at: record.created_at || new Date().toISOString(),
+              created_at: record.customer_since || record.created_at || new Date().toISOString(),
               sets_purchased_last_year: record.sets_purchased_last_year || 0
             })
             setLoading(false)
