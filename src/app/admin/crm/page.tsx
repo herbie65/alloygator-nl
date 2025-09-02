@@ -44,6 +44,7 @@ interface Customer {
   separate_shipping_address?: boolean
   shipping_address?: string
   shipping_city?: string
+  sets_purchased_last_year?: number
   shipping_postal_code?: string
   shipping_country?: string
   kvk_number?: string
@@ -989,7 +990,8 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
     credit_limit: 0,
     tax_exempt: false,
     tax_exemption_reason: '',
-    customer_since: ''
+    customer_since: '',
+    sets_purchased_last_year: 0
   })
 
 
@@ -1303,6 +1305,24 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                     <option key={group.id} value={group.id}>{group.name}</option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {formData.is_dealer && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sets gekocht afgelopen jaar
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.sets_purchased_last_year || 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sets_purchased_last_year: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                  disabled={isViewing}
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">Aantal sets dat de dealer heeft gekocht voordat de site live ging</p>
               </div>
             )}
 
