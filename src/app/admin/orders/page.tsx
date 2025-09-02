@@ -234,7 +234,7 @@ export default function OrdersPage() {
     }
   }
 
-  const handleExportToEboekhouden = async (order: any) => {
+  const handleExportInvoiceToEboekhouden = async (order: any) => {
     try {
       setError('')
       const response = await fetch('/api/eboekhouden/export-order', {
@@ -255,8 +255,8 @@ export default function OrdersPage() {
         alert(`❌ ${result.message}`)
       }
     } catch (error) {
-      console.error('E-boekhouden export error:', error)
-      alert(`❌ Fout bij exporteren naar E-boekhouden: ${error instanceof Error ? error.message : 'Onbekende fout'}`)
+      console.error('E-boekhouden factuur export error:', error)
+      alert(`❌ Fout bij exporteren factuur naar E-boekhouden: ${error instanceof Error ? error.message : 'Onbekende fout'}`)
     }
   }
 
@@ -964,7 +964,7 @@ export default function OrdersPage() {
                         if (v === 'cancel') { handleUpdateStatus(order.id, 'annuleren'); return }
                         if (v === 'mark-paid') { handleMarkAsPaid(order.id); return }
                         if (v === 'rma') { handleCreateRma(order); return }
-                        if (v === 'export-eboekhouden') { handleExportToEboekhouden(order); return }
+                        if (v === 'export-eboekhouden') { handleExportInvoiceToEboekhouden(order); return }
                       }}
                     >
                       <option value="">Actie kiezen…</option>

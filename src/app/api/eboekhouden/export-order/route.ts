@@ -23,28 +23,28 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🔍 E-boekhouden export request for order:', orderId);
+    console.log('🔍 E-boekhouden factuur export request for order:', orderId);
 
-    // Controleer of order al geëxporteerd is
+    // Controleer of factuur al geëxporteerd is
     const isExported = await OrderToEboekhoudenService.isOrderExported(orderId);
     if (isExported) {
       return NextResponse.json({
         success: false,
-        message: 'Order is al geëxporteerd naar E-boekhouden'
+        message: 'Factuur is al geëxporteerd naar E-boekhouden'
       }, { status: 400 });
     }
 
-    // Export order naar E-boekhouden
+    // Export factuur naar E-boekhouden
     const result = await OrderToEboekhoudenService.exportOrder(orderId);
 
-    console.log('✅ E-boekhouden export result:', result);
+    console.log('✅ E-boekhouden factuur export result:', result);
     return NextResponse.json(result);
 
   } catch (error) {
-    console.error('❌ E-boekhouden export order error:', error);
+    console.error('❌ E-boekhouden factuur export error:', error);
     return NextResponse.json({
       success: false,
-      message: error instanceof Error ? error.message : 'Onbekende fout bij exporteren order'
+      message: error instanceof Error ? error.message : 'Onbekende fout bij exporteren factuur naar E-boekhouden'
     }, { status: 500 });
   }
 }
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Controleer of order geëxporteerd is
+    // Controleer of factuur geëxporteerd is
     const isExported = await OrderToEboekhoudenService.isOrderExported(orderId);
 
     return NextResponse.json({
@@ -70,10 +70,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('E-boekhouden check export status error:', error);
+    console.error('E-boekhouden check factuur export status error:', error);
     return NextResponse.json({
       success: false,
-      message: error instanceof Error ? error.message : 'Onbekende fout bij controleren export status'
+      message: error instanceof Error ? error.message : 'Onbekende fout bij controleren factuur export status'
     }, { status: 500 });
   }
 }

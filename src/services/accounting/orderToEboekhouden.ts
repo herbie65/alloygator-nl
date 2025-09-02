@@ -23,7 +23,7 @@ export class OrderToEboekhoudenService {
   private static client = getEBoekhoudenClient();
 
   /**
-   * Export een factuur naar E-boekhouden
+   * Export een factuur naar E-boekhouden (via order ID)
    */
   static async exportOrder(orderId: string): Promise<{ success: boolean; message: string; invoiceNumber?: string }> {
     try {
