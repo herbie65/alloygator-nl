@@ -13,7 +13,6 @@ declare global {
 
 interface Customer {
   id: string
-  name: string
   email: string
   phone: string
   company_name?: string
@@ -77,7 +76,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterGroup, setFilterGroup] = useState('all')
-  const [sortBy, setSortBy] = useState('name')
+  const [sortBy, setSortBy] = useState('email')
   const [saving, setSaving] = useState(false)
   const [showCSVImport, setShowCSVImport] = useState(false)
 
@@ -101,9 +100,10 @@ export default function CustomersPage() {
   }, [])
 
   const filteredCustomers = (customers || []).filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (customer.company_name && customer.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+    const matchesSearch = customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (customer.company_name && customer.company_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (customer.contact_first_name && customer.contact_first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (customer.contact_last_name && customer.contact_last_name.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesStatus = filterStatus === 'all' || customer.status === filterStatus
     const matchesGroup = filterGroup === 'all' || customer.dealer_group === filterGroup
@@ -112,7 +112,6 @@ export default function CustomersPage() {
   }).sort((a, b) => {
     switch (sortBy) {
       case 'id': return a.id.localeCompare(b.id)
-      case 'name': return a.name.localeCompare(b.name)
       case 'email': return a.email.localeCompare(b.email)
       case 'postal_code': return (a.postal_code || '').localeCompare(b.postal_code || '')
       case 'city': return (a.city || '').localeCompare(b.city || '')
@@ -463,7 +462,6 @@ export default function CustomersPage() {
                 className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="id">Sorteer op Klant ID</option>
-                <option value="name">Sorteer op Naam</option>
                 <option value="email">Sorteer op Email</option>
                 <option value="postal_code">Sorteer op Postcode</option>
                 <option value="city">Sorteer op Woonplaats</option>
@@ -537,13 +535,18 @@ export default function CustomersPage() {
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                             <span className="text-sm font-medium text-gray-700">
-                              {customer.name.charAt(0).toUpperCase()}
+                              {(customer.company_name || customer.contact_first_name || customer.contact_last_name || 'K').charAt(0).toUpperCase()}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                          <div className="text-sm text-gray-500">{customer.company_name || 'Particulier'}</div>
+                          <div className="text-sm font-medium text-gray-900">{customer.company_name || 'Particulier'}</div>
+                          <div className="text-sm text-gray-500">
+                            {customer.contact_first_name && customer.contact_last_name 
+                              ? `${customer.contact_first_name} ${customer.contact_last_name}`
+                              : customer.contact_first_name || customer.contact_last_name || 'Geen contactpersoon'
+                            }
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -657,7 +660,6 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
       setFormData(customer)
     } else {
       setFormData({
-        name: '',
         email: '',
         phone: '',
         company_name: '',
@@ -703,7 +705,6 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
     
     const customerData: Customer = {
       id: editingCustomer?.id || '',
-      name: formData.name || '',
       email: formData.email || '',
       phone: formData.phone || '',
       company_name: formData.company_name || '',
@@ -1470,7 +1471,6 @@ function CustomerCSVImportModal({ onClose, onImport }: CustomerCSVImportModalPro
       
       const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
       const customerData: any = {
-        name: '',
         email: '',
         phone: '',
         company_name: '',

@@ -5,7 +5,6 @@ import { FirebaseService } from '@/lib/firebase'
 
 interface Customer {
   id: string
-  name: string
   email: string
   phone: string
   company_name?: string
@@ -304,17 +303,10 @@ export default function CustomerImportPage() {
           }
         })
 
-        // Naam samenstellen uit firstname en lastname
-        if (customerData.contact_first_name || customerData.contact_last_name) {
-          const firstName = customerData.contact_first_name || ''
-          const lastName = customerData.contact_last_name || ''
-          customerData.name = `${firstName} ${lastName}`.trim()
-        }
-
         // Verplichte velden controleren
-        if (!customerData.name || !customerData.email) {
+        if (!customerData.email) {
           skippedCount++
-          errors.push(`Rij ${i + 2}: Naam en email zijn verplicht`)
+          errors.push(`Rij ${i + 2}: Email is verplicht`)
           continue
         }
 

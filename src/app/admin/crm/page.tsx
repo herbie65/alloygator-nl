@@ -305,9 +305,10 @@ export default function CRMPage() {
   // Apply filtering and sorting to enriched list (restores previous behavior)
   const filteredCustomers = enrichedCustomers
     .filter(customer => {
-      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customer.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesSearch = customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          customer.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (customer.contact_first_name && customer.contact_first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (customer.contact_last_name && customer.contact_last_name.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesStatus = filterStatus === 'all' || customer.status === filterStatus
       const normalize = (v: any) => String(v || '').toLowerCase().trim()
       const selectedGroupName = customerGroups.find(g => g.id === filterGroup)?.name
@@ -670,7 +671,7 @@ export default function CRMPage() {
               onChange={(e) => setSortBy(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
             >
-              <option value="name">Naam A-Z</option>
+
               <option value="email">Email A-Z</option>
               <option value="total_orders">Meeste bestellingen</option>
               <option value="total_spent">Hoogste omzet</option>
@@ -757,7 +758,12 @@ export default function CRMPage() {
                         <div className="text-sm font-semibold text-gray-900">{customer.company_name || '-'}</div>
                       )}
                       {columnKey === 'contact_person' && (
-                        <div className="text-sm text-gray-900">{customer.contact_person || customer.name || '-'}</div>
+                        <div className="text-sm text-gray-900">
+                          {customer.contact_first_name && customer.contact_last_name 
+                            ? `${customer.contact_first_name} ${customer.contact_last_name}`
+                            : customer.contact_first_name || customer.contact_last_name || customer.contact_person || '-'
+                          }
+                        </div>
                       )}
                       {columnKey === 'postal_code' && (
                         <div className="text-sm text-gray-900 font-mono">{customer.postal_code || '-'}</div>

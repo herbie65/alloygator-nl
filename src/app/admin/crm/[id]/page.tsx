@@ -385,7 +385,7 @@ setTargets({
       <div className="max-w-7xl mx-auto px-4 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{customer.company_name || customer.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{customer.company_name || 'Particulier'}</h1>
             <p className="text-gray-600">Dealer groep: {customer.dealer_group || '-'}</p>
           </div>
           <div className="flex items-center space-x-2">
@@ -435,7 +435,12 @@ setTargets({
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Basisgegevens</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div><span className="text-gray-600">Naam:</span> <span className="font-medium">{customer.name}</span></div>
+            <div><span className="text-gray-600">Contactpersoon:</span> <span className="font-medium">
+              {customer.contact_first_name && customer.contact_last_name 
+                ? `${customer.contact_first_name} ${customer.contact_last_name}`
+                : customer.contact_first_name || customer.contact_last_name || '-'
+              }
+            </span></div>
             <div><span className="text-gray-600">Email:</span> <span className="font-medium">{customer.email}</span></div>
             <div><span className="text-gray-600">Telefoon:</span> <span className="font-medium">{customer.phone || '-'}</span></div>
             <div><span className="text-gray-600">Adres:</span> <span className="font-medium">{customer.address}, {customer.postal_code} {customer.city}</span></div>
