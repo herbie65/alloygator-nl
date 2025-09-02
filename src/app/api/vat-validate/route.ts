@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   </soap:Body>
 </soap:Envelope>`
 
-      const response = await fetch('http://ec.europa.eu/taxation_customs/vies/services/checkVatService', {
+      const response = await fetch('https://ec.europa.eu/taxation_customs/vies/services/checkVatService', {
         method: 'POST',
         headers: {
           'Content-Type': 'text/xml; charset=utf-8',
