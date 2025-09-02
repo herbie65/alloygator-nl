@@ -1060,7 +1060,12 @@ export default function CheckoutPage() {
       const payment = await paymentRes.json()
 
       // 3) Redirect to Mollie checkout
-      window.location.href = payment.checkoutUrl
+      console.log('Payment response:', payment)
+if (!payment.checkoutUrl) {
+  alert('Fout: Geen checkout URL ontvangen. Check console voor details.')
+  return
+}
+window.location.href = payment.checkoutUrl
     } catch (error) {
       console.error('Error creating order:', error);
       alert('Er is een fout opgetreden bij het plaatsen van je bestelling. Probeer het opnieuw.');
