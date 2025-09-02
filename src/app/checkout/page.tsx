@@ -858,221 +858,280 @@ export default function CheckoutPage() {
       setShowPickupLocations(false);
     }
   };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateStep(currentStep)) return;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateStep(currentStep)) return;
+  try {
+    const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
+    setLoading(true)
 
+    console.log('=== CHECKOUT DEBUG START ===');
+    console.log('1. Initial State:', {
+      cart: cart,
+      cartLength: cart.length,
+      shippingMethod: shippingMethod,
+      selectedMethod: selectedMethod,
+      paymentMethod: paymentMethod,
+      orderTotals: orderTotals,
+      vatCalculation: vatCalculation,
+      dealer: {
+        isDealer: dealer.isDealer,
+        discountPercent: dealer.discountPercent
+      },
+      settings: {
+        freeShippingThreshold: settings.freeShippingThreshold,
+        shippingCost: settings.shippingCost
+      }
+    });
+
+    // 0) Upsert customer address by email (if provided)
     try {
-      const selectedMethod = settings.shippingMethods.find(method => method.id === shippingMethod);
-      setLoading(true)
-
-      // 0) Upsert customer address by email (if provided)
-      try {
-        const email = (customer.email || '').trim().toLowerCase()
-        if (email) {
-          // If shipping is not separate and shipping fields empty, default to billing
-          const shippingDefaults = customer.separate_shipping_address ? {} : {
-            shipping_address: customer.shipping_address || customer.address,
-            shipping_postal_code: customer.shipping_postal_code || customer.postal_code,
-            shipping_city: customer.shipping_city || customer.city,
-            shipping_country: customer.shipping_country || customer.country,
-          }
-          await fetch('/api/customers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-            email,
-            contact_first_name: customer.contact_first_name,
-            contact_last_name: customer.contact_last_name,
-            phone: customer.phone,
-            address: customer.address,
-            postal_code: customer.postal_code,
-            city: customer.city,
-            country: customer.country,
-            ...shippingDefaults,
-          }) })
-          if (createAccount) {
-            if (!accountPassword || accountPassword !== accountPassword2) throw new Error('Wachtwoorden komen niet overeen')
-            await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-              email,
-              password: accountPassword,
-              name: `${customer.contact_first_name || ''} ${customer.contact_last_name || ''}`.trim()
-            }) })
-          }
+      const email = (customer.email || '').trim().toLowerCase()
+      if (email) {
+        const shippingDefaults = customer.separate_shipping_address ? {} : {
+          shipping_address: customer.shipping_address || customer.address,
+          shipping_postal_code: customer.shipping_postal_code || customer.postal_code,
+          shipping_city: customer.shipping_city || customer.city,
+          shipping_country: customer.shipping_country || customer.country,
         }
-      } catch (e) {
-        console.warn('Adres/account opslaan mislukt (gaat verder met checkout):', e)
+        await fetch('/api/customers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          email,
+          contact_first_name: customer.contact_first_name,
+          contact_last_name: customer.contact_last_name,
+          phone: customer.phone,
+          address: customer.address,
+          postal_code: customer.postal_code,
+          city: customer.city,
+          country: customer.country,
+          ...shippingDefaults,
+        }) })
+        if (createAccount) {
+          if (!accountPassword || accountPassword !== accountPassword2) throw new Error('Wachtwoorden komen niet overeen')
+          await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            email,
+            password: accountPassword,
+            name: `${customer.contact_first_name || ''} ${customer.contact_last_name || ''}`.trim()
+          }) })
+        }
       }
-
-      // Prepare items with dealer discount applied for dealers
-      const itemsForOrder = cart.map((item) => ({
-        ...item,
-        price: getDiscountedPrice(item.price, item.vat_category)
-      }))
-
-      const netSubtotal = itemsForOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-
-      // Haal customer ID op uit localStorage of gebruik email als fallback
-      const currentUser = localStorage.getItem('currentUser')
-      const customerId = currentUser ? JSON.parse(currentUser).id : customer.email
-
-      const order = {
-        customer: customer,
-        customer_id: customerId, // Belangrijk: koppelt order aan gebruiker
-        user_email: customer.email, // Email voor extra koppeling
-        items: itemsForOrder,
-        shipping_method: (() => {
-          if (shippingMethod === 'pickup') return 'Afhalen bij dealer';
-          return selectedMethod?.name || 'Standaard verzending';
-        })(),
-        shipping_cost: (() => {
-          if (!selectedMethod) return 0; // Geen verzendmethode gekozen
-          
-          // Check voor hardcoded pickup of database pickup method
-          if (shippingMethod === 'pickup' || selectedMethod?.delivery_type === 'pickup') {
-            return 0; // Afhalen is altijd gratis
-          }
-          
-          // Voor verzending: gratis boven drempel
-          const threshold = parseFloat(settings.freeShippingThreshold) || 300;
-          if (netSubtotal >= threshold) {
-            return 0; // Gratis verzending
-          } else {
-            // Standaard verzendkosten (inclusief BTW)
-            const baseCost = parseFloat(settings.shippingCost) || 8.95;
-            return dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
-          }
-        })(),
-        shipping_carrier: selectedMethod?.carrier || 'postnl',
-        shipping_delivery_type: (() => {
-          if (shippingMethod === 'pickup') return 'pickup';
-          return selectedMethod?.delivery_type || 'standard';
-        })(),
-        pickup_location: selectedPickupLocation,
-        subtotal: netSubtotal,
-        vat_amount: vatCalculation.vat_amount,
-        total: vatCalculation.total_amount,
-        dealer_group: dealerGroup,
-        dealer_discount: dealer.discountPercent || 0,
-        created_at: new Date().toISOString(),
-        status: 'pending',
-        payment_status: 'open',
-        payment_method: paymentMethod,
-        payment_terms_days: paymentMethod === 'invoice' ? 14 : undefined
-      };
-
-      // 1) Create order in backend
-      const orderRes = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order),
-      })
-      if (!orderRes.ok) throw new Error('Failed to create order')
-      const created = await orderRes.json()
-      const orderId: string = created?.order_id || created?.id || created?.orderId
-      const orderNumber: string = created?.order_number || created?.orderNumber || created?.id
-      if (!orderId) {
-        console.error('Order creation response:', created)
-        throw new Error('Order ID ontbreekt na aanmaken')
-      }
-
-      // 2) If paymentMethod is invoice (op rekening), skip Mollie and mark as pending
-      if (paymentMethod === 'invoice') {
-        // Update order with payment method and pending status
-        await fetch('/api/orders', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: orderId, payment_method: 'invoice', payment_status: 'pending', status: 'pending' })
-        }).catch(()=>{})
-
-        // Sla order data op in localStorage voor order confirmation pagina
-        const orderForConfirmation = {
-          ...order,
-          id: orderId,
-          order_number: orderNumber
-        };
-        localStorage.setItem('lastOrder', JSON.stringify(orderForConfirmation));
-        
-        localStorage.removeItem("alloygator-cart");
-        setCart([]);
-        try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
-        window.location.href = `/order-confirmation/${orderId}`;
-        return
-      }
-
-      // 2b) If paymentMethod is cash or pin, skip Mollie and mark as open for manual payment
-      if (paymentMethod === 'cash' || paymentMethod === 'pin') {
-        // Update order with payment method but keep status open for manual payment at pickup
-        await fetch('/api/orders', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            id: orderId, 
-            payment_method: paymentMethod, 
-            payment_status: 'open', // Blijft open tot betaling bij afhalen
-            status: 'nieuw' // Status 'nieuw' voor handmatige verwerking vanuit backend
-          })
-        }).catch(()=>{})
-
-        // Sla order data op in localStorage voor order confirmation pagina
-        const orderForConfirmation = {
-          ...order,
-          id: orderId,
-          order_number: orderNumber
-        };
-        localStorage.setItem('lastOrder', JSON.stringify(orderForConfirmation));
-        
-        localStorage.removeItem("alloygator-cart");
-        setCart([]);
-        try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
-        window.location.href = `/order-confirmation/${orderId}`;
-        return
-      }
-
-      // 2) Create Mollie payment for the order
-      const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-      
-      // Gebruik altijd het Vercel domein voor Mollie (webhooks moeten publiek toegankelijk zijn)
-      const baseUrl = 'https://alloygator-nl.vercel.app'
-      const returnUrl = `${baseUrl}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
-      const webhookUrl = `${baseUrl}/api/payment/mollie/webhook`
-      
-      console.log('Mollie URLs:', { baseUrl, returnUrl, webhookUrl })
-
-      const paymentRes = await fetch('/api/payment/mollie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: Math.round(order.total * 100) / 100,
-          currency: 'EUR',
-          description: `Order ${orderNumber}`,
-          orderId: orderId,
-          redirectUrl: returnUrl, // bevat simulate=1 op localhost
-          webhookUrl: webhookUrl,
-          cardToken: creditCardToken, // Voeg creditcard token toe als deze beschikbaar is
-          idealIssuer: selectedIDEALBank // Voeg iDEAL issuer toe als deze beschikbaar is
-        })
-      })
-      if (!paymentRes.ok) {
-        const err = await paymentRes.json().catch(()=>({}))
-        console.error('Create payment failed:', err)
-        throw new Error('Failed to create payment')
-      }
-      const payment = await paymentRes.json()
-
-      // 3) Redirect to Mollie checkout
-      console.log('Payment response:', payment)
-if (!payment.checkoutUrl) {
-  alert('Fout: Geen checkout URL ontvangen. Check console voor details.')
-  return
-}
-window.location.href = payment.checkoutUrl
-    } catch (error) {
-      console.error('Error creating order:', error);
-      alert('Er is een fout opgetreden bij het plaatsen van je bestelling. Probeer het opnieuw.');
-    } finally {
-      setLoading(false)
+    } catch (e) {
+      console.warn('Adres/account opslaan mislukt (gaat verder met checkout):', e)
     }
-  };
+
+    // Prepare items with dealer discount applied for dealers
+    const itemsForOrder = cart.map((item) => ({
+      ...item,
+      price: getDiscountedPrice(item.price, item.vat_category)
+    }))
+
+    console.log('2. Items voor order:', itemsForOrder);
+
+    const netSubtotal = itemsForOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    
+    console.log('3. Netsubtotal berekend:', netSubtotal);
+
+    // Haal customer ID op uit localStorage of gebruik email als fallback
+    const currentUser = localStorage.getItem('currentUser')
+    const customerId = currentUser ? JSON.parse(currentUser).id : customer.email
+
+    // Shipping cost calculation met debug
+    const shippingCostCalculation = (() => {
+      console.log('4. Shipping cost berekening START');
+      
+      if (!selectedMethod) {
+        console.log('4a. Geen selected method, return 0');
+        return 0;
+      }
+      
+      // Check voor hardcoded pickup of database pickup method
+      const isPickup = shippingMethod === 'pickup' || selectedMethod?.delivery_type === 'pickup';
+      console.log('4b. IsPickup check:', { shippingMethod, deliveryType: selectedMethod?.delivery_type, isPickup });
+      
+      if (isPickup) {
+        console.log('4c. Pickup selected, return 0');
+        return 0; // Afhalen is altijd gratis
+      }
+      
+      // Voor verzending: gratis boven drempel
+      const threshold = parseFloat(settings.freeShippingThreshold) || 300;
+      console.log('4d. Threshold check:', { netSubtotal, threshold, isFree: netSubtotal >= threshold });
+      
+      if (netSubtotal >= threshold) {
+        console.log('4e. Gratis verzending, return 0');
+        return 0; // Gratis verzending
+      } else {
+        // Standaard verzendkosten (inclusief BTW)
+        const baseCost = parseFloat(settings.shippingCost) || 8.95;
+        const finalCost = dealer.isDealer ? baseCost : getPriceIncludingVat(baseCost, 'standard');
+        console.log('4f. Verzendkosten berekend:', { baseCost, isDealer: dealer.isDealer, finalCost });
+        return finalCost;
+      }
+    })();
+
+    const order = {
+      customer: customer,
+      customer_id: customerId,
+      user_email: customer.email,
+      items: itemsForOrder,
+      shipping_method: (() => {
+        if (shippingMethod === 'pickup') return 'Afhalen bij dealer';
+        return selectedMethod?.name || 'Standaard verzending';
+      })(),
+      shipping_cost: shippingCostCalculation,
+      shipping_carrier: selectedMethod?.carrier || 'postnl',
+      shipping_delivery_type: (() => {
+        if (shippingMethod === 'pickup') return 'pickup';
+        return selectedMethod?.delivery_type || 'standard';
+      })(),
+      pickup_location: selectedPickupLocation,
+      subtotal: netSubtotal,
+      vat_amount: vatCalculation.vat_amount,
+      total: netSubtotal + shippingCostCalculation, // FIX: Direct berekenen
+      dealer_group: dealerGroup,
+      dealer_discount: dealer.discountPercent || 0,
+      created_at: new Date().toISOString(),
+      status: 'pending',
+      payment_status: 'open',
+      payment_method: paymentMethod,
+      payment_terms_days: paymentMethod === 'invoice' ? 14 : undefined
+    };
+
+    console.log('5. Order object compleet:', {
+      subtotal: order.subtotal,
+      shipping_cost: order.shipping_cost,
+      total: order.total,
+      vat_amount: order.vat_amount,
+      orderTotals_vergelijking: orderTotals,
+      vatCalculation_vergelijking: vatCalculation
+    });
+
+    // Valideer dat total > 0
+    if (order.total <= 0) {
+      console.error('FOUT: Order total is 0 of negatief!', order.total);
+      alert('Fout: Het totaalbedrag is ongeldig. Herlaad de pagina en probeer opnieuw.');
+      return;
+    }
+
+    console.log('6. Order total validatie OK:', order.total);
+
+    // 1) Create order in backend
+    const orderRes = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order),
+    })
+    if (!orderRes.ok) throw new Error('Failed to create order')
+    const created = await orderRes.json()
+    const orderId: string = created?.order_id || created?.id || created?.orderId
+    const orderNumber: string = created?.order_number || created?.orderNumber || created?.id
+    
+    console.log('7. Order aangemaakt:', { orderId, orderNumber, created });
+    
+    if (!orderId) {
+      console.error('Order creation response:', created)
+      throw new Error('Order ID ontbreekt na aanmaken')
+    }
+
+    // 2) If paymentMethod is invoice (op rekening), skip Mollie and mark as pending
+    if (paymentMethod === 'invoice') {
+      console.log('8. Invoice payment - skip Mollie');
+      await fetch('/api/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, payment_method: 'invoice', payment_status: 'pending', status: 'pending' })
+      }).catch(()=>{})
+
+      const orderForConfirmation = { ...order, id: orderId, order_number: orderNumber };
+      localStorage.setItem('lastOrder', JSON.stringify(orderForConfirmation));
+      localStorage.removeItem("alloygator-cart");
+      setCart([]);
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
+      window.location.href = `/order-confirmation/${orderId}`;
+      return
+    }
+
+    // 2b) If paymentMethod is cash or pin, skip Mollie and mark as open for manual payment
+    if (paymentMethod === 'cash' || paymentMethod === 'pin') {
+      console.log('8b. Cash/Pin payment - skip Mollie');
+      await fetch('/api/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: orderId, 
+          payment_method: paymentMethod, 
+          payment_status: 'open',
+          status: 'nieuw'
+        })
+      }).catch(()=>{})
+
+      const orderForConfirmation = { ...order, id: orderId, order_number: orderNumber };
+      localStorage.setItem('lastOrder', JSON.stringify(orderForConfirmation));
+      localStorage.removeItem("alloygator-cart");
+      setCart([]);
+      try { window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: [] } })) } catch {}
+      window.location.href = `/order-confirmation/${orderId}`;
+      return
+    }
+
+    // 2) Create Mollie payment for the order
+    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    const baseUrl = 'https://alloygator-nl.vercel.app'
+    const returnUrl = `${baseUrl}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
+    const webhookUrl = `${baseUrl}/api/payment/mollie/webhook`
+    
+    console.log('9. Mollie URLs:', { baseUrl, returnUrl, webhookUrl });
+
+    const molliePayload = {
+      amount: Math.round(order.total * 100) / 100,
+      currency: 'EUR',
+      description: `Order ${orderNumber}`,
+      orderId: orderId,
+      redirectUrl: returnUrl,
+      webhookUrl: webhookUrl,
+      cardToken: creditCardToken,
+      idealIssuer: selectedIDEALBank
+    };
+
+    console.log('10. Mollie payload:', molliePayload);
+
+    const paymentRes = await fetch('/api/payment/mollie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(molliePayload)
+    })
+
+    console.log('11. Mollie response status:', paymentRes.status);
+
+    if (!paymentRes.ok) {
+      const err = await paymentRes.json().catch(()=>({}))
+      console.error('12. Create payment failed:', err)
+      throw new Error('Failed to create payment')
+    }
+    const payment = await paymentRes.json()
+
+    console.log('13. Payment response:', payment);
+
+    // 3) Redirect to Mollie checkout
+    if (!payment.checkoutUrl) {
+      console.error('14. FOUT: Geen checkout URL ontvangen!', payment);
+      alert('Fout: Geen checkout URL ontvangen. Check console voor details.')
+      return
+    }
+
+    console.log('15. Redirect naar Mollie:', payment.checkoutUrl);
+    console.log('=== CHECKOUT DEBUG END ===');
+    
+    window.location.href = payment.checkoutUrl
+
+  } catch (error) {
+    console.error('Error creating order:', error);
+    alert('Er is een fout opgetreden bij het plaatsen van je bestelling. Probeer het opnieuw.');
+  } finally {
+    setLoading(false)
+  }
+};
 
   if (cart.length === 0) {
     return (
