@@ -84,8 +84,8 @@ export async function generateInvoicePdfBuffer(order: OrderRecord): Promise<Buff
   // Billing block left
   const linesLeft: string[] = []
   const billName = `${(c.voornaam || '')} ${(c.achternaam || '')}`.trim()
-  if (billName) linesLeft.push(billName)
   if (c.bedrijfsnaam) linesLeft.push(String(c.bedrijfsnaam))
+  if (billName) linesLeft.push(billName)
   if (c.adres) linesLeft.push(String(c.adres))
   linesLeft.push(`${c.postcode || ''} ${c.plaats || ''}`.trim())
   if (c.land) linesLeft.push(String(c.land))
