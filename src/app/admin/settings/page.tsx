@@ -110,12 +110,12 @@ export default function SettingsPage() {
     mollieTestMode: process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true',
     mollieWebhookUrl: process.env.NEXT_PUBLIC_MOLLIE_WEBHOOK_URL || '',
     // E-mail instellingen komen nu uit .env - alleen configuratie in database
-    adminEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
-    emailNotifications: process.env.NEXT_PUBLIC_EMAIL_NOTIFICATIONS_ENABLED === 'true',
-    smtpHost: process.env.NEXT_PUBLIC_SMTP_HOST || '',
-    smtpPort: process.env.NEXT_PUBLIC_SMTP_PORT || '',
-    smtpUser: process.env.NEXT_PUBLIC_SMTP_USER || '',
-    smtpPass: process.env.NEXT_PUBLIC_SMTP_PASS || ''
+    adminEmail: process.env.ADMIN_EMAIL || '',
+    emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
+    smtpHost: process.env.SMTP_HOST || '',
+    smtpPort: process.env.SMTP_PORT || '',
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPass: process.env.SMTP_PASSWORD || ''
   })
   // Google Calendar settings (persisted in Firestore settings doc)
   const [gcalEmail, setGcalEmail] = useState('')
@@ -190,12 +190,12 @@ export default function SettingsPage() {
           mollieTestMode: savedSettings.mollieTestMode ?? savedSettings.mollie_test_mode ?? prev.mollieTestMode,
           mollieWebhookUrl: savedSettings.mollieWebhookUrl || savedSettings.mollie_webhook_url || prev.mollieWebhookUrl,
                   // E-mail instellingen komen uit environment variables (niet uit database)
-        adminEmail: savedSettings.adminEmail || '',
-        emailNotifications: savedSettings.emailNotifications || false,
-        smtpHost: savedSettings.smtpHost || '',
-        smtpPort: savedSettings.smtpPort || '',
-        smtpUser: savedSettings.smtpUser || '',
-        smtpPass: savedSettings.smtpPass || ''
+        adminEmail: process.env.ADMIN_EMAIL || '',
+        emailNotifications: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
+        smtpHost: process.env.SMTP_HOST || '',
+        smtpPort: process.env.SMTP_PORT || '',
+        smtpUser: process.env.SMTP_USER || '',
+        smtpPass: process.env.SMTP_PASSWORD || ''
         }));
         // Load Google Calendar config if present
         setGcalEmail(savedSettings.gcal_service_account_email || savedSettings.gcalServiceAccountEmail || '')
@@ -441,14 +441,7 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          // Alle SMTP instellingen uit de database
-          smtpHost: settings.smtpHost,
-          smtpPort: settings.smtpPort,
-          smtpUser: settings.smtpUser,
-          smtpPass: settings.smtpPass,
-          // Admin instellingen
-          adminEmail: settings.adminEmail,
-          emailNotifications: settings.emailNotifications
+          // E-mail instellingen komen uit environment variables, niet uit database
         }),
       })
 
@@ -1314,7 +1307,7 @@ export default function SettingsPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={testEmailConfiguration}
-              disabled={!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPass || emailTestStatus === 'testing'}
+              disabled={emailTestStatus === 'testing'}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {emailTestStatus === 'testing' ? 'Testen...' : 'Test E-mail Configuratie'}
