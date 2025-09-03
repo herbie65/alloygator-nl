@@ -1096,7 +1096,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     console.log('10. Mollie payload:', molliePayload);
 
-    const paymentRes = await fetch('/api/payment/mollie', {
+    const paymentRes = await fetch('/api/payment/mollie/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(molliePayload)
