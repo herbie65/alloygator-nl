@@ -7,6 +7,28 @@ import { FirebaseClientService } from '@/lib/firebase-client'
 import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 import Link from 'next/link'
 
+// Functie om achtergrondkleur te bepalen op basis van dealer groep
+const getCustomerRowColor = (customer: Customer) => {
+  if (!customer.is_dealer) {
+    if (customer.company_name) {
+      return 'bg-green-50' // Retailer - licht groen
+    }
+    return '' // Particulier - geen kleur
+  }
+  
+  const group = (customer.dealer_group || '').toLowerCase()
+  if (group.includes('goud') || group.includes('gold')) {
+    return 'bg-yellow-50' // Dealer Goud - licht goud
+  }
+  if (group.includes('zilver') || group.includes('silver')) {
+    return 'bg-gray-100' // Dealer Zilver - licht zilver
+  }
+  if (group.includes('brons') || group.includes('bronze')) {
+    return 'bg-orange-50' // Dealer Brons - licht brons
+  }
+  return '' // Andere dealers - geen kleur
+}
+
 interface Customer {
   id: string
   email: string
@@ -741,7 +763,7 @@ export default function CRMPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
-                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => {
+                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className={`hover:bg-gray-50 transition-colors duration-200 cursor-pointer ${getCustomerRowColor(customer)}`} onClick={() => {
                   const url = `/admin/crm/${encodeURIComponent(customer.id)}`
                   try { (router as any)?.push ? (router as any).push(url) : (window.location.href = url) } catch { window.location.href = url }
                 }}>
