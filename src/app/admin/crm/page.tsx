@@ -193,9 +193,9 @@ export default function CRMPage() {
   const router = useRouter()
 
   // VIES API functie voor BTW verificatie
-  const verifyVatNumber = async (vatNumber: string, countryCode: string) => {
+  const verifyVatNumber = async (vatNumber: string) => {
     try {
-      const response = await fetch(`https://api.vatsensing.com/1.0/validate/?vat_number=${countryCode}${vatNumber}`)
+      const response = await fetch(`/api/vat-validate?vat=${encodeURIComponent(vatNumber)}`)
       const data = await response.json()
       
       if (data.valid) {
@@ -208,7 +208,7 @@ export default function CRMPage() {
       } else {
         return {
           valid: false,
-          error: 'BTW nummer is niet geldig'
+          error: data.message || 'BTW nummer is niet geldig'
         }
       }
     } catch (error) {
