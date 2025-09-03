@@ -66,6 +66,28 @@ interface CustomerGroup {
   created_at: string
 }
 
+// Functie om achtergrondkleur te bepalen op basis van dealer groep
+const getCustomerRowColor = (customer: Customer) => {
+  if (!customer.is_dealer) {
+    if (customer.company_name) {
+      return 'bg-green-50' // Retailer - licht groen
+    }
+    return '' // Particulier - geen kleur
+  }
+  
+  const group = (customer.dealer_group || '').toLowerCase()
+  if (group.includes('goud') || group.includes('gold')) {
+    return 'bg-yellow-50' // Dealer Goud - licht goud
+  }
+  if (group.includes('zilver') || group.includes('silver')) {
+    return 'bg-gray-100' // Dealer Zilver - licht zilver
+  }
+  if (group.includes('brons') || group.includes('bronze')) {
+    return 'bg-orange-50' // Dealer Brons - licht brons
+  }
+  return '' // Andere dealers - geen kleur
+}
+
 export default function CustomersPage() {
   const [customers, customersLoading, customersError] = useFirebaseRealtime<Customer[]>('customers')
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([])
@@ -527,7 +549,7 @@ export default function CustomersPage() {
                 </tr>
               ) : (
                 filteredCustomers.map((customer, index) => (
-                  <tr key={`${customer.id}-${index}`} className="hover:bg-gray-50">
+                  <tr key={`${customer.id}-${index}`} className={`hover:bg-gray-50 ${getCustomerRowColor(customer)}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 font-mono">#{customer.id}</div>
                     </td>

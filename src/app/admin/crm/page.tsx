@@ -7,9 +7,30 @@ import { FirebaseClientService } from '@/lib/firebase-client'
 import { useFirebaseRealtime } from '@/hooks/useFirebaseRealtime'
 import Link from 'next/link'
 
+// Functie om achtergrondkleur te bepalen op basis van dealer groep
+const getCustomerRowColor = (customer: Customer) => {
+  if (!customer.is_dealer) {
+    if (customer.company_name) {
+      return 'bg-green-50' // Retailer - licht groen
+    }
+    return '' // Particulier - geen kleur
+  }
+  
+  const group = (customer.dealer_group || '').toLowerCase()
+  if (group.includes('goud') || group.includes('gold')) {
+    return 'bg-yellow-50' // Dealer Goud - licht goud
+  }
+  if (group.includes('zilver') || group.includes('silver')) {
+    return 'bg-gray-100' // Dealer Zilver - licht zilver
+  }
+  if (group.includes('brons') || group.includes('bronze')) {
+    return 'bg-orange-50' // Dealer Brons - licht brons
+  }
+  return '' // Andere dealers - geen kleur
+}
+
 interface Customer {
   id: string
-  name: string
   email: string
   phone: string
   company_name?: string
@@ -44,6 +65,7 @@ interface Customer {
   separate_shipping_address?: boolean
   shipping_address?: string
   shipping_city?: string
+  sets_purchased_last_year?: number
   shipping_postal_code?: string
   shipping_country?: string
   kvk_number?: string
@@ -171,9 +193,9 @@ export default function CRMPage() {
   const router = useRouter()
 
   // VIES API functie voor BTW verificatie
-  const verifyVatNumber = async (vatNumber: string, countryCode: string) => {
+  const verifyVatNumber = async (vatNumber: string) => {
     try {
-      const response = await fetch(`https://api.vatsensing.com/1.0/validate/?vat_number=${countryCode}${vatNumber}`)
+      const response = await fetch(`/api/vat-validate?vat=${encodeURIComponent(vatNumber)}`)
       const data = await response.json()
       
       if (data.valid) {
@@ -186,7 +208,7 @@ export default function CRMPage() {
       } else {
         return {
           valid: false,
-          error: 'BTW nummer is niet geldig'
+          error: data.message || 'BTW nummer is niet geldig'
         }
       }
     } catch (error) {
@@ -741,7 +763,7 @@ export default function CRMPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer, idx) => (
-                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className="hover:bg-gray-50 transition-colors duration-200 cursor-pointer" onClick={() => {
+                <tr key={`${customer.id || customer.email || 'row'}_${idx}`} className={`hover:bg-gray-50 transition-colors duration-200 cursor-pointer ${getCustomerRowColor(customer)}`} onClick={() => {
                   const url = `/admin/crm/${encodeURIComponent(customer.id)}`
                   try { (router as any)?.push ? (router as any).push(url) : (window.location.href = url) } catch { window.location.href = url }
                 }}>
@@ -961,7 +983,6 @@ interface CustomerDetailModalProps {
 function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave, onClose, saving }: CustomerDetailModalProps) {
   const [formData, setFormData] = useState<Customer>({
     id: '',
-    name: '',
     email: '',
     phone: '',
     company_name: '',
@@ -989,7 +1010,8 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
     credit_limit: 0,
     tax_exempt: false,
     tax_exemption_reason: '',
-    customer_since: ''
+    customer_since: '',
+    sets_purchased_last_year: 0
   })
 
 
@@ -1033,12 +1055,12 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Naam *
+                Voornaam *
               </label>
               <input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                value={formData.contact_first_name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_first_name: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
                 required
                 disabled={isViewing}
@@ -1047,13 +1069,14 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Persoon
+                Achternaam *
               </label>
               <input
                 type="text"
-                value={formData.contact_person || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, contact_person: e.target.value }))}
+                value={formData.contact_last_name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_last_name: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                required
                 disabled={isViewing}
               />
             </div>
@@ -1305,6 +1328,22 @@ function CustomerDetailModal({ customer, editingCustomer, customerGroups, onSave
                 </select>
               </div>
             )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sets gekocht afgelopen jaar
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.sets_purchased_last_year || 0}
+                onChange={(e) => setFormData(prev => ({ ...prev, sets_purchased_last_year: parseInt(e.target.value) || 0 }))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                disabled={isViewing}
+                placeholder="0"
+              />
+              <p className="text-xs text-gray-500 mt-1">Aantal sets dat de dealer heeft gekocht voordat de site live ging</p>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

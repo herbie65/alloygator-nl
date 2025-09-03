@@ -1,4 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import soap from 'soap'
+
+const url = "https://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl"
+
+async function checkVAT(countryCode: string, vatNumber: string) {
+  const client = await soap.createClientAsync(url)
+  const [result] = await client.checkVatAsync({ 
+    countryCode, 
+    vatNumber 
+  })
+  return result
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,64 +32,31 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // VIES SOAP API endpoint
-      const soapEnvelope = `<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
-  <soap:Header/>
-  <soap:Body>
-    <tns:checkVat>
-      <tns:countryCode>${vatNumber.substring(0, 2)}</tns:countryCode>
-      <tns:vatNumber>${vatNumber.substring(2)}</tns:vatNumber>
-    </tns:checkVat>
-  </soap:Body>
-</soap:Envelope>`
-
-      const response = await fetch('https://ec.europa.eu/taxation_customs/vies/services/checkVatService', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': ''
-        },
-        body: soapEnvelope
-      })
-
-      if (response.ok) {
-        const xmlText = await response.text()
-        
-        // Parse XML response
-        const isValid = xmlText.includes('<valid>true</valid>')
-        const companyName = xmlText.match(/<name>(.*?)<\/name>/)?.[1] || ''
-        const address = xmlText.match(/<address>(.*?)<\/address>/)?.[1] || ''
-        const city = xmlText.match(/<city>(.*?)<\/city>/)?.[1] || ''
-        const postalCode = xmlText.match(/<postcode>(.*?)<\/postcode>/)?.[1] || ''
-        const country = xmlText.match(/<countryCode>(.*?)<\/countryCode>/)?.[1] || ''
-
-        if (isValid) {
-          return NextResponse.json({
-            valid: true,
-            company_name: companyName,
-            address: address,
-            city: city,
-            postal_code: postalCode,
-            country: country,
-            message: 'BTW nummer is geldig'
-          })
-        } else {
-          return NextResponse.json({
-            valid: false,
-            message: 'BTW nummer is niet geldig'
-          })
-        }
+      const countryCode = vatNumber.substring(0, 2)
+      const vatNumberOnly = vatNumber.substring(2)
+      
+      const result = await checkVAT(countryCode, vatNumberOnly)
+      
+      if (result.valid) {
+        return NextResponse.json({
+          valid: true,
+          company_name: result.name || '',
+          address: result.address || '',
+          country: result.countryCode || countryCode,
+          request_date: result.requestDate || '',
+          message: 'BTW nummer is geldig'
+        })
       } else {
         return NextResponse.json({
-          error: 'Kon geen verbinding maken met VIES service'
-        }, { status: 503 })
+          valid: false,
+          message: 'BTW nummer is niet geldig'
+        })
       }
 
     } catch (apiError) {
       console.error('VIES API error:', apiError)
       return NextResponse.json({
-        error: 'Fout bij BTW validatie'
+        error: 'Fout bij BTW validatie: ' + (apiError as Error).message
       }, { status: 500 })
     }
 
