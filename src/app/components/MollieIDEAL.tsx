@@ -22,30 +22,23 @@ export default function MollieIDEAL({ onBankSelected, selectedBank }: MollieIDEA
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchBanks = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/payment/mollie/methods/ideal');
-        
-        if (!response.ok) {
-          throw new Error('Fout bij ophalen van iDEAL banken');
-        }
-        
-        const data = await response.json();
-        if (data.success && data.banks) {
-          setBanks(data.banks);
-        } else {
-          throw new Error(data.message || 'Geen banken gevonden');
-        }
-      } catch (err) {
-        console.error('Error fetching iDEAL banks:', err);
-        setError(err instanceof Error ? err.message : 'Onbekende fout');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBanks();
+    // iDEAL banken - deze veranderen niet vaak
+    const idealBanks = [
+      { id: 'ABNANL2A', name: 'ABN AMRO' },
+      { id: 'ASNBNL21', name: 'ASN Bank' },
+      { id: 'BUNQNL2A', name: 'Bunq' },
+      { id: 'HANDNL2A', name: 'Handelsbanken' },
+      { id: 'INGBNL2A', name: 'ING' },
+      { id: 'KNABNL2H', name: 'Knab' },
+      { id: 'RABONL2U', name: 'Rabobank' },
+      { id: 'RBRBNL21', name: 'RegioBank' },
+      { id: 'SNSBNL2A', name: 'SNS' },
+      { id: 'TRIONL2U', name: 'Triodos Bank' },
+      { id: 'FVLBNL22', name: 'Van Lanschot' }
+    ];
+    
+    setBanks(idealBanks);
+    setLoading(false);
   }, []);
 
   if (loading) {

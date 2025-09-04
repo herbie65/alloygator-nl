@@ -1077,7 +1077,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // 2) Create Mollie payment for the order
     const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    const baseUrl = 'https://alloygator-nl.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin
     const returnUrl = `${baseUrl}/payment/return?orderId=${encodeURIComponent(orderId)}${isLocalhost ? '&simulate=1' : ''}`
     const webhookUrl = `${baseUrl}/api/payment/mollie/webhook`
     

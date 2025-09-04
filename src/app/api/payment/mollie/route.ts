@@ -1,207 +1,161 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FirebaseService } from '@/lib/firebase'
+import { createMollieClient } from '@mollie/api-client'
 
-// POST endpoint voor het aanmaken van een nieuwe Mollie betaling
+
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { amount, currency, description, redirectUrl, webhookUrl, metadata, methods, orderId, cardToken, idealIssuer } = body;
-
-    // Valideer verplichte velden
-    if (!amount || !currency || !description || !redirectUrl) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Verplichte velden ontbreken' 
-      }, { status: 400 });
-    }
-
-    // Haal Mollie API key op uit environment variables
-    const isTestMode = process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true';
-    const apiKey = isTestMode 
-      ? process.env.MOLLIE_TEST_API_KEY  // Server-side alleen (geen NEXT_PUBLIC_)
-      : process.env.MOLLIE_API_KEY;
+    const body = await request.json()
+    const { amount, currency, description, orderId, redirectUrl, webhookUrl, cardToken, idealIssuer } = body
     
-    // FIX: Profile ID moet ook server-side zijn (geen NEXT_PUBLIC_)
-    const profileId = process.env.MOLLIE_PROFILE_ID;
+    console.log('Mollie payment request:', { amount, currency, description, orderId, amountType: typeof amount })
 
-    if (!apiKey) {
-      console.error('Mollie API key missing. Test mode:', isTestMode);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Mollie API key niet geconfigureerd' 
-      }, { status: 500 });
+    // Haal Mollie instellingen op uit environment variabelen
+    const mollieApiKey = process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true' 
+      ? process.env.NEXT_PUBLIC_MOLLIE_TEST_API_KEY 
+      : process.env.NEXT_PUBLIC_MOLLIE_API_KEY
+
+
+
+    if (!mollieApiKey) {
+      return NextResponse.json({
+        success: false,
+        message: 'Mollie API key niet geconfigureerd'
+      }, { status: 400 })
     }
 
-    // Amount is al in euro's, niet in centen
-    const mollieAmount = parseFloat(amount.toString()).toFixed(2);
 
-    console.log('Creating Mollie payment:', {
-      amount: mollieAmount,
-      currency,
-      description,
-      redirectUrl,
-      isTestMode,
-      profileId: profileId ? 'configured' : 'not configured'
-    });
 
-    // Bereid payment payload voor
+
+
+    // Maak Mollie client aan met de officiële library
+    const mollieClient = createMollieClient({ apiKey: mollieApiKey });
+
+    // Converteer bedrag naar Mollie formaat (XX.XX als string)
+    const amountFormatted = parseFloat(amount).toFixed(2);
+    
+    // Maak betalingsdata object volgens Mollie API specificatie
     const paymentData: any = {
       amount: {
-        currency: currency,
-        value: mollieAmount
+        currency: currency || 'EUR',
+        value: amountFormatted
       },
-      description: description,
+      description: description || `Bestelling ${orderId}`,
       redirectUrl: redirectUrl,
+      webhookUrl: webhookUrl,
       metadata: {
-        orderId: orderId,
-        ...metadata
+        orderId: orderId
       }
     };
-
-    // Voeg optionele velden toe
-    if (webhookUrl) {
-      paymentData.webhookUrl = webhookUrl;
+    
+    // Valideer dat het bedrag een geldig nummer is
+    if (!paymentData.amount.value || isNaN(paymentData.amount.value)) {
+      return NextResponse.json({
+        success: false,
+        message: 'Ongeldig bedrag formaat',
+        error: `Bedrag moet een geldig nummer zijn, ontvangen: ${amount}`
+      }, { status: 400 })
     }
-
-    if (profileId) {
-      paymentData.profileId = profileId;
+    
+    // Valideer webhook URL (moet Vercel domein zijn)
+    if (webhookUrl && !webhookUrl.includes('alloygator-nl.vercel.app')) {
+      return NextResponse.json({
+        success: false,
+        message: 'Ongeldige webhook URL',
+        error: 'Webhook URL moet het Vercel domein gebruiken'
+      }, { status: 400 })
     }
-
-    // Filter lege/onbekende payment methods
-    if (methods && Array.isArray(methods) && methods.length > 0) {
-      const validMethods = methods.filter(method => 
-        ['ideal', 'bancontact', 'paypal', 'creditcard', 'sofort', 'giropay', 'eps'].includes(method)
-      );
-      if (validMethods.length > 0) {
-        paymentData.methods = validMethods;
-      }
-    }
-
-    // Maak Mollie betaling aan
-    const mollieResponse = await fetch('https://api.mollie.com/v2/payments', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(paymentData)
+    
+    console.log('Payment data being sent to Mollie:', paymentData);
+    console.log('Amount details:', { 
+      original: amount, 
+      parsed: parseFloat(amount), 
+      formatted: amountFormatted,
+      final: paymentData.amount.value 
     });
 
-    const responseText = await mollieResponse.text();
-    console.log('Mollie API response status:', mollieResponse.status);
-
-    if (!mollieResponse.ok) {
-      console.error('Mollie API error:', responseText);
-      let errorMessage = 'Onbekende fout bij Mollie';
-      
-      try {
-        const errorData = JSON.parse(responseText);
-        if (errorData.detail) {
-          errorMessage = errorData.detail;
-        } else if (errorData.title) {
-          errorMessage = errorData.title;
-        }
-      } catch (e) {
-        errorMessage = responseText;
-      }
-
-      return NextResponse.json({ 
-        success: false, 
-        message: `Mollie fout: ${errorMessage}` 
-      }, { status: mollieResponse.status });
+    // Voeg card token toe als deze beschikbaar is (voor creditcard betalingen)
+    if (cardToken) {
+      paymentData.method = 'creditcard';
+      paymentData.cardToken = cardToken;
     }
-
-    const payment = JSON.parse(responseText);
     
-    // Controleer of checkout link bestaat
-    if (!payment._links?.checkout?.href) {
-      console.error('No checkout URL in Mollie response:', payment);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Geen checkout URL ontvangen van Mollie' 
-      }, { status: 500 });
+    // Voeg iDEAL issuer toe als deze beschikbaar is
+    if (idealIssuer) {
+      paymentData.method = 'ideal';
+      paymentData.issuer = idealIssuer;
     }
 
-    console.log('Mollie payment created successfully:', payment.id);
+    // Maak betaling aan met de officiële library
+    const payment = await mollieClient.payments.create(paymentData);
 
     return NextResponse.json({
       success: true,
-      checkoutUrl: payment._links.checkout.href,
-      paymentId: payment.id,
-      status: payment.status
-    });
+      message: 'Betaling succesvol aangemaakt',
+      payment: {
+        id: payment.id,
+        status: payment.status,
+        checkoutUrl: payment.getCheckoutUrl(),
+        orderId: orderId
+      }
+    })
 
   } catch (error) {
-    console.error('Error creating Mollie payment:', error);
-    return NextResponse.json({ 
-      success: false, 
-      message: `Server error: ${error.message}` 
-    }, { status: 500 });
+    console.error('Error creating Mollie payment:', error)
+    return NextResponse.json({
+      success: false,
+      message: 'Interne server fout',
+      error: error instanceof Error ? error.message : 'Onbekende fout'
+    }, { status: 500 })
   }
 }
 
 // GET endpoint voor het ophalen van payment status
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const paymentId = searchParams.get('id');
+    const { searchParams } = new URL(request.url)
+    const paymentId = searchParams.get('id')
 
     if (!paymentId) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Payment ID is verplicht' 
-      }, { status: 400 });
+      return NextResponse.json({
+        success: false,
+        message: 'Payment ID is verplicht'
+      }, { status: 400 })
     }
 
-    const isTestMode = process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true';
+    const isTestMode = process.env.NEXT_PUBLIC_MOLLIE_TEST_MODE === 'true'
     const apiKey = isTestMode 
       ? process.env.MOLLIE_TEST_API_KEY 
-      : process.env.MOLLIE_API_KEY;
+      : process.env.MOLLIE_API_KEY
 
     if (!apiKey) {
-      console.error('Mollie API key missing for GET request');
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Mollie API key niet geconfigureerd' 
-      }, { status: 500 });
+      console.error('Mollie API key missing for GET request')
+      return NextResponse.json({
+        success: false,
+        message: 'Mollie API key niet geconfigureerd'
+      }, { status: 500 })
     }
 
-    console.log('Fetching payment status for:', paymentId);
+    console.log('Fetching payment status for:', paymentId)
 
     const mollieResponse = await fetch(`https://api.mollie.com/v2/payments/${paymentId}`, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       }
-    });
+    })
 
     if (!mollieResponse.ok) {
-      const errorText = await mollieResponse.text();
-      console.error('Mollie payment fetch error:', errorText);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Payment niet gevonden bij Mollie' 
-      }, { status: 404 });
+      const errorText = await mollieResponse.text()
+      console.error('Mollie payment fetch error:', errorText)
+      return NextResponse.json({
+        success: false,
+        message: 'Payment niet gevonden bij Mollie'
+      }, { status: 404 })
     }
 
-    const payment = await mollieResponse.json();
-    console.log('Payment status retrieved:', payment.status);
-    
-    // Update order status in Firebase als betaling is voltooid
-    if (payment.status === 'paid' && payment.metadata?.orderId) {
-      try {
-        await FirebaseService.updateOrder(payment.metadata.orderId, {
-          payment_status: 'paid',
-          status: 'processing',
-          mollie_payment_id: payment.id,
-          paid_at: new Date().toISOString()
-        });
-        console.log('Order updated after successful payment:', payment.metadata.orderId);
-      } catch (error) {
-        console.error('Failed to update order after payment:', error);
-        // Don't fail the request if order update fails
-      }
-    }
+    const payment = await mollieResponse.json()
+    console.log('Payment status retrieved:', payment.status)
     
     return NextResponse.json({
       success: true,
@@ -210,13 +164,13 @@ export async function GET(request: NextRequest) {
       amount: payment.amount,
       description: payment.description,
       metadata: payment.metadata
-    });
+    })
 
   } catch (error) {
-    console.error('Error fetching payment:', error);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Server error bij ophalen payment status' 
-    }, { status: 500 });
+    console.error('Error fetching payment:', error)
+    return NextResponse.json({
+      success: false,
+      message: 'Server error bij ophalen payment status'
+    }, { status: 500 })
   }
 }
