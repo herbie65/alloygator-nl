@@ -6,10 +6,10 @@ const firebaseConfig = {
   apiKey: "AIzaSyBfTecdVHIYbwyI822bcKAhLWs0bNNT1yM",
   authDomain: "alloygator-nl.firebaseapp.com",
   projectId: "alloygator-nl",
-  storageBucket: "alloygator-nl.appspot.com",
+  storageBucket: "alloygator-nl.firebasestorage.app",
   messagingSenderId: "501404252412",
   appId: "1:501404252412:web:0dd2bd394f9a13117a3f79",
-  measurementId: "G-QY0QVXYJ5H"
+  measurementId: "G-QYOQVXYJ5H"
 };
 
 // Initialize Firebase (guard against duplicate app)
